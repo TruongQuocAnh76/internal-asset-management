@@ -1,15 +1,32 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { SessionAuthGuard } from 'src/core/auth/guards/session-auth.guard';
+import { UseGuards, Request } from '@nestjs/common';
+import { SignupDto } from 'src/core/auth/dto/signup.dto';
+import { AuthenticatedRequest } from './dto/authenticated-request.dto';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @UseGuards(SessionAuthGuard)
+  @Get('@me')
+  getProfile(@Request() req: AuthenticatedRequest) {
+    return req.user;
+  }
+
   @Post()
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  create(@Body() signupDto: SignupDto) {
+    return this.usersService.create(signupDto);
   }
 
   @Get()
