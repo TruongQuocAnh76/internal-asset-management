@@ -102,7 +102,7 @@ export class AuthService {
     return { id: newUser.id, message: 'Signup successful' };
   }
 
-  async signout(req) {
+  async signout(req, res) {
     return new Promise((resolve, reject) => {
       req.logout((err) => {
         if (err) {
@@ -115,6 +115,10 @@ export class AuthService {
               500,
             ),
           );
+
+          req.session.destroy(() => {
+            res.clearCookie('asset.sid');
+          });
         } else {
           resolve({ message: 'Signout successful' });
         }
