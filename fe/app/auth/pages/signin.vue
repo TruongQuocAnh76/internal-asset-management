@@ -18,8 +18,9 @@ const handleSignin = async () => {
     errorMessage.value = ''
     
     const response = await login(credential.value, password.value)
-    // Navigate to dashboard or home
-    navigateTo('/')
+    // Navigate to home
+    console.log('Signin successful:', response, "Navigating to /home")
+    navigateTo('/home')
   } catch (error: any) {
     errorMessage.value = error.data?.error || error.message || 'An error occurred during signin'
   } finally {

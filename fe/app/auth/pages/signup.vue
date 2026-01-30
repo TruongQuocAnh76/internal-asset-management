@@ -25,8 +25,8 @@ const handleSignup = async () => {
     return
   }
 
-  if (password.value.length < 8) {
-    errorMessage.value = 'Password must be at least 8 characters long'
+  if (password.value.length < 6) {
+    errorMessage.value = 'Password must be at least 6 characters long'
     return
   }
 
@@ -39,9 +39,9 @@ const handleSignup = async () => {
 
     successMessage.value = 'Account created successfully! Redirecting...'
     
-    // Navigate to signin or dashboard
+    // Navigate to home
     setTimeout(() => {
-      navigateTo('/signin')
+      navigateTo('/home')
     }, 2000)
   } catch (error: any) {
     errorMessage.value = error.data?.error || error.message || 'An error occurred during signin'
