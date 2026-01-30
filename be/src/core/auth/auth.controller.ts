@@ -1,9 +1,8 @@
 import { Body, Controller, UseGuards } from '@nestjs/common';
-import { Get, Post, Request } from '@nestjs/common';
+import { Post, Request } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { LoginDto } from './dto/login.dto';
-import { SessionAuthGuard } from './guards/session-auth.guard';
 import { SignupDto } from './dto/signup.dto';
 import { UsersService } from 'src/packages/users/users.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -30,5 +29,10 @@ export class AuthController {
     @Request() req: Request,
   ) {
     return await this.authService.signup(dto, req);
+  }
+
+  @Post('signout')
+  async signout(@Request() req: Request) {
+    return await this.authService.signout(req);
   }
 }

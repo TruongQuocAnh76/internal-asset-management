@@ -83,8 +83,42 @@ export class AuthService {
     });
 
     // attach user to session
-    req.session.user = newUser;
+    await new Promise((resolve, reject) => {
+      req.login(newUser, (err) => {
+        if (err) {
+          throw new HttpException(
+            {
+              status: 500,
+              error: 'Could not log in user after signup',
+            },
+            500,
+          );
+        } else {
+          resolve(null);
+        }
+      });
+    });
 
     return { id: newUser.id, message: 'Signup successful' };
+  }
+
+  async signout(req) {
+    return new Promise((resolve, reject) => {
+      req.logout((err) => {
+        if (err) {
+          reject(
+            new HttpException(
+              {
+                status: 500,
+                error: 'Could not log out user',
+              },
+              500,
+            ),
+          );
+        } else {
+          resolve({ message: 'Signout successful' });
+        }
+      });
+    });
   }
 }
