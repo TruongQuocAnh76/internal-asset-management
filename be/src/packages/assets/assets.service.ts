@@ -14,7 +14,7 @@ export class AssetsService {
     ) {
       throw new BadRequestException('Invalid status type');
     }
-    return this.prisma.assets.findMany({
+    const assets = await this.prisma.assets.findMany({
       where: {
         status: status_type,
       },
@@ -26,13 +26,17 @@ export class AssetsService {
         costs: true,
       },
     });
+    return assets.map((asset) => ({
+      ...asset,
+      costs: Number(asset.costs),
+    }));
   }
 
   async getAsssetsByCategory(category: string) {
-    return this.prisma.assets.findMany({
+    const assets = await this.prisma.assets.findMany({
       where: {
         category: {
-          name: category,
+          name: category || undefined,
         },
       },
       select: {
@@ -43,6 +47,10 @@ export class AssetsService {
         costs: true,
       },
     });
+    return assets.map((asset) => ({
+      ...asset,
+      costs: Number(asset.costs),
+    }));
   }
 
   async getAsssetsCountByCategory(category: string) {
