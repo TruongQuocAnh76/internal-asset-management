@@ -1,42 +1,49 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-} from '@nestjs/common';
+import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { AssetsService } from './assets.service';
-import { CreateAssetDto } from './dto/create-asset.dto';
-import { UpdateAssetDto } from './dto/update-asset.dto';
+import { ZodValidationPipe } from 'nestjs-zod';
+import { StatusSchema } from 'src/core/enums/asset-status.enum';
+import { AssetStatus } from '@prisma/client';
+import { SessionAuthGuard } from 'src/core/auth/guards/session-auth.guard';
 
 @Controller('assets')
 export class AssetsController {
   constructor(private readonly assetsService: AssetsService) {}
 
-  @Post()
-  create(@Body() createAssetDto: CreateAssetDto) {
-    return this.assetsService.create(createAssetDto);
+  @Get('/')
+  @UseGuards(SessionAuthGuard)
+  getAllAssets() {
+    return this.assetsService.getAsssetsByCategory('');
   }
 
-  @Get()
-  findAll() {
-    return this.assetsService.findAll();
+  @Get('summary')
+  @UseGuards(SessionAuthGuard)
+  getSummary() {
+    return this.assetsService.getSummary();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.assetsService.findOne(+id);
+  @Get('/category/count')
+  @UseGuards(SessionAuthGuard)
+  getAllAssetsCountByCategory() {
+    return this.assetsService.getAsssetsCountByCategory('');
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateAssetDto: UpdateAssetDto) {
-    return this.assetsService.update(+id, updateAssetDto);
+  @Get('/status/:status')
+  @UseGuards(SessionAuthGuard)
+  getAssetsByStatus(
+    @Param('status', new ZodValidationPipe(StatusSchema)) status: AssetStatus,
+  ) {
+    return this.assetsService.getAssetsByStatus(status);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.assetsService.remove(+id);
+  @Get('/category/:category')
+  @UseGuards(SessionAuthGuard)
+  getAssetsByCategory(@Param('category') category: string) {
+    return this.assetsService.getAsssetsByCategory(category);
+  }
+
+  @Get('/category/:category/count')
+  @UseGuards(SessionAuthGuard)
+  getAssetsCountByCategory(@Param('category') category: string) {
+    return this.assetsService.getAsssetsCountByCategory(category);
   }
 }
