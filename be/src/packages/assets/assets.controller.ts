@@ -1,42 +1,42 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-} from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
 import { AssetsService } from './assets.service';
-import { CreateAssetDto } from './dto/create-asset.dto';
-import { UpdateAssetDto } from './dto/update-asset.dto';
+import { ZodValidationPipe } from 'nestjs-zod';
+import { StatusSchema } from 'src/core/enums/asset-status.enum';
+import { AssetStatus } from '@prisma/client';
 
 @Controller('assets')
 export class AssetsController {
   constructor(private readonly assetsService: AssetsService) {}
 
-  @Post()
-  create(@Body() createAssetDto: CreateAssetDto) {
-    return this.assetsService.create(createAssetDto);
+  @Get('summary')
+  getSummary() {
+    return this.assetsService.getSummary();
   }
 
-  @Get()
-  findAll() {
-    return this.assetsService.findAll();
+  @Get('/category/count')
+  getAllAssetsCountByCategory() {
+    return this.assetsService.getAsssetsCountByCategory('');
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.assetsService.findOne(+id);
+  @Get('/status/:status')
+  getAssetsByStatus(
+    @Param('status', new ZodValidationPipe(StatusSchema)) status: AssetStatus,
+  ) {
+    return this.assetsService.getAssetsByStatus(status);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateAssetDto: UpdateAssetDto) {
-    return this.assetsService.update(+id, updateAssetDto);
+  @Get('/category/:category')
+  getAssetsByCategory(@Param('category') category: string) {
+    return this.assetsService.getAsssetsByCategory(category);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.assetsService.remove(+id);
+  @Get('/category/:category/count')
+  getAssetsCountByCategory(@Param('category') category: string) {
+    return this.assetsService.getAsssetsCountByCategory(category);
+  }
+
+  @Get('/')
+  getAllAssets() {
+    return this.assetsService.getAsssetsByCategory('');
   }
 }
