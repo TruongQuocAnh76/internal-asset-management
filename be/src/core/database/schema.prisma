@@ -18,7 +18,7 @@ enum AssetStatus {
   IN_USE
   MAINTAINANCE
   BROKEN
-  ON_SALE
+  LIQUIDATED
 }
 
 model Assets {
@@ -29,19 +29,25 @@ model Assets {
   status AssetStatus @default(READY)
   location_id String @db.Uuid
   costs BigInt @default(0)
+  kit_id String? @db.Uuid
+  kit_status Boolean @default(false)
   acquired_at DateTime @default(now())
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
   asset_specs AssetsSpecs?
   asset_events AssetsEvents[] @relation("AssetToEvents")
-  asset_kits AssetsKitItems[]
+  category AssetsCategories @relation(fields: [category_id], references: [id])
+  asset_allocation AssetsAllocation[]
+  borrow_requests BorrowRequests[]
 }
 
 model AssetsCategories {
   id String @id @default(uuid()) @db.Uuid
   code String @unique
   name String
+
+  assets Assets[]
 }
 
 model AssetsSpecs {
@@ -56,6 +62,10 @@ model AssetsEvents {
   asset_id String @db.Uuid
   event_type String 
   actor_id String @db.Uuid
+  allocation_id String @db.Uuid
+  occured_at DateTime @default(now())
+  previous_status AssetStatus
+  new_status AssetStatus
   payload Json
   created_at DateTime @default(now())
 
@@ -69,19 +79,24 @@ model AssetsKits {
   status AssetStatus @default(READY)
   created_at DateTime @default(now())
 
-  asset_kits AssetsKitItems[]
+  asset_allocations AssetsAllocation[]
 }
 
-model AssetsKitItems {
-  kit_id String @db.Uuid
+model AssetsAllocation {
+  id String @id @default(uuid()) @db.Uuid
   asset_id String @db.Uuid
-  quantity Int @default(0)
-  required Boolean @default(true)
 
-  kit AssetsKits @relation(fields: kit_id, references: [id])
-  asset Assets @relation(fields: asset_id, references: [id])
+  kit_id String? @db.Uuid
+  user_id String? @db.Uuid
 
-  @@unique([kit_id, asset_id])
+  allocated_at DateTime @default(now())
+  returned_at DateTime?
+
+  allocated_by String? @db.Uuid
+
+  asset Assets @relation(fields: [asset_id], references: [id])
+  kit AssetsKits? @relation(fields: [kit_id], references: [id])
+  user Users? @relation(fields: [user_id], references: [id])
 }
 
 enum DeploymentStatus {
@@ -103,6 +118,8 @@ model Users {
   asset_events AssetsEvents[]
   user_roles UserRoles[]
   audit_logs AuditLogs[]
+  asset_allocations AssetsAllocation[]
+  borrow_requests BorrowRequests[]
 }
 
 model Roles {
@@ -139,6 +156,31 @@ model RolePermissions {
   role Roles @relation(fields: [role_id], references: [id])
   permission Permissions @relation(fields: [permission_id], references: [id])
   @@unique([role_id, permission_id])
+}
+
+enum BorrowStatus {
+  PENDING
+  PROVIDED
+  APPROVED
+  REJECTED
+  RETURNED
+}
+
+model BorrowRequests {
+  id String @id @default(uuid()) @db.Uuid
+  asset_id String @db.Uuid
+  requester_id String @db.Uuid
+  requested_at DateTime @default(now())
+  status BorrowStatus @default(PENDING)
+  approved_at DateTime?
+  approved_by String? @db.Uuid
+  provided_at DateTime?
+  provided_by String? @db.Uuid
+  returned_at DateTime?
+  created_at DateTime @default(now())
+
+  asset Assets @relation(fields: [asset_id], references: [id])
+  user Users @relation(fields: [requester_id], references: [id])
 }
 
 model AuditLogs {
