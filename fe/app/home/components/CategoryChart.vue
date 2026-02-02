@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Chart, type ChartConfiguration } from 'chart.js/auto'
 import type { CategoryData } from '../types/dashboard.types'
 
 interface Props {
@@ -8,24 +9,90 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const maxCount = computed(() => {
-  if (!props.categories?.length) return 1
-  return Math.max(...props.categories.map(c => c.count), 1)
-})
+const canvasRef = ref<HTMLCanvasElement | null>(null)
+let chartInstance: Chart | null = null
 
-const categoryColors = [
-  'bg-primary-500',
-  'bg-success-500',
-  'bg-warning-500',
-  'bg-danger-500',
-  'bg-secondary-500',
-  'bg-primary-400',
-  'bg-success-400',
-  'bg-warning-400',
+const chartColors = [
+  'rgba(99, 102, 241, 0.8)',   // primary
+  'rgba(16, 185, 129, 0.8)',   // success
+  'rgba(245, 158, 11, 0.8)',   // warning
+  'rgba(239, 68, 68, 0.8)',    // danger
+  'rgba(107, 114, 128, 0.8)',  // secondary
+  'rgba(139, 92, 246, 0.8)',   // purple
+  'rgba(236, 72, 153, 0.8)',   // pink
+  'rgba(59, 130, 246, 0.8)',   // blue
 ]
 
-const getBarColor = (index: number) => categoryColors[index % categoryColors.length]
-const getBarWidth = (count: number) => `${(count / maxCount.value) * 100}%`
+const createChart = () => {
+  if (!canvasRef.value || !props.categories?.length) return
+
+  // Destroy existing chart
+  if (chartInstance) {
+    chartInstance.destroy()
+  }
+
+  const ctx = canvasRef.value.getContext('2d')
+  if (!ctx) return
+
+  const config: ChartConfiguration = {
+    type: 'pie',
+    data: {
+      labels: props.categories.map(c => c.category),
+      datasets: [{
+        data: props.categories.map(c => c.count),
+        backgroundColor: chartColors.slice(0, props.categories.length),
+        borderColor: '#ffffff',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            padding: 15,
+            font: {
+              size: 12
+            }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const label = context.label || ''
+              const value = context.parsed || 0
+              const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0) as number
+              const percentage = ((value / total) * 100).toFixed(1)
+              return `${label}: ${value} (${percentage}%)`
+            }
+          }
+        }
+      }
+    }
+  }
+
+  chartInstance = new Chart(ctx, config)
+}
+
+watch(() => props.categories, () => {
+  if (!props.loading) {
+    nextTick(() => createChart())
+  }
+}, { deep: true })
+
+onMounted(() => {
+  if (!props.loading && props.categories?.length) {
+    createChart()
+  }
+})
+
+onUnmounted(() => {
+  if (chartInstance) {
+    chartInstance.destroy()
+  }
+})
 </script>
 
 <template>
@@ -41,11 +108,8 @@ const getBarWidth = (count: number) => `${(count / maxCount.value) * 100}%`
     </div>
     <div class="p-6">
       <!-- Loading State -->
-      <div v-if="loading" class="space-y-4">
-        <div v-for="i in 4" :key="i" class="space-y-2">
-          <div class="h-4 w-24 bg-secondary-200 animate-pulse rounded"></div>
-          <div class="h-6 bg-secondary-100 animate-pulse rounded-full"></div>
-        </div>
+      <div v-if="loading" class="flex items-center justify-center py-12">
+        <div class="w-48 h-48 rounded-full bg-secondary-100 animate-pulse"></div>
       </div>
 
       <!-- Empty State -->
@@ -56,21 +120,9 @@ const getBarWidth = (count: number) => `${(count / maxCount.value) * 100}%`
         <p>No category data available</p>
       </div>
 
-      <!-- Chart -->
-      <div v-else class="space-y-4">
-        <div v-for="(cat, index) in categories" :key="cat.category" class="space-y-1">
-          <div class="flex justify-between items-center text-sm">
-            <span class="font-medium text-secondary-700">{{ cat.category }}</span>
-            <span class="text-secondary-500">{{ cat.count }}</span>
-          </div>
-          <div class="h-6 bg-secondary-100 rounded-full overflow-hidden">
-            <div
-              class="h-full rounded-full transition-all duration-500 ease-out"
-              :class="getBarColor(index)"
-              :style="{ width: getBarWidth(cat.count) }"
-            ></div>
-          </div>
-        </div>
+      <!-- Pie Chart -->
+      <div v-else class="flex justify-center">
+        <canvas ref="canvasRef" class="max-w-md"></canvas>
       </div>
     </div>
   </div>
