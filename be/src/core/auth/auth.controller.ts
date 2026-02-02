@@ -1,5 +1,5 @@
 import { Body, Controller, UseGuards } from '@nestjs/common';
-import { Post, Request } from '@nestjs/common';
+import { Post, Request, Response } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { LoginDto } from './dto/login.dto';
@@ -24,6 +24,7 @@ export class AuthController {
   }
 
   @Post('signup')
+  @UseGuards(AuthGuard('local-signup'))
   async signup(
     @Body(new ZodValidationPipe(SignupDto)) dto: SignupDto,
     @Request() req: Request,
@@ -32,7 +33,7 @@ export class AuthController {
   }
 
   @Post('signout')
-  async signout(@Request() req: Request) {
-    return await this.authService.signout(req);
+  async signout(@Request() req: Request, @Response() res: Response) {
+    return await this.authService.signout(req, res);
   }
 }
