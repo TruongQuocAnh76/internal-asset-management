@@ -11,7 +11,7 @@ export class AssetsService {
     const take = query.limit || 20;
     const skip = query.page ? (query.page - 1) * take : 0;
     const orderBy = query.filter
-      ? { [query.filter]: query.order || 'asc' }
+      ? { [query.filter]: { name: query.order || 'asc' } }
       : undefined;
 
     const assets = await this.prisma.assets.findMany({
@@ -33,12 +33,26 @@ export class AssetsService {
       },
     });
 
-    return assets.map((asset) => {
+    const totalAssetsCount = await this.prisma.assets.count({ where: where });
+
+    const res = assets.map((asset) => {
       return {
         ...asset,
         costs: Number(asset.costs),
       };
     });
+
+    return {
+      "data": res,
+      "pagination": {
+        page: skip / take + 1,
+        limit: take,
+        totalAssets: totalAssetsCount,
+        totalPages: Math.ceil(totalAssetsCount / take),
+        hasNext: skip < totalAssetsCount,
+        hasPrev: skip > 0,
+      },
+    };
   }
 
   protected buildWhere(query: GetAssetsParams): Prisma.AssetsWhereInput {
