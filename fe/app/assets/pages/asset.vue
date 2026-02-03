@@ -94,14 +94,11 @@ const handlePageChange = (page: number) => {
 }
 
 const handleAssetClick = (asset: Asset) => {
-  // Backend doesn't return id, just log for now
-  console.log('Asset clicked:', asset)
+  router.push(`/assets/${asset.id}`)
 }
 
 const handleAddAsset = () => {
-  // TODO: Open add asset modal or navigate to add asset page
-  console.log('Add asset clicked')
-  // navigateTo('/assets/new')
+  navigateTo('/assets/new')
 }
 
 const handleExport = () => {
