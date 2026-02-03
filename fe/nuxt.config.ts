@@ -1,10 +1,9 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  extends: ['./app/auth', './app/home'],  
+  extends: ['./app/auth', './app/home', './app/assets'],  
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
   modules: ['@nuxtjs/tailwindcss'],
-  css: ['~~/assets/css/main.css'],
   runtimeConfig: {
     public: {
       backendUrl: ''
@@ -14,7 +13,8 @@ export default defineNuxtConfig({
     dirs: [
       '~/components',
       '~/app/auth/components',
-      '~/app/home/components'
+      '~/app/home/components',
+      '~/app/assets/components'
     ]
   },
   devServer: {

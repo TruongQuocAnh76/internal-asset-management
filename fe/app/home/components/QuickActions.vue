@@ -15,7 +15,7 @@ const allActions: QuickAction[] = [
     label: 'View Assets',
     description: 'Browse all available assets',
     icon: 'cube',
-    route: '/assets',
+    route: '/asset',
     color: 'primary',
     roles: ['admin', 'team_lead', 'employee'],
   },
