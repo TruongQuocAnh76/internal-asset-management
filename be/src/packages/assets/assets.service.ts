@@ -1,56 +1,81 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/core/database/prisma.service';
-import { AssetStatus } from '@prisma/client';
-
+import { GetAssetsParams } from './dto/get-assets-params.dto';
+import { AssetStatus, Prisma } from '@prisma/client';
 @Injectable()
 export class AssetsService {
   constructor(private prisma: PrismaService) {}
 
-  async getAssetsByStatus(status_type: AssetStatus) {
-    if (
-      !['READY', 'IN_USE', 'MAINTAINANCE', 'BROKEN', 'LIQUIDATED'].includes(
-        status_type,
-      )
-    ) {
-      throw new BadRequestException('Invalid status type');
-    }
+  async getAssets(query: GetAssetsParams) {
+    const where = this.buildWhere(query);
+    const take = query.limit || 20;
+    const skip = query.page ? (query.page - 1) * take : 0;
+    const orderBy = query.filter
+      ? { [query.filter]: query.order || 'asc' }
+      : undefined;
+
     const assets = await this.prisma.assets.findMany({
-      where: {
-        status: status_type,
-      },
+      where: where,
+      orderBy: orderBy,
+      skip: skip,
+      take: take,
       select: {
-        name: true,
         code: true,
-        category: true,
+        name: true,
+        category: {
+          select: {
+            name: true,
+          },
+        },
         status: true,
         costs: true,
+        acquired_at: true,
       },
     });
-    return assets.map((asset) => ({
-      ...asset,
-      costs: Number(asset.costs),
-    }));
+
+    return assets.map((asset) => {
+      return {
+        ...asset,
+        costs: Number(asset.costs),
+      };
+    });
   }
 
-  async getAsssetsByCategory(category: string) {
-    const assets = await this.prisma.assets.findMany({
-      where: {
-        category: {
-          name: category || undefined,
+  protected buildWhere(query: GetAssetsParams): Prisma.AssetsWhereInput {
+    const where: Prisma.AssetsWhereInput = {};
+
+    if (query.filter && query.filter_value) {
+      if (query.filter === 'category') {
+        where.category = {
+          name: query.filter_value,
+        };
+      } else if (query.filter === 'status') {
+        where.status = query.filter_value as AssetStatus;
+      } else if (query.filter === 'costs') {
+        where.costs = Number(query.filter_value);
+      } else if (query.filter === 'acquired_at') {
+        where.acquired_at = new Date(query.filter_value);
+      }
+    }
+
+    if (query.search) {
+      where.OR = [
+        {
+          name: {
+            contains: query.search,
+            mode: 'insensitive',
+          },
         },
-      },
-      select: {
-        name: true,
-        code: true,
-        category: true,
-        status: true,
-        costs: true,
-      },
-    });
-    return assets.map((asset) => ({
-      ...asset,
-      costs: Number(asset.costs),
-    }));
+        {
+          code: {
+            contains: query.search,
+            mode: 'insensitive',
+          },
+        },
+      ];
+    }
+
+    return where;
   }
 
   async getAsssetsCountByCategory(category: string) {

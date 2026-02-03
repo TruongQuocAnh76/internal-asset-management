@@ -1,18 +1,16 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { AssetsService } from './assets.service';
-import { ZodValidationPipe } from 'nestjs-zod';
-import { StatusSchema } from 'src/core/enums/asset-status.enum';
-import { AssetStatus } from '@prisma/client';
 import { SessionAuthGuard } from 'src/core/auth/guards/session-auth.guard';
+import { GetAssetsParams } from './dto/get-assets-params.dto';
 
 @Controller('assets')
 export class AssetsController {
   constructor(private readonly assetsService: AssetsService) {}
 
-  @Get('/')
+  @Get()
   @UseGuards(SessionAuthGuard)
-  getAllAssets() {
-    return this.assetsService.getAsssetsByCategory('');
+  getAllAssets(@Query() query: GetAssetsParams) {
+    return this.assetsService.getAssets(query);
   }
 
   @Get('summary')
@@ -25,20 +23,6 @@ export class AssetsController {
   @UseGuards(SessionAuthGuard)
   getAllAssetsCountByCategory() {
     return this.assetsService.getAsssetsCountByCategory('');
-  }
-
-  @Get('/status/:status')
-  @UseGuards(SessionAuthGuard)
-  getAssetsByStatus(
-    @Param('status', new ZodValidationPipe(StatusSchema)) status: AssetStatus,
-  ) {
-    return this.assetsService.getAssetsByStatus(status);
-  }
-
-  @Get('/category/:category')
-  @UseGuards(SessionAuthGuard)
-  getAssetsByCategory(@Param('category') category: string) {
-    return this.assetsService.getAsssetsByCategory(category);
   }
 
   @Get('/category/:category/count')
