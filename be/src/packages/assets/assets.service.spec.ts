@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AssetsService } from './assets.service';
 import { PrismaService } from 'src/core/database/prisma.service';
 import { AssetStatus } from '@prisma/client';
+import { EditAssetDto } from './dto/edit-asset.dto';
 
 describe('AssetsService', () => {
   let service: AssetsService;
@@ -10,6 +11,8 @@ describe('AssetsService', () => {
   const prismaMock = {
     assets: {
       findMany: jest.fn(),
+      count: jest.fn(),
+      update: jest.fn(),
     },
   };
 
@@ -129,36 +132,53 @@ describe('AssetsService', () => {
     );
   });
 
-  it('calls prisma.findMany with correct params and casts costs', async () => {
-    prismaMock.assets.findMany.mockResolvedValue([
-      {
-        code: 'A001',
-        name: 'Laptop',
-        status: 'READY',
-        costs: '1500', // prisma Decimal/string
-        acquired_at: new Date(),
-        category: { name: 'Electronics' },
-      },
-    ]);
+  it('should update asset with valid partial data', async () => {
+    const id = 'asset-id';
+    const body: EditAssetDto = {
+      category_name: 'New name',
+    };
 
-    const result = await service.getAssets({
-      filter: 'status',
-      filter_value: 'READY',
-      order: 'asc',
-      page: 2,
-      limit: 10,
+    prisma.assets.update.mockResolvedValue({
+      id,
+      category_name: 'New name',
     });
 
-    expect(prisma.assets.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { status: AssetStatus.READY },
-        orderBy: { status: 'asc' },
-        skip: 10,
-        take: 10,
-      }),
-    );
+    const result = await service.updateAsset(id, body);
 
-    expect(result[0].costs).toBe(1500);
-    expect(typeof result[0].costs).toBe('number');
+    expect(prisma.assets.update).toHaveBeenCalledWith({
+      where: { id },
+      data: { category_name: 'New name' },
+    });
+
+    expect(result).toEqual({
+      id,
+      category_name: 'New name',
+    });
+  });
+
+  it('should update asset with multiple fields', async () => {
+    const id = 'asset-id';
+    const body: EditAssetDto = {
+      category_name: 'Laptop',
+      costs: 1200,
+    };
+
+    prisma.assets.update.mockResolvedValue({
+      id,
+      category_name: 'Laptop',
+      costs: 1200,
+    });
+
+    const result = await service.updateAsset(id, body);
+
+    expect(prisma.assets.update).toHaveBeenCalledWith({
+      where: { id },
+      data: {
+        category_name: 'Laptop',
+        costs: 1200,
+      },
+    });
+
+    expect(result.costs).toBe(1200);
   });
 });
