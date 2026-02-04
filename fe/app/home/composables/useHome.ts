@@ -11,10 +11,7 @@ export const useHome = () => {
     }
 
     const getAssetsByCategory = async (category: string) => {
-        let url = '/assets/'
-        if (category) {
-            url += `category/${category}`
-        }
+        let url = `/assets?filter=category&filter_value=${category}`
         const data = await useFetch(url, {
             method: 'GET',
             baseURL: config.public.backendUrl,
@@ -23,12 +20,10 @@ export const useHome = () => {
         return data
     }
 
-    const getAssetsCountByCategory = async (category: string) => {
-        let url = '/assets/category/'
+    const getAssetsCountByCategory = async (category?: string) => {
+        let url = '/assets/category/count'
         if (category) {
-            url += `${category}/count`
-        } else {
-            url += `count`
+            url += `/${category}/count`
         }
         const data = await useFetch(url, {
             method: 'GET',

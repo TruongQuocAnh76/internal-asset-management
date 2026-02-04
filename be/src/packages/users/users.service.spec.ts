@@ -6,11 +6,13 @@ describe('UsersService', () => {
   let service: UsersService;
 
   const mockPrismaClient = {};
+  const mockUsersService = {};
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
         { provide: PrismaClient, useValue: mockPrismaClient },
+        { provide: UsersService, useValue: mockUsersService },
       ],
     }).compile();
 

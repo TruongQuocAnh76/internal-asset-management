@@ -42,6 +42,7 @@ export const useAuth = () => {
             baseURL: config.public.backendUrl,
             credentials: 'include'
         })
+        user.value = data;
     }    catch (error) {
         user.value = null
     } finally {
