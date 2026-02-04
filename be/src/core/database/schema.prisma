@@ -163,7 +163,15 @@ enum BorrowStatus {
   PROVIDED
   APPROVED
   REJECTED
+  OVERDUE
+  CANCELED
   RETURNED
+}
+
+enum BorrowPriority {
+  LOW
+  MEDIUM
+  HIGH
 }
 
 model BorrowRequests {
@@ -172,6 +180,8 @@ model BorrowRequests {
   requester_id String @db.Uuid
   requested_at DateTime @default(now())
   status BorrowStatus @default(PENDING)
+  reason String?
+  priority BorrowPriority @default(LOW)
   approved_at DateTime?
   approved_by String? @db.Uuid
   provided_at DateTime?

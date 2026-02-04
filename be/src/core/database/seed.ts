@@ -2,6 +2,7 @@ import {
   PrismaClient,
   AssetStatus,
   BorrowStatus,
+  BorrowPriority,
   DeploymentStatus,
 } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -495,6 +496,7 @@ async function main() {
       asset_id: assetTwo.id,
       requester_id: managerUser.id,
       status: BorrowStatus.PENDING,
+      priority: BorrowPriority.MEDIUM,
     },
   });
 
