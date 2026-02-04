@@ -22,6 +22,16 @@ const ids = {
   kitId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
   asset1Id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
   asset2Id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+  asset3Id: '14141414-1414-1414-1414-141414141414',
+  asset4Id: '15151515-1515-1515-1515-151515151515',
+  asset5Id: '16161616-1616-1616-1616-161616161616',
+  asset6Id: '17171717-1717-1717-1717-171717171717',
+  asset7Id: '18181818-1818-1818-1818-181818181818',
+  asset8Id: '19191919-1919-1919-1919-191919191919',
+  asset9Id: '20202020-2020-2020-2020-202020202020',
+  asset10Id: '21212121-2121-2121-2121-212121212121',
+  asset11Id: '22222223-2323-2323-2323-232323232323',
+  asset12Id: '24242424-2424-2424-2424-242424242424',
   allocation1Id: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
   allocation2Id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
   event1Id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
@@ -239,7 +249,7 @@ async function main() {
       name: 'ThinkPad X1',
       category_id: laptopCategory.id,
       status: AssetStatus.IN_USE,
-      location_id: randomUUID(),
+      location_name: 'Office Building A - Floor 3',
       costs: BigInt(150000),
       kit_id: null,
       kit_status: false,
@@ -255,10 +265,170 @@ async function main() {
       name: 'Dell UltraSharp 27',
       category_id: monitorCategory.id,
       status: AssetStatus.READY,
-      location_id: randomUUID(),
+      location_name: 'Warehouse - Storage Room B',
       costs: BigInt(65000),
       kit_id: kit.id,
       kit_status: true,
+    },
+  });
+
+  await prisma.assets.upsert({
+    where: { code: 'LT-1002' },
+    update: {},
+    create: {
+      id: ids.asset3Id,
+      code: 'LT-1002',
+      name: 'MacBook Pro 16',
+      category_id: laptopCategory.id,
+      status: AssetStatus.READY,
+      location_name: 'Office Building B - Floor 2',
+      costs: BigInt(250000),
+      kit_id: null,
+      kit_status: false,
+    },
+  });
+
+  await prisma.assets.upsert({
+    where: { code: 'LT-1003' },
+    update: {},
+    create: {
+      id: ids.asset4Id,
+      code: 'LT-1003',
+      name: 'Dell XPS 15',
+      category_id: laptopCategory.id,
+      status: AssetStatus.IN_USE,
+      location_name: 'Office Building A - Floor 5',
+      costs: BigInt(180000),
+      kit_id: null,
+      kit_status: false,
+    },
+  });
+
+  await prisma.assets.upsert({
+    where: { code: 'MN-2002' },
+    update: {},
+    create: {
+      id: ids.asset5Id,
+      code: 'MN-2002',
+      name: 'LG UltraWide 34',
+      category_id: monitorCategory.id,
+      status: AssetStatus.IN_USE,
+      location_name: 'Office Building B - Floor 3',
+      costs: BigInt(85000),
+      kit_id: null,
+      kit_status: false,
+    },
+  });
+
+  await prisma.assets.upsert({
+    where: { code: 'MN-2003' },
+    update: {},
+    create: {
+      id: ids.asset6Id,
+      code: 'MN-2003',
+      name: 'Samsung Curved 32',
+      category_id: monitorCategory.id,
+      status: AssetStatus.READY,
+      location_name: 'Warehouse - Storage Room A',
+      costs: BigInt(55000),
+      kit_id: null,
+      kit_status: false,
+    },
+  });
+
+  await prisma.assets.upsert({
+    where: { code: 'LT-1004' },
+    update: {},
+    create: {
+      id: ids.asset7Id,
+      code: 'LT-1004',
+      name: 'HP EliteBook 840',
+      category_id: laptopCategory.id,
+      status: AssetStatus.MAINTAINANCE,
+      location_name: 'IT Department - Repair Lab',
+      costs: BigInt(140000),
+      kit_id: null,
+      kit_status: false,
+    },
+  });
+
+  await prisma.assets.upsert({
+    where: { code: 'LT-1005' },
+    update: {},
+    create: {
+      id: ids.asset8Id,
+      code: 'LT-1005',
+      name: 'Lenovo ThinkPad T14',
+      category_id: laptopCategory.id,
+      status: AssetStatus.READY,
+      location_name: 'Office Building C - Floor 1',
+      costs: BigInt(135000),
+      kit_id: null,
+      kit_status: false,
+    },
+  });
+
+  await prisma.assets.upsert({
+    where: { code: 'MN-2004' },
+    update: {},
+    create: {
+      id: ids.asset9Id,
+      code: 'MN-2004',
+      name: 'ASUS ProArt 27',
+      category_id: monitorCategory.id,
+      status: AssetStatus.IN_USE,
+      location_name: 'Office Building A - Floor 4',
+      costs: BigInt(95000),
+      kit_id: null,
+      kit_status: false,
+    },
+  });
+
+  await prisma.assets.upsert({
+    where: { code: 'LT-1006' },
+    update: {},
+    create: {
+      id: ids.asset10Id,
+      code: 'LT-1006',
+      name: 'Microsoft Surface Laptop 5',
+      category_id: laptopCategory.id,
+      status: AssetStatus.READY,
+      location_name: 'Warehouse - Storage Room C',
+      costs: BigInt(165000),
+      kit_id: null,
+      kit_status: false,
+    },
+  });
+
+  await prisma.assets.upsert({
+    where: { code: 'MN-2005' },
+    update: {},
+    create: {
+      id: ids.asset11Id,
+      code: 'MN-2005',
+      name: 'BenQ PD2720U 4K',
+      category_id: monitorCategory.id,
+      status: AssetStatus.BROKEN,
+      location_name: 'IT Department - Repair Lab',
+      costs: BigInt(72000),
+      kit_id: null,
+      kit_status: false,
+    },
+  });
+
+  await prisma.assets.upsert({
+    where: { code: 'LT-1007' },
+    update: {},
+    create: {
+      id: ids.asset12Id,
+      code: 'LT-1007',
+      name: 'ASUS ROG Zephyrus',
+      category_id: laptopCategory.id,
+      status: AssetStatus.IN_USE,
+      location_name: 'Office Building B - Floor 4',
+      costs: BigInt(220000),
+      kit_id: null,
+      kit_status: false,
     },
   });
 

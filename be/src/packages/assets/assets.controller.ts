@@ -1,18 +1,39 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Put,
+  Query,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { AssetsService } from './assets.service';
-import { ZodValidationPipe } from 'nestjs-zod';
-import { StatusSchema } from 'src/core/enums/asset-status.enum';
-import { AssetStatus } from '@prisma/client';
 import { SessionAuthGuard } from 'src/core/auth/guards/session-auth.guard';
+import {
+  GetAssetsParams,
+  getAssetsParamsSchema,
+} from './dto/get-assets-params.dto';
+import { ZodValidationPipe } from 'nestjs-zod';
+import { EditAssetDto, EditAssetDtoSchema } from './dto/edit-asset.dto';
+import { CreateAssetDto, CreateAssetDtoSchema } from './dto/create-asset.dto';
 
 @Controller('assets')
 export class AssetsController {
   constructor(private readonly assetsService: AssetsService) {}
 
-  @Get('/')
+  @Get()
   @UseGuards(SessionAuthGuard)
-  getAllAssets() {
-    return this.assetsService.getAsssetsByCategory('');
+  getAllAssets(
+    @Query(new ZodValidationPipe(getAssetsParamsSchema)) query: GetAssetsParams,
+  ) {
+    return this.assetsService.getAssets(query);
+  }
+
+  @Get(':id')
+  @UseGuards(SessionAuthGuard)
+  getAssetById(@Param('id') id: string) {
+    return this.assetsService.getAssetById(id);
   }
 
   @Get('summary')
@@ -27,23 +48,26 @@ export class AssetsController {
     return this.assetsService.getAsssetsCountByCategory('');
   }
 
-  @Get('/status/:status')
-  @UseGuards(SessionAuthGuard)
-  getAssetsByStatus(
-    @Param('status', new ZodValidationPipe(StatusSchema)) status: AssetStatus,
-  ) {
-    return this.assetsService.getAssetsByStatus(status);
-  }
-
-  @Get('/category/:category')
-  @UseGuards(SessionAuthGuard)
-  getAssetsByCategory(@Param('category') category: string) {
-    return this.assetsService.getAsssetsByCategory(category);
-  }
-
   @Get('/category/:category/count')
   @UseGuards(SessionAuthGuard)
   getAssetsCountByCategory(@Param('category') category: string) {
     return this.assetsService.getAsssetsCountByCategory(category);
+  }
+
+  @Put(':id')
+  @UseGuards(SessionAuthGuard)
+  updateAssetStatus(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(EditAssetDtoSchema)) body: EditAssetDto,
+  ) {
+    return this.assetsService.updateAsset(id, body);
+  }
+
+  @Post()
+  @UseGuards(SessionAuthGuard)
+  createAsset(
+    @Body(new ZodValidationPipe(CreateAssetDtoSchema)) body: CreateAssetDto,
+  ) {
+    return this.assetsService.createAsset(body);
   }
 }

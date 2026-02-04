@@ -27,7 +27,7 @@ model Assets {
   name String 
   category_id String @db.Uuid
   status AssetStatus @default(READY)
-  location_id String @db.Uuid
+  location_name String
   costs BigInt @default(0)
   kit_id String? @db.Uuid
   kit_status Boolean @default(false)

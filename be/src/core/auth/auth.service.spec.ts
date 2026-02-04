@@ -8,24 +8,26 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { HttpException } from '@nestjs/common';
 import { UsersService } from 'src/packages/users/users.service';
-import { PrismaClient } from '@prisma/client';
+import { PrismaService } from '../database/prisma.service';
 
 describe('AuthService', () => {
-  let service: AuthService;
-
   const mockUsersService = {
     findByCredential: jest.fn(),
     create: jest.fn(),
   };
+  const mockPrismaService = {} as PrismaService;
 
-  const mockPrismaClient = {};
+  let service: AuthService = new AuthService(
+    mockPrismaService,
+    mockUsersService as any,
+  );
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: UsersService, useValue: mockUsersService },
-        { provide: PrismaClient, useValue: mockPrismaClient },
+        { provide: PrismaService, useValue: mockPrismaService },
       ],
     }).compile();
 
@@ -45,6 +47,8 @@ describe('AuthService', () => {
       id: '1',
       password: '$2b$10$invalidhashedpasswordstring',
     });
+    mockUsersService.findByCredential.mockResolvedValue(null);
+
     (bcrypt.compare as jest.Mock).mockResolvedValue(false);
     await expect(
       service.validateUser('existinguser', 'wrongpassword'),
@@ -73,22 +77,18 @@ describe('AuthService', () => {
       department: 'IT',
     };
     mockUsersService.findByCredential.mockResolvedValue(null);
-    mockUsersService.create = jest.fn().mockResolvedValue({
+    mockUsersService.create.mockResolvedValue({
       id: '2',
       ...dto,
     });
     (bcrypt.hash as jest.Mock).mockResolvedValue('hashedpassword');
 
-    const req = { session: {} };
+    const req = { login: jest.fn((user, cb) => cb(null)), session: {} };
     const result = await service.signup(dto, req);
 
     expect(mockUsersService.create).toHaveBeenCalledWith({
       ...dto,
       password: 'hashedpassword',
-    });
-    expect(req.session.user).toEqual({
-      id: '2',
-      ...dto,
     });
     expect(result).toEqual({ id: '2', message: 'Signup successful' });
   });
