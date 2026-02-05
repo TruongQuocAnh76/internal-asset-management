@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import bcrypt from 'bcrypt';
+import { Entity } from '../enums/entity.enum';
 
 const prisma = new PrismaClient();
 
@@ -526,7 +527,7 @@ async function main() {
       id: ids.audit1Id,
       actor_id: adminUser.id,
       action: 'asset.created',
-      entity_type: 'Assets',
+      entity_type: Entity.ASSET,
       entity_id: assetOne.id,
       before: {},
       after: {
