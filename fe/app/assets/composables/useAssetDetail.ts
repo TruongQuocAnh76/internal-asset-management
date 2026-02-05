@@ -4,7 +4,7 @@ import { useAssets } from './useAssets'
 // Define allowed state transitions
 const STATE_TRANSITIONS: Record<AssetStatus, StateTransition[]> = {
   READY: [
-    { from: 'READY', to: 'IN_USE', label: 'Assign to User', description: 'Mark this asset as currently in use', requiresReason: false, color: 'primary' },
+    { from: 'READY', to: 'BORROW', label: 'Request Borrow', description: 'Create a borrow request for this asset', requiresReason: false, color: 'primary', isNavigation: true, navigationRoute: '/requests/new' },
     { from: 'READY', to: 'MAINTAINANCE', label: 'Send to Maintenance', description: 'Schedule this asset for maintenance', requiresReason: true, color: 'warning' },
     { from: 'READY', to: 'LIQUIDATED', label: 'Liquidate', description: 'Permanently remove this asset from inventory', requiresReason: true, color: 'danger' },
   ],
