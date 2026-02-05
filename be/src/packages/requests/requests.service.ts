@@ -7,7 +7,7 @@ import {
   BorrowStatus,
   Prisma,
 } from '@prisma/client';
-import { getRequestsDto } from './dto/get-request.dto';
+import { GetRequestsDto } from './dto/get-request.dto';
 import { AuditService } from 'src/core/audit/audit.service';
 import { Entity } from 'src/core/enums/entity.enum';
 
@@ -41,7 +41,7 @@ export class RequestsService {
     return createdRequest;
   }
 
-  async getRequests(query: getRequestsDto) {
+  async getRequests(query: GetRequestsDto) {
     const where = this.buildWhere(query);
     const take = Number(query.limit) || 20;
     const skip = query.page ? (query.page - 1) * take : 0;
@@ -79,7 +79,7 @@ export class RequestsService {
     });
   }
 
-  protected buildWhere(query: getRequestsDto) {
+  protected buildWhere(query: GetRequestsDto) {
     const where: Prisma.BorrowRequestsWhereInput = {};
     if (query.filter === 'status' && query.filterValue) {
       where.status = query.filterValue as BorrowStatus;

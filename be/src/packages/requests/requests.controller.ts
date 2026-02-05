@@ -14,7 +14,7 @@ import { CreateRequestDto } from './dto/create-request.dto';
 import { SessionAuthGuard } from 'src/core/auth/guards/session-auth.guard';
 import { PermissionAuthGuard } from 'src/core/auth/guards/permission-auth.guard';
 import { Permission } from 'src/core/auth/decorator/permission.decorator';
-import { getRequestsDto } from './dto/get-request.dto';
+import { GetRequestsDto } from './dto/get-request.dto';
 import { CurrentUser } from 'src/core/auth/decorator/current-user.decorator';
 
 @Controller('requests')
@@ -31,7 +31,7 @@ export class RequestsController {
 
   @Get()
   @UseGuards(SessionAuthGuard)
-  getRequests(@Query() query: getRequestsDto) {
+  getRequests(@Query() query: GetRequestsDto) {
     return this.requestService.getRequests(query);
   }
 
