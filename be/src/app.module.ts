@@ -5,8 +5,17 @@ import { DatabaseModule } from './core/database/database.module';
 import { UsersModule } from './packages/users/users.module';
 import { AuthModule } from './core/auth/auth.module';
 import { AssetsModule } from './packages/assets/assets.module';
+import { RequestsModule } from './packages/requests/requests.module';
+import { CategoryModule } from './packages/category/category.module';
 @Module({
-  imports: [DatabaseModule, UsersModule, AuthModule, AssetsModule],
+  imports: [
+    DatabaseModule,
+    UsersModule,
+    AuthModule,
+    AssetsModule,
+    RequestsModule,
+    CategoryModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
