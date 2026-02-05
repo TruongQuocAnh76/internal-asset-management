@@ -1,0 +1,4 @@
+enum DeploymentStatus {
+  ACTIVE,
+  SUSPENDED,
+}

@@ -1,0 +1,23 @@
+{
+  "name": "asset-management-monorepo",
+  "version": "1.0.0",
+  "description": "Asset Management System - Full Stack Monorepo",
+  "private": true,
+  "scripts": {
+    "install": "pnpm install -r",
+    "dev": "concurrently \"pnpm --filter fe dev\" \"pnpm --filter be start:dev\"",
+    "dev:fe": "pnpm --filter fe dev",
+    "dev:be": "pnpm --filter be start:dev",
+    "build": "pnpm install -r && pnpm --filter fe build && pnpm --filter be build",
+    "build:fe": "pnpm --filter fe build",
+    "build:be": "pnpm --filter be build",
+    "start": "pnpm --filter be start:prod",
+    "test": "pnpm --filter be test",
+    "test:e2e": "pnpm --filter be test:e2e",
+    "lint": "pnpm --filter be lint",
+    "format": "pnpm --filter be format"
+  },
+  "dependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
