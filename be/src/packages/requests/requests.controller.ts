@@ -7,6 +7,7 @@ import {
   UseGuards,
   Req,
   Get,
+  Param,
 } from '@nestjs/common';
 import { RequestsService } from './requests.service';
 import { ZodValidationPipe } from 'nestjs-zod';
@@ -14,7 +15,7 @@ import { CreateRequestDto } from './dto/create-request.dto';
 import { SessionAuthGuard } from 'src/core/auth/guards/session-auth.guard';
 import { PermissionAuthGuard } from 'src/core/auth/guards/permission-auth.guard';
 import { Permission } from 'src/core/auth/decorator/permission.decorator';
-import { BorrowStatus } from '@prisma/client';
+import { getRequestsDto } from './dto/get-request.dto';
 
 @Controller('requests')
 export class RequestsController {
@@ -29,16 +30,14 @@ export class RequestsController {
 
   @Get()
   @UseGuards(SessionAuthGuard)
-  getRequests(
-    @Query('status') status?: BorrowStatus,
-    @Query('asset_id') asset_id?: string,
-    @Query('requester_id') requester_id?: string,
-    @Query('filter') filter?: string,
-    @Query('sort') sort?: string,
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
-  ) {
-    return this.requestService.getRequests(status, asset_id, requester_id, filter, sort, page, limit);
+  getRequests(@Query() query: getRequestsDto) {
+    return this.requestService.getRequests(query);
+  }
+
+  @Get(':id')
+  @UseGuards(SessionAuthGuard)
+  getRequestById(@Param('id') requestId: string) {
+    return this.requestService.getRequestById(requestId);
   }
 
   @Put()
@@ -58,9 +57,14 @@ export class RequestsController {
   @UseGuards(SessionAuthGuard)
   @Permission('request:approve')
   @UseGuards(PermissionAuthGuard)
-  approveRequest(@Query('id') requestId: string, @Req() req: Request) {
+  approveRequest(
+    @Query('id') requestId: string,
+    @Req() req: Request,
+    @Body() body: any,
+  ) {
     const userId = (req as any).user.id;
-    return this.requestService.approveRequest(userId, requestId);
+    const assetId = body.asset_id;
+    return this.requestService.approveRequest(userId, requestId, assetId);
   }
 
   @Put('/reject')
@@ -73,7 +77,7 @@ export class RequestsController {
 
   @Put('/provide')
   @UseGuards(SessionAuthGuard)
-  @Permission('request:provide')
+  @Permission('request:provided')
   @UseGuards(PermissionAuthGuard)
   provideRequest(@Query('id') requestId: string, @Req() req: Request) {
     const userId = (req as any).user.id;
@@ -82,15 +86,14 @@ export class RequestsController {
 
   @Put('/return')
   @UseGuards(SessionAuthGuard)
-  @Permission('request:return')
   @UseGuards(PermissionAuthGuard)
-  returnRequest(@Query('id') requestId: string) {
-    return this.requestService.returnRequest(requestId);
+  returnRequest(@Query('id') requestId: string, @Body() body: any) {
+    const assetId = body.asset_id;
+    return this.requestService.returnRequest(requestId, assetId);
   }
 
   @Put('/cancel')
   @UseGuards(SessionAuthGuard)
-  @Permission('request:cancel')
   @UseGuards(PermissionAuthGuard)
   cancelRequest(@Query('id') requestId: string) {
     return this.requestService.cancelRequest(requestId);

@@ -30,16 +30,16 @@ export class AssetsController {
     return this.assetsService.getAssets(query);
   }
 
-  @Get(':id')
-  @UseGuards(SessionAuthGuard)
-  getAssetById(@Param('id') id: string) {
-    return this.assetsService.getAssetById(id);
-  }
-
   @Get('summary')
   @UseGuards(SessionAuthGuard)
   getSummary() {
     return this.assetsService.getSummary();
+  }
+
+  @Get(':id')
+  @UseGuards(SessionAuthGuard)
+  getAssetById(@Param('id') id: string) {
+    return this.assetsService.getAssetById(id);
   }
 
   @Get('/category/count')

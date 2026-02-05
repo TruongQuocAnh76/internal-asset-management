@@ -13,8 +13,9 @@ export class AssetsService {
     const where = this.buildWhere(query);
     const take = query.limit || 20;
     const skip = query.page ? (query.page - 1) * take : 0;
-    const orderBy = query.filter
-      ? { [query.filter]: { name: query.order || 'asc' } }
+
+    const orderBy = query.orderBy
+      ? { [query.orderBy]: 'asc' as const }
       : undefined;
 
     const assets = await this.prisma.assets.findMany({
@@ -167,17 +168,17 @@ export class AssetsService {
   protected buildWhere(query: GetAssetsParams): Prisma.AssetsWhereInput {
     const where: Prisma.AssetsWhereInput = {};
 
-    if (query.filter && query.filter_value) {
+    if (query.filter && query.filterValue) {
       if (query.filter === 'category') {
         where.category = {
-          name: query.filter_value,
+          name: query.filterValue,
         };
       } else if (query.filter === 'status') {
-        where.status = query.filter_value as AssetStatus;
+        where.status = query.filterValue as AssetStatus;
       } else if (query.filter === 'costs') {
-        where.costs = Number(query.filter_value);
+        where.costs = Number(query.filterValue);
       } else if (query.filter === 'acquired_at') {
-        where.acquired_at = new Date(query.filter_value);
+        where.acquired_at = new Date(query.filterValue);
       }
     }
 
