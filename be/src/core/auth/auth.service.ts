@@ -77,10 +77,13 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     // create user
-    const newUser = await this.usersService.create({
-      ...dto,
-      password: hashedPassword,
-    });
+    const newUser = await this.usersService.create(
+      {
+        ...dto,
+        password: hashedPassword,
+      },
+      req.user?.id,
+    );
 
     // attach user to session
     await new Promise((resolve, reject) => {

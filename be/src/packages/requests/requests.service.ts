@@ -8,13 +8,18 @@ import {
   Prisma,
 } from '@prisma/client';
 import { getRequestsDto } from './dto/get-request.dto';
+import { AuditService } from 'src/core/audit/audit.service';
+import { Entity } from 'src/core/enums/entity.enum';
 
 @Injectable()
 export class RequestsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditService: AuditService,
+  ) {}
 
-  async createRequest(body: CreateRequestDto) {
-    return this.prisma.borrowRequests.create({
+  async createRequest(body: CreateRequestDto, userId: string) {
+    const createdRequest = await this.prisma.borrowRequests.create({
       data: {
         asset_id: body.assetId,
         requester_id: body.requesterId,
@@ -22,6 +27,18 @@ export class RequestsService {
         priority: body.priority,
       },
     });
+
+    // Add audit record
+    await this.auditService.addRecord(
+      userId,
+      'CREATE',
+      Entity.BORROW_REQUEST,
+      createdRequest.id,
+      JSON.stringify({}),
+      JSON.stringify(body),
+    );
+
+    return createdRequest;
   }
 
   async getRequests(query: getRequestsDto) {
@@ -106,7 +123,11 @@ export class RequestsService {
   }
 
   async editRequest(userId: string, requestId: string, body: CreateRequestDto) {
-    return this.prisma.borrowRequests.updateMany({
+    const beforeRequest = await this.prisma.borrowRequests.findUnique({
+      where: { id: requestId },
+    });
+
+    const updatedRequest = await this.prisma.borrowRequests.updateMany({
       where: { id: requestId, requester_id: userId },
       data: {
         asset_id: body.assetId,
@@ -114,16 +135,36 @@ export class RequestsService {
         priority: body.priority,
       },
     });
+
+    // Add audit record
+    await this.auditService.addRecord(
+      userId,
+      'UPDATE',
+      Entity.BORROW_REQUEST,
+      requestId,
+      JSON.stringify(beforeRequest),
+      JSON.stringify(body),
+    );
+
+    return updatedRequest;
   }
 
   async approveRequest(userId: string, requestId: string, assetId: string) {
+    // Get before state
+    const beforeRequest = await this.prisma.borrowRequests.findUnique({
+      where: { id: requestId },
+    });
+    const beforeAsset = await this.prisma.assets.findUnique({
+      where: { id: assetId },
+    });
+
     // update asset status
     await this.prisma.assets.update({
       where: { id: assetId },
       data: { status: 'IN_USE' },
     });
 
-    return this.prisma.borrowRequests.update({
+    const updatedRequest = await this.prisma.borrowRequests.update({
       where: { id: requestId, status: BorrowStatus.PENDING },
       data: {
         status: BorrowStatus.APPROVED,
@@ -131,19 +172,60 @@ export class RequestsService {
         approved_by: userId,
       },
     });
+
+    // Add audit records
+    await this.auditService.addRecord(
+      userId,
+      'APPROVE',
+      Entity.BORROW_REQUEST,
+      requestId,
+      JSON.stringify(beforeRequest),
+      JSON.stringify(updatedRequest),
+    );
+
+    await this.auditService.addRecord(
+      userId,
+      'UPDATE_STATUS',
+      Entity.ASSET,
+      assetId,
+      JSON.stringify(beforeAsset),
+      JSON.stringify({ status: 'IN_USE' }),
+    );
+
+    return updatedRequest;
   }
 
-  async rejectRequest(requestId: string) {
-    return this.prisma.borrowRequests.update({
+  async rejectRequest(requestId: string, userId: string) {
+    const beforeRequest = await this.prisma.borrowRequests.findUnique({
+      where: { id: requestId },
+    });
+
+    const updatedRequest = await this.prisma.borrowRequests.update({
       where: { id: requestId, status: BorrowStatus.PENDING },
       data: {
         status: BorrowStatus.REJECTED,
       },
     });
+
+    // Add audit record
+    await this.auditService.addRecord(
+      userId,
+      'REJECT',
+      Entity.BORROW_REQUEST,
+      requestId,
+      JSON.stringify(beforeRequest),
+      JSON.stringify(updatedRequest),
+    );
+
+    return updatedRequest;
   }
 
   async provideRequest(userId: string, requestId: string) {
-    return this.prisma.borrowRequests.update({
+    const beforeRequest = await this.prisma.borrowRequests.findUnique({
+      where: { id: requestId },
+    });
+
+    const updatedRequest = await this.prisma.borrowRequests.update({
       where: { id: requestId, status: BorrowStatus.APPROVED },
       data: {
         status: BorrowStatus.PROVIDED,
@@ -151,15 +233,36 @@ export class RequestsService {
         provided_by: userId,
       },
     });
+
+    // Add audit record
+    await this.auditService.addRecord(
+      userId,
+      'PROVIDE',
+      Entity.BORROW_REQUEST,
+      requestId,
+      JSON.stringify(beforeRequest),
+      JSON.stringify(updatedRequest),
+    );
+
+    return updatedRequest;
   }
 
-  async returnRequest(requestId: string, assetId: string) {
+  async returnRequest(requestId: string, assetId: string, userId: string) {
+    // Get before state
+    const beforeRequest = await this.prisma.borrowRequests.findUnique({
+      where: { id: requestId },
+    });
+    const beforeAsset = await this.prisma.assets.findUnique({
+      where: { id: assetId },
+    });
+
     // update asset status
     await this.prisma.assets.update({
       where: { id: assetId },
       data: { status: AssetStatus.READY },
     });
-    return this.prisma.borrowRequests.update({
+
+    const updatedRequest = await this.prisma.borrowRequests.update({
       where: {
         id: requestId,
         status: { in: [BorrowStatus.PROVIDED, BorrowStatus.OVERDUE] },
@@ -169,10 +272,35 @@ export class RequestsService {
         returned_at: new Date(),
       },
     });
+
+    // Add audit records
+    await this.auditService.addRecord(
+      userId,
+      'RETURN',
+      Entity.BORROW_REQUEST,
+      requestId,
+      JSON.stringify(beforeRequest),
+      JSON.stringify(updatedRequest),
+    );
+
+    await this.auditService.addRecord(
+      userId,
+      'UPDATE_STATUS',
+      Entity.ASSET,
+      assetId,
+      JSON.stringify(beforeAsset),
+      JSON.stringify({ status: AssetStatus.READY }),
+    );
+
+    return updatedRequest;
   }
 
-  async cancelRequest(requestId: string) {
-    return this.prisma.borrowRequests.update({
+  async cancelRequest(requestId: string, userId: string) {
+    const beforeRequest = await this.prisma.borrowRequests.findUnique({
+      where: { id: requestId },
+    });
+
+    const updatedRequest = await this.prisma.borrowRequests.update({
       where: {
         id: requestId,
         status: { in: [BorrowStatus.PENDING, BorrowStatus.APPROVED] },
@@ -181,5 +309,17 @@ export class RequestsService {
         status: BorrowStatus.CANCELED,
       },
     });
+
+    // Add audit record
+    await this.auditService.addRecord(
+      userId,
+      'CANCEL',
+      Entity.BORROW_REQUEST,
+      requestId,
+      JSON.stringify(beforeRequest),
+      JSON.stringify(updatedRequest),
+    );
+
+    return updatedRequest;
   }
 }

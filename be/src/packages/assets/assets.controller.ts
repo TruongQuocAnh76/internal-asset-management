@@ -17,6 +17,7 @@ import {
 import { ZodValidationPipe } from 'nestjs-zod';
 import { EditAssetDto, EditAssetDtoSchema } from './dto/edit-asset.dto';
 import { CreateAssetDto, CreateAssetDtoSchema } from './dto/create-asset.dto';
+import { CurrentUser } from 'src/core/auth/decorator/current-user.decorator';
 
 @Controller('assets')
 export class AssetsController {
@@ -59,15 +60,17 @@ export class AssetsController {
   updateAssetStatus(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(EditAssetDtoSchema)) body: EditAssetDto,
+    @CurrentUser('id') userId: string,
   ) {
-    return this.assetsService.updateAsset(id, body);
+    return this.assetsService.updateAsset(id, body, userId);
   }
 
   @Post()
   @UseGuards(SessionAuthGuard)
   createAsset(
     @Body(new ZodValidationPipe(CreateAssetDtoSchema)) body: CreateAssetDto,
+    @CurrentUser('id') userId: string,
   ) {
-    return this.assetsService.createAsset(body);
+    return this.assetsService.createAsset(body, userId);
   }
 }

@@ -7,21 +7,29 @@ import {
   Param,
   Delete,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { CategoryService } from './category.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { SessionAuthGuard } from 'src/core/auth/guards/session-auth.guard';
+import { CurrentUser } from 'src/core/auth/decorator/current-user.decorator';
 
 @Controller('category')
 export class CategoryController {
   constructor(private readonly categoryService: CategoryService) {}
 
   @Post()
-  create(@Body() createCategoryDto: CreateCategoryDto) {
-    return this.categoryService.create(createCategoryDto);
+  @UseGuards(SessionAuthGuard)
+  create(
+    @Body() createCategoryDto: CreateCategoryDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.categoryService.create(createCategoryDto, userId);
   }
 
   @Get()
+  @UseGuards(SessionAuthGuard)
   findAll(
     @Query('page') page: number,
     @Query('limit') limit: number,
@@ -33,20 +41,24 @@ export class CategoryController {
   }
 
   @Get(':id')
+  @UseGuards(SessionAuthGuard)
   findOne(@Param('id') id: string) {
     return this.categoryService.findOne(id);
   }
 
   @Patch(':id')
+  @UseGuards(SessionAuthGuard)
   update(
     @Param('id') id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
+    @CurrentUser('id') userId: string,
   ) {
-    return this.categoryService.update(+id, updateCategoryDto);
+    return this.categoryService.update(+id, updateCategoryDto, userId);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.categoryService.remove(id);
+  @UseGuards(SessionAuthGuard)
+  remove(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.categoryService.remove(id, userId);
   }
 }

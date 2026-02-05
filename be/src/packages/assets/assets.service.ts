@@ -4,10 +4,15 @@ import { GetAssetsParams } from './dto/get-assets-params.dto';
 import { AssetStatus, Prisma } from '@prisma/client';
 import { EditAssetDto, EditAssetDtoSchema } from './dto/edit-asset.dto';
 import { CreateAssetDto } from './dto/create-asset.dto';
+import { AuditService } from 'src/core/audit/audit.service';
+import { Entity } from 'src/core/enums/entity.enum';
 
 @Injectable()
 export class AssetsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditService: AuditService,
+  ) {}
 
   async getAssets(query: GetAssetsParams) {
     const where = this.buildWhere(query);
@@ -94,8 +99,11 @@ export class AssetsService {
     return { costs: Number(costs), ...rest };
   }
 
-  async createAsset(body: CreateAssetDto) {
-    const { id } = await this.checkCategory(body.category_name);
+  async createAsset(body: CreateAssetDto, userId: string) {
+    const category = await this.checkCategory(body.category_name);
+    if (!category) {
+      throw new BadRequestException('Category not found');
+    }
 
     const asset_code = body.name
       .toLocaleLowerCase()
@@ -105,11 +113,11 @@ export class AssetsService {
     const { category_name, costs, specs, ...rest } = body;
     const asset_costs = Number(costs);
 
-    return this.prisma.assets.create({
+    const createdAsset = await this.prisma.assets.create({
       data: {
         ...rest,
         code: asset_code,
-        category_id: id,
+        category_id: category.id,
         costs: asset_costs,
         asset_specs: {
           create: {
@@ -121,13 +129,30 @@ export class AssetsService {
         id: true,
       },
     });
+
+    // add audit record
+    await this.auditService.addRecord(
+      userId,
+      'CREATE',
+      Entity.ASSET,
+      createdAsset.id,
+      {},
+      JSON.stringify(body),
+    );
+
+    return createdAsset;
   }
 
-  async updateAsset(id: string, body: EditAssetDto) {
+  async updateAsset(id: string, body: EditAssetDto, userId: string) {
     const data = EditAssetDtoSchema.parse(body);
     if (Object.keys(data).length === 0) {
       throw new BadRequestException('No fields to update');
     }
+
+    // Fetch the current asset state before update
+    const beforeAsset = await this.prisma.assets.findUnique({
+      where: { id: id },
+    });
 
     // create the category if not exists
     let category;
@@ -150,18 +175,23 @@ export class AssetsService {
       },
     });
 
+    // Add audit record
+    await this.auditService.addRecord(
+      userId,
+      'UPDATE',
+      Entity.ASSET,
+      id,
+      JSON.stringify(beforeAsset),
+      JSON.stringify(data),
+    );
+
     const { costs: assetCosts, ...assetRest } = asset;
     return { costs: Number(assetCosts), ...assetRest };
   }
 
   protected async checkCategory(category_name: string) {
-    const category_code = category_name
-      .toLocaleLowerCase()
-      .replace(/\s+/g, '_');
-    return await this.prisma.assetsCategories.upsert({
-      where: { code: category_code },
-      update: {},
-      create: { name: category_name, code: category_code },
+    return await this.prisma.assetsCategories.findFirst({
+      where: { name: category_name },
     });
   }
 
