@@ -6,6 +6,7 @@ export interface FormErrors {
   category_name?: string
   location_name?: string
   costs?: string
+  stock?: string
   general?: string
 }
 
@@ -21,6 +22,7 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
     status: 'READY' as AssetStatus,
     costs: 0,
     image_num: 0,
+    stock: 1,
     specs: {},
   })
 
@@ -55,6 +57,7 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
           location_name: asset.location_name || '',
           status: asset.status || 'READY',
           costs: asset.costs || 0,
+          stock: asset.stock || 1,
           specs: asset.asset_specs?.specs || {},
         }
       }
@@ -105,6 +108,13 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
       case 'costs':
         if (formData.value.costs < 0) {
           errors.value.costs = 'Cost cannot be negative'
+          return false
+        }
+        break
+
+      case 'stock':
+        if (formData.value.stock < 1) {
+          errors.value.stock = 'Stock must be at least 1'
           return false
         }
         break

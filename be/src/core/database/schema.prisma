@@ -31,6 +31,7 @@ model Assets {
   location_name String
   costs         BigInt      @default(0)
   image_urls    String[]
+  stock         Int         @default(1)
   kit_id        String?     @db.Uuid
   kit_status    Boolean     @default(false)
   acquired_at   DateTime    @default(now())
@@ -79,6 +80,7 @@ model AssetsKits {
   id         String      @id @default(uuid()) @db.Uuid
   name       String
   status     AssetStatus @default(READY)
+  stock      Int         @default(1)
   created_at DateTime    @default(now())
 
   asset_allocations AssetsAllocation[]

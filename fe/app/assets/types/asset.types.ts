@@ -7,6 +7,7 @@ export interface Asset {
   }
   status: AssetStatus
   costs: number
+  stock?: number
   acquired_at: string
   location_name?: string
   image_urls?: string[]
@@ -31,6 +32,7 @@ export interface AssetFormData {
   status: AssetStatus
   costs: number
   image_num: number
+  stock: number
   specs: Record<string, string>
 }
 

@@ -204,6 +204,23 @@ const onCancel = () => {
             </div>
             <p v-if="errors.costs" class="error-message">{{ errors.costs }}</p>
           </div>
+
+          <!-- Stock -->
+          <div class="input-group">
+            <label for="stock" class="label">
+              Stock <span v-if="mode === 'create'" class="text-danger-500">*</span>
+            </label>
+            <input
+              id="stock"
+              v-model.number="formData.stock"
+              type="number"
+              min="1"
+              placeholder="1"
+              @blur="validateField('stock')"
+              :class="{ '!border-danger-500': errors.stock }"
+            />
+            <p v-if="errors.stock" class="error-message">{{ errors.stock }}</p>
+          </div>
         </div>
       </div>
 
