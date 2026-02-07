@@ -204,6 +204,12 @@ export class AssetsService {
           name: query.filterValue,
         };
       } else if (query.filter === 'status') {
+        query.filterValue = query.filterValue.toUpperCase();
+        if (
+          !Object.values(AssetStatus).includes(query.filterValue as AssetStatus)
+        ) {
+          throw new BadRequestException('Invalid asset status');
+        }
         where.status = query.filterValue as AssetStatus;
       } else if (query.filter === 'costs') {
         where.costs = Number(query.filterValue);
