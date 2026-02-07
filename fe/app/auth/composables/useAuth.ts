@@ -71,6 +71,7 @@ export const useAuth = () => {
         checked,
         login,
         signup,
-        getUser
+        getUser,
+        signout
     }
 }

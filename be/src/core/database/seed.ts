@@ -2,48 +2,54 @@ import {
   PrismaClient,
   AssetStatus,
   BorrowStatus,
+  BorrowPriority,
   DeploymentStatus,
 } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import bcrypt from 'bcrypt';
+import { Entity } from '../enums/entity.enum';
 
 const prisma = new PrismaClient();
 
 const ids = {
-  adminUserId: '11111111-1111-1111-1111-111111111111',
-  managerUserId: '22222222-2222-2222-2222-222222222222',
-  roleAdminId: '33333333-3333-3333-3333-333333333333',
-  roleManagerId: '44444444-4444-4444-4444-444444444444',
-  permAssetsReadId: '55555555-5555-5555-5555-555555555555',
-  permAssetsWriteId: '66666666-6666-6666-6666-666666666666',
-  permUsersManageId: '77777777-7777-7777-7777-777777777777',
-  categoryLaptopId: '88888888-8888-8888-8888-888888888888',
-  categoryMonitorId: '99999999-9999-9999-9999-999999999999',
-  kitId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-  asset1Id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-  asset2Id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
-  asset3Id: '14141414-1414-1414-1414-141414141414',
-  asset4Id: '15151515-1515-1515-1515-151515151515',
-  asset5Id: '16161616-1616-1616-1616-161616161616',
-  asset6Id: '17171717-1717-1717-1717-171717171717',
-  asset7Id: '18181818-1818-1818-1818-181818181818',
-  asset8Id: '19191919-1919-1919-1919-191919191919',
-  asset9Id: '20202020-2020-2020-2020-202020202020',
-  asset10Id: '21212121-2121-2121-2121-212121212121',
-  asset11Id: '22222223-2323-2323-2323-232323232323',
-  asset12Id: '24242424-2424-2424-2424-242424242424',
-  allocation1Id: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
-  allocation2Id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
-  event1Id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
-  borrow1Id: '12121212-1212-1212-1212-121212121212',
-  audit1Id: '13131313-1313-1313-1313-131313131313',
+  adminUserId: randomUUID(),
+  teamLeadUserId: randomUUID(),
+  employeeUserId: randomUUID(),
+  roleAdminId: randomUUID(),
+  roleTeamLeadId: randomUUID(),
+  roleEmployeeId: randomUUID(),
+  permRequestApproveId: randomUUID(),
+  permRequestProvidedId: randomUUID(),
+  categoryLaptopId: randomUUID(),
+  categoryMonitorId: randomUUID(),
+  kitId: randomUUID(),
+  asset1Id: randomUUID(),
+  asset2Id: randomUUID(),
+  asset3Id: randomUUID(),
+  asset4Id: randomUUID(),
+  asset5Id: randomUUID(),
+  asset6Id: randomUUID(),
+  asset7Id: randomUUID(),
+  asset8Id: randomUUID(),
+  asset9Id: randomUUID(),
+  asset10Id: randomUUID(),
+  asset11Id: randomUUID(),
+  asset12Id: randomUUID(),
+  allocation1Id: randomUUID(),
+  allocation2Id: randomUUID(),
+  event1Id: randomUUID(),
+  borrow1Id: randomUUID(),
+  audit1Id: randomUUID(),
 };
 
 async function main() {
-  const [adminPassword, managerPassword] = await Promise.all([
-    bcrypt.hash('Admin123!', 10),
-    bcrypt.hash('Manager123!', 10),
-  ]);
+  const [adminPassword, teamLeadPassword, employeePassword] = await Promise.all(
+    [
+      bcrypt.hash('Admin123!', 10),
+      bcrypt.hash('TeamLead123!', 10),
+      bcrypt.hash('Employee123!', 10),
+    ],
+  );
 
   const adminRole = await prisma.roles.upsert({
     where: { name: 'Admin' },
@@ -54,45 +60,43 @@ async function main() {
     },
   });
 
-  const managerRole = await prisma.roles.upsert({
-    where: { name: 'Manager' },
+  const teamLeadRole = await prisma.roles.upsert({
+    where: { name: 'Team Lead' },
     update: {},
     create: {
-      id: ids.roleManagerId,
-      name: 'Manager',
+      id: ids.roleTeamLeadId,
+      name: 'Team Lead',
     },
   });
 
-  const permissionAssetsRead = await prisma.permissions.upsert({
-    where: { name: 'assets:read' },
+  const employeeRole = await prisma.roles.upsert({
+    where: { name: 'Employee' },
     update: {},
     create: {
-      id: ids.permAssetsReadId,
-      name: 'assets:read',
-      resource: 'assets_read',
-      action: 'read_assets',
+      id: ids.roleEmployeeId,
+      name: 'Employee',
     },
   });
 
-  const permissionAssetsWrite = await prisma.permissions.upsert({
-    where: { name: 'assets:write' },
+  const permissionRequestApprove = await prisma.permissions.upsert({
+    where: { name: 'request:approve' },
     update: {},
     create: {
-      id: ids.permAssetsWriteId,
-      name: 'assets:write',
-      resource: 'assets_write',
-      action: 'write_assets',
+      id: ids.permRequestApproveId,
+      name: 'request:approve',
+      resource: 'requests_approve',
+      action: 'approve',
     },
   });
 
-  const permissionUsersManage = await prisma.permissions.upsert({
-    where: { name: 'users:manage' },
+  const permissionRequestProvided = await prisma.permissions.upsert({
+    where: { name: 'request:provided' },
     update: {},
     create: {
-      id: ids.permUsersManageId,
-      name: 'users:manage',
-      resource: 'users_manage',
-      action: 'manage_users',
+      id: ids.permRequestProvidedId,
+      name: 'request:provided',
+      resource: 'requests_provided',
+      action: 'provided',
     },
   });
 
@@ -111,16 +115,31 @@ async function main() {
     },
   });
 
-  const managerUser = await prisma.users.upsert({
-    where: { email: 'manager@asset.local' },
+  const teamLeadUser = await prisma.users.upsert({
+    where: { email: 'teamlead@asset.local' },
     update: {},
     create: {
-      id: ids.managerUserId,
-      username: 'manager',
-      email: 'manager@asset.local',
-      password: managerPassword,
-      first_name: 'Operations',
-      last_name: 'Manager',
+      id: ids.teamLeadUserId,
+      username: 'teamlead',
+      email: 'teamlead@asset.local',
+      password: teamLeadPassword,
+      first_name: 'Team',
+      last_name: 'Lead',
+      department: 'Operations',
+      status: DeploymentStatus.ACTIVE,
+    },
+  });
+
+  const employeeUser = await prisma.users.upsert({
+    where: { email: 'employee@asset.local' },
+    update: {},
+    create: {
+      id: ids.employeeUserId,
+      username: 'employee',
+      email: 'employee@asset.local',
+      password: employeePassword,
+      first_name: 'John',
+      last_name: 'Employee',
       department: 'Operations',
       status: DeploymentStatus.ACTIVE,
     },
@@ -143,14 +162,28 @@ async function main() {
   await prisma.userRoles.upsert({
     where: {
       user_id_role_id: {
-        user_id: managerUser.id,
-        role_id: managerRole.id,
+        user_id: teamLeadUser.id,
+        role_id: teamLeadRole.id,
       },
     },
     update: {},
     create: {
-      user_id: managerUser.id,
-      role_id: managerRole.id,
+      user_id: teamLeadUser.id,
+      role_id: teamLeadRole.id,
+    },
+  });
+
+  await prisma.userRoles.upsert({
+    where: {
+      user_id_role_id: {
+        user_id: employeeUser.id,
+        role_id: employeeRole.id,
+      },
+    },
+    update: {},
+    create: {
+      user_id: employeeUser.id,
+      role_id: employeeRole.id,
     },
   });
 
@@ -158,13 +191,13 @@ async function main() {
     where: {
       role_id_permission_id: {
         role_id: adminRole.id,
-        permission_id: permissionAssetsRead.id,
+        permission_id: permissionRequestProvided.id,
       },
     },
     update: {},
     create: {
       role_id: adminRole.id,
-      permission_id: permissionAssetsRead.id,
+      permission_id: permissionRequestProvided.id,
     },
   });
 
@@ -172,41 +205,27 @@ async function main() {
     where: {
       role_id_permission_id: {
         role_id: adminRole.id,
-        permission_id: permissionAssetsWrite.id,
+        permission_id: permissionRequestApprove.id,
       },
     },
     update: {},
     create: {
       role_id: adminRole.id,
-      permission_id: permissionAssetsWrite.id,
+      permission_id: permissionRequestApprove.id,
     },
   });
 
   await prisma.rolePermissions.upsert({
     where: {
       role_id_permission_id: {
-        role_id: adminRole.id,
-        permission_id: permissionUsersManage.id,
+        role_id: teamLeadRole.id,
+        permission_id: permissionRequestApprove.id,
       },
     },
     update: {},
     create: {
-      role_id: adminRole.id,
-      permission_id: permissionUsersManage.id,
-    },
-  });
-
-  await prisma.rolePermissions.upsert({
-    where: {
-      role_id_permission_id: {
-        role_id: managerRole.id,
-        permission_id: permissionAssetsRead.id,
-      },
-    },
-    update: {},
-    create: {
-      role_id: managerRole.id,
-      permission_id: permissionAssetsRead.id,
+      role_id: teamLeadRole.id,
+      permission_id: permissionRequestApprove.id,
     },
   });
 
@@ -452,7 +471,7 @@ async function main() {
     create: {
       id: ids.allocation1Id,
       asset_id: assetOne.id,
-      user_id: managerUser.id,
+      user_id: employeeUser.id,
       allocated_by: adminUser.id,
       allocated_at: new Date(),
     },
@@ -493,19 +512,22 @@ async function main() {
     create: {
       id: ids.borrow1Id,
       asset_id: assetTwo.id,
-      requester_id: managerUser.id,
+      requester_id: employeeUser.id,
       status: BorrowStatus.PENDING,
+      priority: BorrowPriority.MEDIUM,
     },
   });
 
-  await prisma.auditLogs.upsert({
+  await prisma.auditLogs.deleteMany({
     where: { id: ids.audit1Id },
-    update: {},
-    create: {
+  });
+
+  await prisma.auditLogs.create({
+    data: {
       id: ids.audit1Id,
       actor_id: adminUser.id,
       action: 'asset.created',
-      entity_type: 'Assets',
+      entity_type: Entity.ASSET,
       entity_id: assetOne.id,
       before: {},
       after: {

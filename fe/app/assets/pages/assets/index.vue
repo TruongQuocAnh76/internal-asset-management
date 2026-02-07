@@ -2,8 +2,8 @@
 import AssetsHeader from '../components/AssetsHeader.vue'
 import AssetFilters from '../components/AssetFilters.vue'
 import AssetTable from '../components/AssetTable.vue'
-import type { Asset, GetAssetsParams } from '../types/asset.types'
-import { useAssets } from '../composables/useAssets'
+import type { Asset, GetAssetsParams } from '../../types/asset.types'
+import { useAssets } from '../../composables/useAssets'
 
 const { getAllAssets } = useAssets()
 const route = useRoute()

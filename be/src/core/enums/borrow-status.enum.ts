@@ -2,6 +2,8 @@ export enum BorrowStatus {
   PENDING,
   PROVIDED,
   APPROVED,
+  OVERDUE,
+  CANCELED,
   REJECTED,
   RETURNED,
 }
