@@ -34,21 +34,11 @@ export const useHome = () => {
     }
 
     const getPendingApprovals = async () => {
-        // const data = await useFetch('/borrows/pending-approvals', {
-        //     method: 'GET',
-        //     baseURL: config.public.backendUrl,
-        //     credentials: 'include'
-        // })
-        // TODO: Implements borrow flow
-        // mock data for now
-        const data = [
-            { asset_name: 'Laptop Dell XPS 13', requester_name: 'john_doe', requested_at: '2024-06-01', status: 'pending' },
-            { asset_name: 'MacBook Pro 16', requester_name: 'alice', requested_at: '2024-06-03', status: 'approved' },
-            { asset_name: 'Monitor LG 27-inch', requester_name: 'bob_smith', requested_at: '2024-05-28', status: 'rejected' },
-            { asset_name: 'iPad Air', requester_name: 'carol', requested_at: '2024-06-02', status: 'returned' },
-            { asset_name: 'Keyboard Keychron K2', requester_name: 'dave', requested_at: '2024-06-04', status: 'pending' },
-            { asset_name: 'Docking Station USB-C', requester_name: 'eve', requested_at: '2024-06-05', status: 'pending' },
-        ]
+        const data = await useFetch('/requests?filter=status&filterValue=PENDING', {
+            method: 'GET',
+            baseURL: config.public.backendUrl,
+            credentials: 'include'
+        })
         return data
     }
 

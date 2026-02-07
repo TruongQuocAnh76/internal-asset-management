@@ -18,7 +18,13 @@ async function bootstrap() {
   });
 
   // initialize passport
-  const prisma = new PrismaClient();
+  const prisma = new PrismaClient({
+    // log: ['query', 'info', 'warn', 'error'],
+  });
+  // prisma.$on('query', (e) => {
+  //   console.log('Query: ' + e.query);
+  //   console.log('Duration: ' + e.duration + 'ms');
+  // });
 
   app.use(
     session({

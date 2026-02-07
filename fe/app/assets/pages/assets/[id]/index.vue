@@ -124,6 +124,7 @@ const handleTransitionConfirm = async (status: string, reason: string) => {
             <StatusActions
               :transitions="availableTransitions"
               :loading="transitionLoading"
+              :asset-id="asset.id"
               @select="handleTransitionSelect"
             />
 

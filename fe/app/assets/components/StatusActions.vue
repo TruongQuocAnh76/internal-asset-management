@@ -4,13 +4,30 @@ import type { StateTransition } from '../types/asset.types'
 interface Props {
   transitions: StateTransition[]
   loading: boolean
+  assetId?: string
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 const emit = defineEmits<{
   'select': [transition: StateTransition]
 }>()
+
+const router = useRouter()
+
+const handleTransitionClick = (transition: StateTransition) => {
+  if (transition.isNavigation && transition.navigationRoute) {
+    // Navigate to the route with asset info as query params
+    router.push({
+      path: transition.navigationRoute,
+      query: {
+        assetId: props.assetId
+      }
+    })
+  } else {
+    emit('select', transition)
+  }
+}
 
 const getButtonClass = (color: string) => {
   const classes: Record<string, string> = {
@@ -44,7 +61,7 @@ const getButtonClass = (color: string) => {
       <button
         v-for="transition in transitions"
         :key="transition.to"
-        @click="emit('select', transition)"
+        @click="handleTransitionClick(transition)"
         :disabled="loading"
         class="w-full flex items-center gap-3 p-3 rounded-lg border transition-colors text-left"
         :class="getButtonClass(transition.color)"
@@ -60,8 +77,12 @@ const getButtonClass = (color: string) => {
             'bg-secondary-100': !transition.color || transition.color === 'secondary'
           }"
         >
+          <!-- Borrow icon -->
+          <svg v-if="transition.to === 'BORROW'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
           <!-- Ready icon -->
-          <svg v-if="transition.to === 'READY'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg v-else-if="transition.to === 'READY'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <!-- In Use icon -->

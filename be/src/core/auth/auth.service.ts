@@ -8,7 +8,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private usersService: UsersService,
-  ) { }
+  ) {}
   async signin(req) {
     const user = await this.validateUser(
       req.body.credential,
@@ -77,10 +77,13 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     // create user
-    const newUser = await this.usersService.create({
-      ...dto,
-      password: hashedPassword,
-    });
+    const newUser = await this.usersService.create(
+      {
+        ...dto,
+        password: hashedPassword,
+      },
+      req.user?.id,
+    );
 
     // attach user to session
     await new Promise((resolve, reject) => {

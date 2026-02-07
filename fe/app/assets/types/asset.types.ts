@@ -34,12 +34,14 @@ export interface AssetFormData {
 
 // State transition types
 export interface StateTransition {
-  from: AssetStatus
-  to: AssetStatus
+  from: AssetStatus | 'READY'
+  to: AssetStatus | 'BORROW'
   label: string
   description: string
   requiresReason: boolean
   color: 'success' | 'warning' | 'danger' | 'primary' | 'secondary'
+  isNavigation?: boolean
+  navigationRoute?: string
 }
 
 export interface AssetEvent {
