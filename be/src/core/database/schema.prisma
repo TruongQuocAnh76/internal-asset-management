@@ -5,7 +5,7 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
@@ -30,6 +30,7 @@ model Assets {
   status        AssetStatus @default(READY)
   location_name String
   costs         BigInt      @default(0)
+  image_urls    String[]
   kit_id        String?     @db.Uuid
   kit_status    Boolean     @default(false)
   acquired_at   DateTime    @default(now())
@@ -208,8 +209,8 @@ enum Entity {
 model AuditLogs {
   id          String   @id @default(uuid()) @db.Uuid
   actor_id    String   @db.Uuid
-  action      String   @unique
-  entity_type Entity 
+  action      String
+  entity_type Entity
   entity_id   String   @db.Uuid
   before      Json
   after       Json
