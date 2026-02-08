@@ -2,6 +2,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { Injectable } from '@nestjs/common';
@@ -9,7 +10,9 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 @Injectable()
 export class StorageService {
-  constructor(private s3client: S3Client) {
+  private s3client: S3Client;
+
+  constructor() {
     this.s3client = new S3Client({
       endpoint: process.env.S3_ENDPOINT,
       region: process.env.S3_REGION,
@@ -20,12 +23,14 @@ export class StorageService {
       forcePathStyle: true,
     });
   }
-  async getTemporaryUploadUrl(filename: string) {
+
+  async getPresignedUploadUrl(filename: string) {
     return await getSignedUrl(
       this.s3client,
-      new GetObjectCommand({
+      new PutObjectCommand({
         Bucket: process.env.S3_BUCKET!,
         Key: filename,
+        ContentType: 'application/octet-stream',
       }),
       { expiresIn: 3600 },
     );
@@ -55,5 +60,20 @@ export class StorageService {
         Key: key,
       }),
     );
+  }
+
+  getUrl(key: string): string {
+    const endpoint = process.env.S3_ENDPOINT;
+    const bucket = process.env.S3_BUCKET;
+    return `${endpoint}/${bucket}/${key}`;
+  }
+
+  async getFileStream(key: string) {
+    const command = new GetObjectCommand({
+      Bucket: process.env.S3_BUCKET!,
+      Key: key,
+    });
+    const response = await this.s3client.send(command);
+    return response.Body as NodeJS.ReadableStream;
   }
 }

@@ -7,6 +7,7 @@ import { AuthModule } from './core/auth/auth.module';
 import { AssetsModule } from './packages/assets/assets.module';
 import { RequestsModule } from './packages/requests/requests.module';
 import { CategoryModule } from './packages/category/category.module';
+import { StorageModule } from './core/storage/storage.module';
 @Module({
   imports: [
     DatabaseModule,
@@ -15,6 +16,7 @@ import { CategoryModule } from './packages/category/category.module';
     AssetsModule,
     RequestsModule,
     CategoryModule,
+    StorageModule,
   ],
   controllers: [AppController],
   providers: [AppService],

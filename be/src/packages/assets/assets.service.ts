@@ -6,12 +6,14 @@ import { EditAssetDto, EditAssetDtoSchema } from './dto/edit-asset.dto';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { AuditService } from 'src/core/audit/audit.service';
 import { Entity } from 'src/core/enums/entity.enum';
+import { StorageService } from 'src/core/storage/storage.service';
 
 @Injectable()
 export class AssetsService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
+    private storageService: StorageService,
   ) {}
 
   async getAssets(query: GetAssetsParams) {
@@ -38,6 +40,7 @@ export class AssetsService {
           },
         },
         status: true,
+        image_urls: true,
         costs: true,
         acquired_at: true,
       },
@@ -84,6 +87,7 @@ export class AssetsService {
         },
         status: true,
         costs: true,
+        image_urls: true,
         acquired_at: true,
         created_at: true,
         updated_at: true,
@@ -110,8 +114,24 @@ export class AssetsService {
       .replace(/\s+/g, '_')
       .concat('_', Date.now().toString().slice(-4));
 
-    const { category_name, costs, specs, ...rest } = body;
+    const { category_name, costs, specs, image_num, ...rest } = body;
     const asset_costs = Number(costs);
+
+    // create temp url for each images
+    const fileNames: string[] = [];
+    const tempImageUrls: string[] = [];
+
+    for (let i = 0; i < body.image_num; i++) {
+      const fileName = `${asset_code}_image_${i}_${Date.now()}`;
+      fileNames.push(fileName);
+      const presignedUrl =
+        await this.storageService.getPresignedUploadUrl(fileName);
+      tempImageUrls.push(presignedUrl);
+    }
+
+    // const imageUrls = fileNames.map((fileName) =>
+    //   this.storageService.getUrl(fileName),
+    // );
 
     const createdAsset = await this.prisma.assets.create({
       data: {
@@ -124,6 +144,7 @@ export class AssetsService {
             specs: JSON.parse(JSON.stringify(body.specs)) || {},
           },
         },
+        image_urls: fileNames,
       },
       select: {
         id: true,
@@ -140,7 +161,7 @@ export class AssetsService {
       JSON.stringify(body),
     );
 
-    return createdAsset;
+    return { createdAsset, tempImageUrls };
   }
 
   async updateAsset(id: string, body: EditAssetDto, userId: string) {

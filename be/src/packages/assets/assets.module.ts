@@ -3,10 +3,11 @@ import { AssetsService } from './assets.service';
 import { AssetsController } from './assets.controller';
 import { DatabaseModule } from 'src/core/database/database.module';
 import { AuditModule } from 'src/core/audit/audit.module';
+import { StorageService } from 'src/core/storage/storage.service';
 
 @Module({
   imports: [DatabaseModule, AuditModule],
   controllers: [AssetsController],
-  providers: [AssetsService],
+  providers: [AssetsService, StorageService],
 })
 export class AssetsModule {}

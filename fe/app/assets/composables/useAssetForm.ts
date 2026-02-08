@@ -20,6 +20,7 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
     location_name: '',
     status: 'READY' as AssetStatus,
     costs: 0,
+    image_num: 0,
     specs: {},
   })
 
@@ -165,9 +166,8 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
         const result = await createAsset(formData.value)
         successMessage.value = 'Asset created successfully'
         
-        // Navigate to the assets list
-        await router.push('/asset')
-        return true
+        // Return result so form can upload images
+        return result
       } else if (mode === 'edit' && assetId) {
         await updateAsset(assetId, formData.value)
         successMessage.value = 'Asset updated successfully'

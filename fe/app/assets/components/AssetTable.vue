@@ -15,6 +15,7 @@ const emit = defineEmits<{
   'asset-click': [asset: Asset]
 }>()
 
+const config = useRuntimeConfig()
 const getStatusColor = (status: string) => {
   const colors = {
     READY: 'bg-success-100 text-success-700 border-success-200',
@@ -61,6 +62,9 @@ const handleAssetClick = (asset: Asset) => {
         <thead class="bg-secondary-50 border-b border-secondary-200">
           <tr>
             <th class="px-6 py-4 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">
+              Image
+            </th>
+            <th class="px-6 py-4 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">
               Code
             </th>
             <th class="px-6 py-4 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">
@@ -82,7 +86,7 @@ const handleAssetClick = (asset: Asset) => {
         </thead>
         <tbody class="divide-y divide-secondary-100">
           <tr v-if="loading" v-for="i in 5" :key="i">
-            <td v-for="j in 6" :key="j" class="px-6 py-4">
+            <td v-for="j in 7" :key="j" class="px-6 py-4">
               <div class="h-5 bg-secondary-200 animate-pulse rounded"></div>
             </td>
           </tr>
@@ -93,6 +97,21 @@ const handleAssetClick = (asset: Asset) => {
             @click="handleAssetClick(asset)"
             class="hover:bg-secondary-50 cursor-pointer transition-colors"
           >
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="w-12 h-12 rounded-lg overflow-hidden bg-secondary-100">
+                <img 
+                  v-if="asset.image_urls && asset.image_urls.length > 0"
+                  :src="`${config.public.backendUrl}/storage/files/${asset.image_urls[0]}`" 
+                  :alt="asset.name"
+                  class="w-full h-full object-cover"
+                />
+                <div v-else class="w-full h-full flex items-center justify-center">
+                  <svg class="w-6 h-6 text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
+            </td>
             <td class="px-6 py-4 whitespace-nowrap">
               <span class="text-sm font-mono font-medium text-secondary-900">{{ asset.code }}</span>
             </td>

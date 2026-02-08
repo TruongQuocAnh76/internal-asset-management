@@ -48,7 +48,7 @@ export const useAssets = () => {
   }
 
   const createAsset = async (formData: AssetFormData) => {
-    return await $fetch<{ id: string }>('/assets', {
+    return await $fetch<{ createdAsset: { id: string }; tempImageUrls: string[] }>('/assets', {
       method: 'POST',
       baseURL: config.public.backendUrl,
       credentials: 'include',
