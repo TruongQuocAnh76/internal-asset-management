@@ -4,6 +4,7 @@ import AssetDetailHeader from '../../../components/AssetDetailHeader.vue'
 import AssetInfoCards from '../../../components/AssetInfoCards.vue'
 import StatusActions from '../../../components/StatusActions.vue'
 import StateTransitionModal from '../../../components/StateTransitionModal.vue'
+import ImageCarousel from '../../../components/ImageCarousel.vue'
 
 definePageMeta({
   layout: 'default'
@@ -110,6 +111,13 @@ const handleTransitionConfirm = async (status: string, reason: string) => {
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <!-- Main Content (2 cols) -->
           <div class="lg:col-span-2 space-y-6">
+            <!-- Image Carousel -->
+            <ImageCarousel 
+              v-if="asset.image_urls && asset.image_urls.length > 0"
+              :images="asset.image_urls"
+              :alt="asset.name"
+            />
+            
             <!-- Asset Info Cards -->
             <AssetInfoCards 
               :asset="asset"

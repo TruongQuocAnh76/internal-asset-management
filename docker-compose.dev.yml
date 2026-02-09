@@ -1,0 +1,51 @@
+services:
+  frontend:
+    build:
+      context: ./fe
+      dockerfile: Dockerfile
+      target: dev
+    ports: 
+      - "5173:5173"
+    env_file:
+      - ./fe/.env
+    depends_on:
+      - backend 
+    volumes:
+      - ./fe:/app
+    networks:
+      - app_network
+
+  backend:
+    build:
+      context: ./be
+      dockerfile: Dockerfile    
+      target: dev
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./be/.env
+    volumes:
+      - ./be:/app
+    networks:
+      - app_network
+    
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - app_network
+
+volumes:
+  minio_data:
+  
+networks:
+  app_network:
+    driver: bridge

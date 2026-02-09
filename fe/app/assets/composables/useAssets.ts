@@ -8,7 +8,7 @@ export const useAssets = () => {
     
     if (params.filter && params.filter_value) {
       queryParams.append('filter', params.filter)
-      queryParams.append('filter_value', params.filter_value)
+      queryParams.append('filterValue', params.filter_value)
     }
     
     if (params.search) {
@@ -48,7 +48,7 @@ export const useAssets = () => {
   }
 
   const createAsset = async (formData: AssetFormData) => {
-    return await $fetch<{ id: string }>('/assets', {
+    return await $fetch<{ createdAsset: { id: string }; tempImageUrls: string[] }>('/assets', {
       method: 'POST',
       baseURL: config.public.backendUrl,
       credentials: 'include',
