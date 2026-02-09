@@ -38,11 +38,11 @@ model Assets {
   created_at    DateTime    @default(now())
   updated_at    DateTime    @updatedAt
 
-  asset_specs      AssetsSpecs?
-  asset_events     AssetsEvents[]     @relation("AssetToEvents")
-  category         AssetsCategories   @relation(fields: [category_id], references: [id])
-  asset_allocation AssetsAllocation[]
-  borrow_requests  BorrowRequests[]
+  asset_specs       AssetsSpecs?
+  asset_events      AssetsEvents[]     @relation("AssetToEvents")
+  category          AssetsCategories   @relation(fields: [category_id], references: [id])
+  asset_allocation  AssetsAllocation[]
+  borrow_requests   BorrowRequests[]
   assets_kits_items AssetsKitsItems[]
 }
 
@@ -86,6 +86,7 @@ model AssetsKits {
 
   asset_allocations AssetsAllocation[]
   assets_kits_items AssetsKitsItems[]
+  borrowRequests    BorrowRequests[]
 }
 
 model AssetsKitsItems {
@@ -195,7 +196,8 @@ enum BorrowPriority {
 
 model BorrowRequests {
   id           String         @id @default(uuid()) @db.Uuid
-  asset_id     String         @db.Uuid
+  asset_id     String?        @db.Uuid
+  kit_id       String?        @db.Uuid
   requester_id String         @db.Uuid
   requested_at DateTime       @default(now())
   status       BorrowStatus   @default(PENDING)
@@ -208,12 +210,14 @@ model BorrowRequests {
   returned_at  DateTime?
   created_at   DateTime       @default(now())
 
-  asset Assets @relation(fields: [asset_id], references: [id])
-  user  Users  @relation(fields: [requester_id], references: [id])
+  asset Assets?     @relation(fields: [asset_id], references: [id])
+  kit   AssetsKits? @relation(fields: [kit_id], references: [id])
+  user  Users       @relation(fields: [requester_id], references: [id])
 }
 
 enum Entity {
   ASSET
+  ASSET_KIT
   USER
   CATEGORY
   BORROW_REQUEST
