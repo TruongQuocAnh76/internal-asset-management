@@ -17,7 +17,7 @@ const handleSuccess = () => {
 
 const handleCancel = () => {
   // Go back to assets list or asset detail
-  router.push('/asset')
+  router.push('/assets')
 }
 </script>
 
@@ -27,7 +27,7 @@ const handleCancel = () => {
       <!-- Header -->
       <div class="mb-8">
         <nav class="flex items-center gap-2 text-sm text-secondary-500 mb-4">
-          <NuxtLink to="/asset" class="hover:text-primary-600 transition-colors">
+          <NuxtLink to="/assets" class="hover:text-primary-600 transition-colors">
             Assets
           </NuxtLink>
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

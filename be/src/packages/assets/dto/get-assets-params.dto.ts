@@ -22,6 +22,12 @@ export class GetAssetsParams {
   search?: string;
 
   @ApiPropertyOptional({
+    description: 'Array of image URLs associated with the asset',
+    example: ['https://example.com/image1.jpg', 'https://example.com/image2.jpg'],
+  })
+  image_urls: string[];
+
+  @ApiPropertyOptional({
     description: 'Order of results',
     example: 'asc',
   })

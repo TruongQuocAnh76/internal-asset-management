@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PendingApproval } from '../types/dashboard.types'
+import { computed, unref } from 'vue'
 
 interface Props {
   approvals: PendingApproval[]
@@ -11,9 +12,12 @@ const props = withDefaults(defineProps<Props>(), {
   userRole: 'employee',
 })
 
-const pendingOnly = computed(() =>
-  props.approvals?.filter(a => a.status === 'pending') ?? []
-)
+const pendingOnly = computed(() => {
+  const approvals = unref(props.approvals)
+  return Array.isArray(approvals)
+    ? approvals.filter(a => a.status === 'pending')
+    : []
+})
 
 const roleLabels = {
   admin: 'All Pending Approvals',

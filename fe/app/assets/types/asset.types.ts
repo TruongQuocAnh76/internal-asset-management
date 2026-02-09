@@ -9,6 +9,7 @@ export interface Asset {
   costs: number
   acquired_at: string
   location_name?: string
+  image_urls?: string[]
   asset_specs?: {
     specs: Record<string, string>
   }
@@ -29,6 +30,7 @@ export interface AssetFormData {
   location_name: string
   status: AssetStatus
   costs: number
+  image_num: number
   specs: Record<string, string>
 }
 
