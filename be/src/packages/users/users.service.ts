@@ -13,7 +13,7 @@ export class UsersService {
     private auditService: AuditService,
   ) {}
 
-  async create(dto: SignupDto, userId: string) {
+  async create(dto: SignupDto) {
     const createdUser = await this.prisma.users.create({
       data: {
         username: dto.username,

@@ -7,6 +7,8 @@ import { CreateAssetDto } from './dto/create-asset.dto';
 import { AuditService } from 'src/core/audit/audit.service';
 import { Entity } from 'src/core/enums/entity.enum';
 import { StorageService } from 'src/core/storage/storage.service';
+import { CreateKitDto, UpdateKitDto } from './dto/create-kit.dto';
+import { GetKitsParams } from './dto/get-kits-params.dto';
 
 @Injectable()
 export class AssetsService {
@@ -189,10 +191,10 @@ export class AssetsService {
         ...(category?.id && { category_id: category.id }),
         asset_specs: {
           update: {
-            specs: JSON.parse(JSON.stringify(data.specs)) || {},
+            specs: JSON.parse(JSON.stringify(data.specs ?? {})),
           },
         },
-        costs: Number(data.costs),
+        ...(data.costs !== undefined && { costs: Number(data.costs) }),
       },
     });
 
@@ -314,5 +316,232 @@ export class AssetsService {
         countLiquidated,
       },
     };
+  }
+
+  async createAssetKit(body: CreateKitDto, userId: string) {
+    // check for duplicate kit
+    const duplicateKitId = await this.checkDuplicateKit(body.asset_ids);
+    // if duplicate kit found, up the count for that kit, otherwise create new kit
+    if (duplicateKitId) {
+      const initialKit = await this.prisma.assetsKits.findUnique({
+        where: { id: duplicateKitId },
+      });
+      const assetKits = await this.prisma.assetsKits.update({
+        where: { id: duplicateKitId },
+        data: {
+          count: {
+            increment: 1,
+          },
+        },
+      });
+      await this.auditService.addRecord(
+        userId,
+        'UPDATE',
+        Entity.ASSET_KIT,
+        duplicateKitId,
+        JSON.stringify(initialKit),
+        JSON.stringify({ action: 'increment count' }),
+      );
+      return assetKits;
+    }
+
+    // check asset item status
+    const assets_status = await this.prisma.assets.findMany({
+      where: {
+        id: {
+          in: body.asset_ids,
+        },
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    // kit asset will take the status of the worst condition asset, e.g. if one asset is broken, the whole kit is considered broken and cannot be allocated
+    const statusPriority = {
+      READY: 1,
+      IN_USE: 2,
+      MAINTAINANCE: 3,
+      BROKEN: 4,
+      LIQUIDATED: 5,
+    };
+
+    const kitStatus = assets_status.reduce((worstStatus, asset) => {
+      return statusPriority[asset.status] > statusPriority[worstStatus]
+        ? asset.status
+        : worstStatus;
+    }, 'READY' as AssetStatus);
+
+    // create new kit
+    const newKit = await this.prisma.assetsKits.create({
+      data: {
+        name: body.name,
+        status: kitStatus,
+        assets_kits_items: {
+          createMany: {
+            data: body.asset_ids.map((asset_id) => ({
+              asset_id,
+            })),
+          },
+        },
+      },
+    });
+
+    // add audit record
+    await this.auditService.addRecord(
+      userId,
+      'CREATE',
+      Entity.ASSET_KIT,
+      newKit.id,
+      {},
+      JSON.stringify(body),
+    );
+
+    return newKit;
+  }
+
+  async checkDuplicateKit(asset_ids: string[]) {
+    const availableKits = await this.prisma.assetsKits.findMany({
+      where: {
+        asset_allocations: {
+          none: {},
+        },
+      },
+      include: {
+        assets_kits_items: {
+          select: {
+            asset_id: true,
+          },
+        },
+      },
+    });
+
+    // compare asset_ids with each kit's asset_ids
+    for (const kit of availableKits) {
+      const kitAssetIds = kit.assets_kits_items.map((item) => item.asset_id);
+      if (
+        kitAssetIds.length === asset_ids.length &&
+        kitAssetIds.every((id) => asset_ids.includes(id))
+      ) {
+        return kit.id;
+      }
+    }
+    return null;
+  }
+
+  async getAssetKitById(id: string) {
+    const kit = await this.prisma.assetsKits.findUnique({
+      where: { id },
+      include: {
+        assets_kits_items: {
+          include: {
+            asset: true,
+          },
+        },
+      },
+    });
+
+    if (!kit) {
+      throw new BadRequestException('Asset kit not found');
+    }
+
+    return kit;
+  }
+
+  async deleteAssetKitById(id: string, userId: string) {
+    const kit = await this.prisma.assetsKits.findUnique({
+      where: { id },
+    });
+
+    if (!kit) {
+      throw new BadRequestException('Asset kit not found');
+    }
+
+    // delete the kit
+    await this.prisma.assetsKits.delete({
+      where: { id },
+    });
+
+    // add audit record
+    await this.auditService.addRecord(
+      userId,
+      'DELETE',
+      Entity.ASSET_KIT,
+      id,
+      JSON.stringify(kit),
+      {},
+    );
+
+    return { message: 'Asset kit deleted successfully' };
+  }
+
+  async getAllAssetKits(query: GetKitsParams) {
+    const where = this.buildWhereKit(query);
+
+    const kits = await this.prisma.assetsKits.findMany({
+      where: where,
+      include: {
+        assets_kits_items: {
+          include: {
+            asset: true,
+          },
+        },
+      },
+    });
+
+    return kits;
+  }
+
+  protected buildWhereKit(query: GetKitsParams) {
+    const where: Prisma.AssetsKitsWhereInput = {};
+    if (query.filter && query.filterValue) {
+      if (query.filter === 'status') {
+        where.status = query.filterValue as AssetStatus;
+      }
+    }
+    if (query.search) {
+      where.OR = [
+        {
+          name: {
+            contains: query.search,
+            mode: 'insensitive',
+          },
+        },
+      ];
+    }
+    return where;
+  }
+
+  async updateAssetKitById(id: string, body: UpdateKitDto, userId: string) {
+    const initialKit = await this.prisma.assetsKits.findUnique({
+      where: { id },
+      include: {
+        assets_kits_items: true,
+      },
+    });
+
+    if (!initialKit) {
+      throw new BadRequestException('Asset kit not found');
+    }
+
+    const updatedKit = await this.prisma.assetsKits.update({
+      where: { id },
+      data: {
+        name: body.name,
+      },
+    });
+
+    // add audit record
+    await this.auditService.addRecord(
+      userId,
+      'UPDATE',
+      Entity.ASSET_KIT,
+      id,
+      JSON.stringify(initialKit),
+      JSON.stringify(body),
+    );
+
+    return updatedKit;
   }
 }

@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateRequestDto } from './dto/create-request.dto';
 import { PrismaService } from 'src/core/database/prisma.service';
 import {
@@ -19,6 +23,35 @@ export class RequestsService {
   ) {}
 
   async createRequest(body: CreateRequestDto, userId: string) {
+    // check if asset exists
+    const asset = await this.prisma.assets.findUnique({
+      where: { id: body.assetId },
+    });
+
+    if (!asset) {
+      throw new NotFoundException('The requested asset does not exist.');
+    }
+    // check if user already made the request for the same asset
+    const alreadyRequested = await this.prisma.borrowRequests.findFirst({
+      where: {
+        asset_id: body.assetId,
+        requester_id: body.requesterId,
+        status: {
+          in: [
+            BorrowStatus.PENDING,
+            BorrowStatus.APPROVED,
+            BorrowStatus.PROVIDED,
+          ],
+        },
+      },
+    });
+
+    if (alreadyRequested) {
+      throw new ConflictException(
+        'You have already made a request for this asset.',
+      );
+    }
+
     const createdRequest = await this.prisma.borrowRequests.create({
       data: {
         asset_id: body.assetId,
@@ -88,6 +121,8 @@ export class RequestsService {
         where.requester_id = query.filterValue;
       } else if (query.filter === 'assetId') {
         where.asset_id = query.filterValue;
+      } else if (query.filter === 'kitId') {
+        where.kit_id = query.filterValue;
       } else if (query.filter === 'borrowPriority') {
         where.priority = query.filterValue as BorrowPriority;
       }
@@ -123,6 +158,11 @@ export class RequestsService {
   }
 
   async editRequest(userId: string, requestId: string, body: CreateRequestDto) {
+    if (!((body.assetId && !body.kitId) || (!body.assetId && body.kitId))) {
+      throw new ConflictException(
+        'You must provide either an assetId or a kitId',
+      );
+    }
     const beforeRequest = await this.prisma.borrowRequests.findUnique({
       where: { id: requestId },
     });
@@ -130,7 +170,8 @@ export class RequestsService {
     const updatedRequest = await this.prisma.borrowRequests.updateMany({
       where: { id: requestId, requester_id: userId },
       data: {
-        asset_id: body.assetId,
+        // update asset_id or kit_id
+        ...(body.assetId ? { asset_id: body.assetId } : { kit_id: body.kitId }),
         reason: body.reason,
         priority: body.priority,
       },
@@ -149,20 +190,51 @@ export class RequestsService {
     return updatedRequest;
   }
 
-  async approveRequest(userId: string, requestId: string, assetId: string) {
+  async approveRequest(
+    userId: string,
+    requestId: string,
+    assetId?: string,
+    kitId?: string,
+  ) {
+    if (!((assetId && !kitId) || (!assetId && kitId))) {
+      throw new ConflictException(
+        'You must provide either an assetId or a kitId',
+      );
+    }
     // Get before state
     const beforeRequest = await this.prisma.borrowRequests.findUnique({
       where: { id: requestId },
     });
-    const beforeAsset = await this.prisma.assets.findUnique({
-      where: { id: assetId },
-    });
+    let before = {} as
+      | Prisma.AssetsGetPayload<{}>
+      | Prisma.AssetsKitsGetPayload<{}>
+      | null;
+    if (kitId === undefined) {
+      before = await this.prisma.assets.findUnique({
+        where: { id: assetId },
+      });
+    } else {
+      before = await this.prisma.assetsKits.findUnique({
+        where: { id: kitId },
+      });
+    }
 
-    // update asset status
-    await this.prisma.assets.update({
-      where: { id: assetId },
-      data: { status: 'IN_USE' },
-    });
+    let after = {} as
+      | Prisma.AssetsGetPayload<{}>
+      | Prisma.AssetsKitsGetPayload<{}>
+      | null;
+    // update asset/kit status
+    if (kitId === undefined) {
+      after = await this.prisma.assets.update({
+        where: { id: assetId },
+        data: { status: AssetStatus.IN_USE },
+      });
+    } else {
+      after = await this.prisma.assetsKits.update({
+        where: { id: kitId },
+        data: { status: AssetStatus.IN_USE },
+      });
+    }
 
     const updatedRequest = await this.prisma.borrowRequests.update({
       where: { id: requestId, status: BorrowStatus.PENDING },
@@ -186,10 +258,10 @@ export class RequestsService {
     await this.auditService.addRecord(
       userId,
       'UPDATE_STATUS',
-      Entity.ASSET,
-      assetId,
-      JSON.stringify(beforeAsset),
-      JSON.stringify({ status: 'IN_USE' }),
+      (assetId !== undefined ? Entity.ASSET : Entity.ASSET_KIT) as Entity,
+      (assetId !== undefined ? assetId : kitId) as string,
+      JSON.stringify(before),
+      JSON.stringify(after),
     );
 
     return updatedRequest;
@@ -247,20 +319,52 @@ export class RequestsService {
     return updatedRequest;
   }
 
-  async returnRequest(requestId: string, assetId: string, userId: string) {
+  async returnRequest(
+    requestId: string,
+    userId: string,
+    assetId?: string,
+    kitId?: string,
+  ) {
+    if (!((assetId && !kitId) || (!assetId && kitId))) {
+      throw new ConflictException(
+        'You must provide either an assetId or a kitId',
+      );
+    }
+
     // Get before state
     const beforeRequest = await this.prisma.borrowRequests.findUnique({
       where: { id: requestId },
     });
-    const beforeAsset = await this.prisma.assets.findUnique({
-      where: { id: assetId },
-    });
+    let before = {} as
+      | Prisma.AssetsGetPayload<{}>
+      | Prisma.AssetsKitsGetPayload<{}>
+      | null;
+    if (kitId === undefined) {
+      before = await this.prisma.assets.findUnique({
+        where: { id: assetId },
+      });
+    } else {
+      before = await this.prisma.assetsKits.findUnique({
+        where: { id: kitId },
+      });
+    }
 
-    // update asset status
-    await this.prisma.assets.update({
-      where: { id: assetId },
-      data: { status: AssetStatus.READY },
-    });
+    // update asset/kit status
+    let after = {} as
+      | Prisma.AssetsGetPayload<{}>
+      | Prisma.AssetsKitsGetPayload<{}>
+      | null;
+    if (kitId === undefined) {
+      after = await this.prisma.assets.update({
+        where: { id: assetId },
+        data: { status: AssetStatus.READY },
+      });
+    } else {
+      after = await this.prisma.assetsKits.update({
+        where: { id: kitId },
+        data: { status: AssetStatus.READY },
+      });
+    }
 
     const updatedRequest = await this.prisma.borrowRequests.update({
       where: {
@@ -286,10 +390,10 @@ export class RequestsService {
     await this.auditService.addRecord(
       userId,
       'UPDATE_STATUS',
-      Entity.ASSET,
-      assetId,
-      JSON.stringify(beforeAsset),
-      JSON.stringify({ status: AssetStatus.READY }),
+      (assetId !== undefined ? Entity.ASSET : Entity.ASSET_KIT) as Entity,
+      (assetId !== undefined ? assetId : kitId) as string,
+      JSON.stringify(before),
+      JSON.stringify(after),
     );
 
     return updatedRequest;
@@ -321,5 +425,56 @@ export class RequestsService {
     );
 
     return updatedRequest;
+  }
+
+  async createKitRequest(body: CreateRequestDto, userId: string) {
+    // check if kit exists
+    const kit = await this.prisma.assetsKits.findUnique({
+      where: { id: body.kitId },
+    });
+
+    if (!kit) {
+      throw new NotFoundException('The requested kit does not exist.');
+    }
+    // check if user already made the request for the same kits
+    const alreadyRequested = await this.prisma.borrowRequests.findFirst({
+      where: {
+        kit_id: body.kitId,
+        requester_id: body.requesterId,
+        status: {
+          in: [
+            BorrowStatus.PENDING,
+            BorrowStatus.APPROVED,
+            BorrowStatus.PROVIDED,
+          ],
+        },
+      },
+    });
+
+    if (alreadyRequested)
+      throw new ConflictException(
+        'You have already made a request for this kits.',
+      );
+
+    const createdRequest = await this.prisma.borrowRequests.create({
+      data: {
+        kit_id: body.kitId,
+        requester_id: body.requesterId,
+        reason: body.reason,
+        priority: body.priority,
+      },
+    });
+
+    // Add audit record
+    await this.auditService.addRecord(
+      userId,
+      'CREATE',
+      Entity.BORROW_REQUEST,
+      createdRequest.id,
+      JSON.stringify({}),
+      JSON.stringify(body),
+    );
+
+    return createdRequest;
   }
 }

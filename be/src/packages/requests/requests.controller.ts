@@ -97,7 +97,8 @@ export class RequestsController {
     @CurrentUser('id') userId: string,
   ) {
     const assetId = body.asset_id;
-    return this.requestService.returnRequest(requestId, assetId, userId);
+    const kitId = body.kit_id;
+    return this.requestService.returnRequest(requestId, userId, assetId, kitId);
   }
 
   @Put('/cancel')
