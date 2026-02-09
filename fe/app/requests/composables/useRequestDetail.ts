@@ -136,7 +136,11 @@ export const useRequestDetail = (requestId: string) => {
 
     isProcessing.value = true
     try {
-      request.value = await approveRequest(request.value.id)
+      request.value = await approveRequest(
+        request.value.id,
+        request.value.asset_id || undefined,
+        request.value.kit_id || undefined
+      )
       closeApprovalModal()
     } catch (err: any) {
       console.error('Failed to approve request:', err)
@@ -183,7 +187,11 @@ export const useRequestDetail = (requestId: string) => {
 
     isProcessing.value = true
     try {
-      request.value = await returnRequest(request.value.id)
+      request.value = await returnRequest(
+        request.value.id,
+        request.value.asset_id || undefined,
+        request.value.kit_id || undefined
+      )
     } catch (err: any) {
       console.error('Failed to return asset:', err)
       error.value = err.message || 'Failed to return asset'

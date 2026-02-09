@@ -9,7 +9,8 @@ export const useRequestForm = () => {
 
   // Form state - matches backend CreateRequestDto
   const formData = ref<RequestFormData>({
-    assetId: '',
+    assetId: undefined,
+    kitId: undefined,
     requesterId: '',
     reason: '',
     priority: 'MEDIUM'
@@ -43,7 +44,7 @@ export const useRequestForm = () => {
 
   const canSubmit = computed(() => {
     return (
-      formData.value.assetId &&
+      (formData.value.assetId || formData.value.kitId) &&
       formData.value.reason.trim().length > 0 &&
       Object.keys(errors.value).length === 0
     )

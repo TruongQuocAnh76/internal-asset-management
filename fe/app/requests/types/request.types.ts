@@ -58,7 +58,8 @@ export interface RequestUser {
 // Main Borrow Request interface - matches Prisma BorrowRequests
 export interface BorrowRequest {
   id: string
-  asset_id: string
+  asset_id: string | null
+  kit_id: string | null
   requester_id: string
   requested_at: string
   status: BorrowStatus
@@ -85,7 +86,8 @@ export interface ApprovalStep {
 
 // Form data for creating/editing request
 export interface RequestFormData {
-  assetId: string
+  assetId?: string
+  kitId?: string
   requesterId: string
   reason: string
   priority: RequestPriority

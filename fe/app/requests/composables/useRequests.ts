@@ -49,9 +49,10 @@ export const useRequests = () => {
 
   // Approve request - uses PUT /requests/approve?id=
   // Team Lead approves PENDING -> APPROVED
-  const approveRequest = async (id: string) => {
+  const approveRequest = async (id: string, assetId?: string, kitId?: string) => {
     return $fetch<BorrowRequest>(`${baseUrl}/requests/approve?id=${id}`, {
       method: 'PUT',
+      body: { asset_id: assetId, kit_id: kitId },
       credentials: 'include'
     })
   }
@@ -76,9 +77,10 @@ export const useRequests = () => {
 
   // Return request - uses PUT /requests/return?id=
   // User returns asset PROVIDED -> RETURNED (or OVERDUE -> RETURNED)
-  const returnRequest = async (id: string) => {
+  const returnRequest = async (id: string, assetId?: string, kitId?: string) => {
     return $fetch<BorrowRequest>(`${baseUrl}/requests/return?id=${id}`, {
       method: 'PUT',
+      body: { asset_id: assetId, kit_id: kitId },
       credentials: 'include'
     })
   }
