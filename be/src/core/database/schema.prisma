@@ -43,6 +43,7 @@ model Assets {
   category         AssetsCategories   @relation(fields: [category_id], references: [id])
   asset_allocation AssetsAllocation[]
   borrow_requests  BorrowRequests[]
+  assets_kits_items AssetsKitsItems[]
 }
 
 model AssetsCategories {
@@ -84,6 +85,17 @@ model AssetsKits {
   created_at DateTime    @default(now())
 
   asset_allocations AssetsAllocation[]
+  assets_kits_items AssetsKitsItems[]
+}
+
+model AssetsKitsItems {
+  kit_id   String @db.Uuid
+  asset_id String @db.Uuid
+
+  kit   AssetsKits @relation(fields: [kit_id], references: [id])
+  asset Assets     @relation(fields: [asset_id], references: [id])
+
+  @@unique([kit_id, asset_id])
 }
 
 model AssetsAllocation {

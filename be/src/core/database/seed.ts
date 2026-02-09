@@ -20,6 +20,7 @@ const ids = {
   roleEmployeeId: randomUUID(),
   permRequestApproveId: randomUUID(),
   permRequestProvidedId: randomUUID(),
+  permAssetCreateId: randomUUID(),
   categoryLaptopId: randomUUID(),
   categoryMonitorId: randomUUID(),
   kitId: randomUUID(),
@@ -97,6 +98,17 @@ async function main() {
       name: 'request:provided',
       resource: 'requests_provided',
       action: 'provided',
+    },
+  });
+
+  const permissionAssetCreate = await prisma.permissions.upsert({
+    where: { name: 'asset:create' },
+    update: {},
+    create: {
+      id: ids.permAssetCreateId,
+      name: 'asset:create',
+      resource: 'assets',
+      action: 'create',
     },
   });
 
@@ -212,6 +224,20 @@ async function main() {
     create: {
       role_id: adminRole.id,
       permission_id: permissionRequestApprove.id,
+    },
+  });
+
+  await prisma.rolePermissions.upsert({
+    where: {
+      role_id_permission_id: {
+        role_id: adminRole.id,
+        permission_id: permissionAssetCreate.id,
+      },
+    },
+    update: {},
+    create: {
+      role_id: adminRole.id,
+      permission_id: permissionAssetCreate.id,
     },
   });
 
