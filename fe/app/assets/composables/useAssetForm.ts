@@ -6,7 +6,7 @@ export interface FormErrors {
   category_name?: string
   location_name?: string
   costs?: string
-  stock?: string
+  initial_quantity?: string
   general?: string
 }
 
@@ -21,8 +21,7 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
     location_name: '',
     status: 'READY' as AssetStatus,
     costs: 0,
-    image_num: 0,
-    stock: 1,
+    initial_quantity: 1,
     specs: {},
   })
 
@@ -57,7 +56,7 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
           location_name: asset.location_name || '',
           status: asset.status || 'READY',
           costs: asset.costs || 0,
-          stock: asset.stock || 1,
+          initial_quantity: asset.stock || 1,
           specs: asset.asset_specs?.specs || {},
         }
       }
@@ -112,9 +111,9 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
         }
         break
 
-      case 'stock':
-        if (formData.value.stock < 1) {
-          errors.value.stock = 'Stock must be at least 1'
+      case 'initial_quantity':
+        if (formData.value.initial_quantity < 1) {
+          errors.value.initial_quantity = 'Initial quantity must be at least 1'
           return false
         }
         break
@@ -160,7 +159,7 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
   }
 
   // Submit handlers
-  const handleSubmit = async () => {
+  const handleSubmit = async (imageCount: number = 0) => {
     errors.value.general = undefined
     successMessage.value = ''
 
@@ -173,7 +172,7 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
 
     try {
       if (mode === 'create') {
-        const result = await createAsset(formData.value)
+        const result = await createAsset(formData.value, imageCount)
         successMessage.value = 'Asset created successfully'
         
         // Return result so form can upload images
@@ -201,6 +200,7 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
       location_name: '',
       status: 'READY',
       costs: 0,
+      initial_quantity: 1,
       specs: {},
     }
     errors.value = {}

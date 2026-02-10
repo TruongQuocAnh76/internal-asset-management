@@ -52,7 +52,6 @@ const handleImageSelect = (event: Event) => {
   const target = event.target as HTMLInputElement
   if (target.files) {
     selectedImages.value = Array.from(target.files)
-    formData.value.image_num = selectedImages.value.length
     
     // Generate preview URLs
     imagePreviewUrls.value = selectedImages.value.map(file => URL.createObjectURL(file))
@@ -64,7 +63,6 @@ const removeImage = (index: number) => {
   selectedImages.value.splice(index, 1)
   URL.revokeObjectURL(imagePreviewUrls.value[index])
   imagePreviewUrls.value.splice(index, 1)
-  formData.value.image_num = selectedImages.value.length
 }
 
 // Initialize
@@ -74,7 +72,7 @@ onMounted(async () => {
 
 // Handle form submission
 const onSubmit = async () => {
-  const result = await handleSubmit()
+  const result = await handleSubmit(selectedImages.value.length)
   if (result && selectedImages.value.length > 0) {
     try {
       // Upload images using presigned URLs
@@ -205,21 +203,21 @@ const onCancel = () => {
             <p v-if="errors.costs" class="error-message">{{ errors.costs }}</p>
           </div>
 
-          <!-- Stock -->
-          <div class="input-group">
-            <label for="stock" class="label">
-              Stock <span v-if="mode === 'create'" class="text-danger-500">*</span>
+          <!-- Initial Quantity (Create mode only) -->
+          <div v-if="mode === 'create'" class="input-group">
+            <label for="initial_quantity" class="label">
+              Initial Quantity <span class="text-danger-500">*</span>
             </label>
             <input
-              id="stock"
-              v-model.number="formData.stock"
+              id="initial_quantity"
+              v-model.number="formData.initial_quantity"
               type="number"
               min="1"
               placeholder="1"
-              @blur="validateField('stock')"
-              :class="{ '!border-danger-500': errors.stock }"
+              @blur="validateField('initial_quantity')"
+              :class="{ '!border-danger-500': errors.initial_quantity }"
             />
-            <p v-if="errors.stock" class="error-message">{{ errors.stock }}</p>
+            <p v-if="errors.initial_quantity" class="error-message">{{ errors.initial_quantity }}</p>
           </div>
         </div>
       </div>

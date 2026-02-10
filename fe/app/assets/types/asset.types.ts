@@ -1,3 +1,15 @@
+export type AssetStatus = 'READY' | 'IN_USE' | 'MAINTAINANCE' | 'BROKEN' | 'LIQUIDATED'
+
+export interface AssetItem {
+  id: string
+  status: AssetStatus
+  location_name: string | null
+  costs: number | null
+  acquired_at: string
+  kit_id: string | null
+  kit_status: boolean
+}
+
 export interface Asset {
   id?: string
   code: string
@@ -14,11 +26,10 @@ export interface Asset {
   asset_specs?: {
     specs: Record<string, string>
   }
+  asset_items?: AssetItem[]
   created_at?: string
   updated_at?: string
 }
-
-export type AssetStatus = 'READY' | 'IN_USE' | 'MAINTAINANCE' | 'BROKEN' | 'LIQUIDATED'
 
 export interface AssetSpec {
   key: string
@@ -31,8 +42,7 @@ export interface AssetFormData {
   location_name: string
   status: AssetStatus
   costs: number
-  image_num: number
-  stock: number
+  initial_quantity: number
   specs: Record<string, string>
 }
 

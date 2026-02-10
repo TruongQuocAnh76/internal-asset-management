@@ -47,13 +47,14 @@ export const useAssets = () => {
     })
   }
 
-  const createAsset = async (formData: AssetFormData) => {
+  const createAsset = async (formData: AssetFormData, imageCount: number = 0) => {
     return await $fetch<{ createdAsset: { id: string }; tempImageUrls: string[] }>('/assets', {
       method: 'POST',
       baseURL: config.public.backendUrl,
       credentials: 'include',
       body: {
         ...formData,
+        image_num: imageCount,
         specs: formData.specs || {}
       }
     })
