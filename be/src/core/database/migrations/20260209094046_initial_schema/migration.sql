@@ -11,7 +11,7 @@ CREATE TYPE "public"."BorrowStatus" AS ENUM ('PENDING', 'PROVIDED', 'APPROVED', 
 CREATE TYPE "public"."BorrowPriority" AS ENUM ('LOW', 'MEDIUM', 'HIGH');
 
 -- CreateEnum
-CREATE TYPE "public"."Entity" AS ENUM ('ASSET', 'USER', 'CATEGORY', 'BORROW_REQUEST', 'ASSET_ALLOCATION');
+CREATE TYPE "public"."Entity" AS ENUM ('ASSET', 'ASSET_KIT', 'USER', 'CATEGORY', 'BORROW_REQUEST', 'ASSET_ALLOCATION');
 
 -- CreateTable
 CREATE TABLE "public"."Assets" (
@@ -22,6 +22,7 @@ CREATE TABLE "public"."Assets" (
     "status" "public"."AssetStatus" NOT NULL DEFAULT 'READY',
     "location_name" TEXT NOT NULL,
     "costs" BIGINT NOT NULL DEFAULT 0,
+    "image_urls" TEXT[],
     "stock" INTEGER NOT NULL DEFAULT 1,
     "kit_id" UUID,
     "kit_status" BOOLEAN NOT NULL DEFAULT false,
@@ -145,7 +146,8 @@ CREATE TABLE "public"."RolePermissions" (
 -- CreateTable
 CREATE TABLE "public"."BorrowRequests" (
     "id" UUID NOT NULL,
-    "asset_id" UUID NOT NULL,
+    "asset_id" UUID,
+    "kit_id" UUID,
     "requester_id" UUID NOT NULL,
     "requested_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "status" "public"."BorrowStatus" NOT NULL DEFAULT 'PENDING',
@@ -221,9 +223,6 @@ CREATE UNIQUE INDEX "Permissions_action_key" ON "public"."Permissions"("action")
 CREATE UNIQUE INDEX "RolePermissions_role_id_permission_id_key" ON "public"."RolePermissions"("role_id", "permission_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "AuditLogs_action_key" ON "public"."AuditLogs"("action");
-
--- CreateIndex
 CREATE UNIQUE INDEX "Session_sid_key" ON "public"."Session"("sid");
 
 -- AddForeignKey
@@ -266,7 +265,10 @@ ALTER TABLE "public"."RolePermissions" ADD CONSTRAINT "RolePermissions_role_id_f
 ALTER TABLE "public"."RolePermissions" ADD CONSTRAINT "RolePermissions_permission_id_fkey" FOREIGN KEY ("permission_id") REFERENCES "public"."Permissions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "public"."BorrowRequests" ADD CONSTRAINT "BorrowRequests_asset_id_fkey" FOREIGN KEY ("asset_id") REFERENCES "public"."Assets"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "public"."BorrowRequests" ADD CONSTRAINT "BorrowRequests_asset_id_fkey" FOREIGN KEY ("asset_id") REFERENCES "public"."Assets"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."BorrowRequests" ADD CONSTRAINT "BorrowRequests_kit_id_fkey" FOREIGN KEY ("kit_id") REFERENCES "public"."AssetsKits"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."BorrowRequests" ADD CONSTRAINT "BorrowRequests_requester_id_fkey" FOREIGN KEY ("requester_id") REFERENCES "public"."Users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

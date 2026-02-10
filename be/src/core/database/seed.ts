@@ -286,6 +286,7 @@ async function main() {
     },
   });
 
+  // Create kit items after assets are created
   const assetOne = await prisma.assets.upsert({
     where: { code: 'LT-1001' },
     update: {},
@@ -297,9 +298,8 @@ async function main() {
       status: AssetStatus.IN_USE,
       location_name: 'Office Building A - Floor 3',
       costs: BigInt(150000),
-      stock: 1,
-      kit_id: null,
-      kit_status: false,
+      image_urls: [],
+      acquired_at: new Date(),
     },
   });
 
@@ -314,13 +314,12 @@ async function main() {
       status: AssetStatus.READY,
       location_name: 'Warehouse - Storage Room B',
       costs: BigInt(65000),
-      stock: 1,
-      kit_id: kit.id,
-      kit_status: true,
+      image_urls: [],
+      acquired_at: new Date(),
     },
   });
 
-  await prisma.assets.upsert({
+  const assetThree = await prisma.assets.upsert({
     where: { code: 'LT-1002' },
     update: {},
     create: {
@@ -331,13 +330,12 @@ async function main() {
       status: AssetStatus.READY,
       location_name: 'Office Building B - Floor 2',
       costs: BigInt(250000),
-      stock: 1,
-      kit_id: null,
-      kit_status: false,
+      image_urls: [],
+      acquired_at: new Date(),
     },
   });
 
-  await prisma.assets.upsert({
+  const assetFour = await prisma.assets.upsert({
     where: { code: 'LT-1003' },
     update: {},
     create: {
@@ -348,13 +346,12 @@ async function main() {
       status: AssetStatus.IN_USE,
       location_name: 'Office Building A - Floor 5',
       costs: BigInt(180000),
-      stock: 1,
-      kit_id: null,
-      kit_status: false,
+      image_urls: [],
+      acquired_at: new Date(),
     },
   });
 
-  await prisma.assets.upsert({
+  const assetFive = await prisma.assets.upsert({
     where: { code: 'MN-2002' },
     update: {},
     create: {
@@ -365,13 +362,12 @@ async function main() {
       status: AssetStatus.IN_USE,
       location_name: 'Office Building B - Floor 3',
       costs: BigInt(85000),
-      stock: 1,
-      kit_id: null,
-      kit_status: false,
+      image_urls: [],
+      acquired_at: new Date(),
     },
   });
 
-  await prisma.assets.upsert({
+  const assetSix = await prisma.assets.upsert({
     where: { code: 'MN-2003' },
     update: {},
     create: {
@@ -382,13 +378,12 @@ async function main() {
       status: AssetStatus.READY,
       location_name: 'Warehouse - Storage Room A',
       costs: BigInt(55000),
-      stock: 1,
-      kit_id: null,
-      kit_status: false,
+      image_urls: [],
+      acquired_at: new Date(),
     },
   });
 
-  await prisma.assets.upsert({
+  const assetSeven = await prisma.assets.upsert({
     where: { code: 'LT-1004' },
     update: {},
     create: {
@@ -399,13 +394,12 @@ async function main() {
       status: AssetStatus.MAINTAINANCE,
       location_name: 'IT Department - Repair Lab',
       costs: BigInt(140000),
-      stock: 1,
-      kit_id: null,
-      kit_status: false,
+      image_urls: [],
+      acquired_at: new Date(),
     },
   });
 
-  await prisma.assets.upsert({
+  const assetEight = await prisma.assets.upsert({
     where: { code: 'LT-1005' },
     update: {},
     create: {
@@ -416,13 +410,12 @@ async function main() {
       status: AssetStatus.READY,
       location_name: 'Office Building C - Floor 1',
       costs: BigInt(135000),
-      stock: 1,
-      kit_id: null,
-      kit_status: false,
+      image_urls: [],
+      acquired_at: new Date(),
     },
   });
 
-  await prisma.assets.upsert({
+  const assetNine = await prisma.assets.upsert({
     where: { code: 'MN-2004' },
     update: {},
     create: {
@@ -433,13 +426,12 @@ async function main() {
       status: AssetStatus.IN_USE,
       location_name: 'Office Building A - Floor 4',
       costs: BigInt(95000),
-      stock: 1,
-      kit_id: null,
-      kit_status: false,
+      image_urls: [],
+      acquired_at: new Date(),
     },
   });
 
-  await prisma.assets.upsert({
+  const assetTen = await prisma.assets.upsert({
     where: { code: 'LT-1006' },
     update: {},
     create: {
@@ -450,13 +442,12 @@ async function main() {
       status: AssetStatus.READY,
       location_name: 'Warehouse - Storage Room C',
       costs: BigInt(165000),
-      stock: 1,
-      kit_id: null,
-      kit_status: false,
+      image_urls: [],
+      acquired_at: new Date(),
     },
   });
 
-  await prisma.assets.upsert({
+  const assetEleven = await prisma.assets.upsert({
     where: { code: 'MN-2005' },
     update: {},
     create: {
@@ -467,13 +458,12 @@ async function main() {
       status: AssetStatus.BROKEN,
       location_name: 'IT Department - Repair Lab',
       costs: BigInt(72000),
-      stock: 1,
-      kit_id: null,
-      kit_status: false,
+      image_urls: [],
+      acquired_at: new Date(),
     },
   });
 
-  await prisma.assets.upsert({
+  const assetTwelve = await prisma.assets.upsert({
     where: { code: 'LT-1007' },
     update: {},
     create: {
@@ -484,9 +474,128 @@ async function main() {
       status: AssetStatus.IN_USE,
       location_name: 'Office Building B - Floor 4',
       costs: BigInt(220000),
-      stock: 1,
-      kit_id: null,
-      kit_status: false,
+      image_urls: [],
+      acquired_at: new Date(),
+    },
+  });
+
+  // Create AssetItems (individual stock items for each asset)
+  // Use actual IDs from upsert results (not pre-generated ids) to avoid FK violations on re-run
+  const assetItemsData = [
+    {
+      asset_id: assetOne.id,
+      status: AssetStatus.IN_USE,
+      location_name: 'Office Building A - Floor 3',
+      costs: BigInt(150000),
+    },
+    {
+      asset_id: assetTwo.id,
+      status: AssetStatus.READY,
+      location_name: 'Warehouse - Storage Room B',
+      costs: BigInt(65000),
+      kit_id: kit.id,
+      kit_status: true,
+    },
+    {
+      asset_id: assetThree.id,
+      status: AssetStatus.READY,
+      location_name: 'Office Building B - Floor 2',
+      costs: BigInt(250000),
+    },
+    {
+      asset_id: assetFour.id,
+      status: AssetStatus.IN_USE,
+      location_name: 'Office Building A - Floor 5',
+      costs: BigInt(180000),
+    },
+    {
+      asset_id: assetFive.id,
+      status: AssetStatus.IN_USE,
+      location_name: 'Office Building B - Floor 3',
+      costs: BigInt(85000),
+    },
+    {
+      asset_id: assetSix.id,
+      status: AssetStatus.READY,
+      location_name: 'Warehouse - Storage Room A',
+      costs: BigInt(55000),
+    },
+    {
+      asset_id: assetSeven.id,
+      status: AssetStatus.MAINTAINANCE,
+      location_name: 'IT Department - Repair Lab',
+      costs: BigInt(140000),
+    },
+    {
+      asset_id: assetEight.id,
+      status: AssetStatus.READY,
+      location_name: 'Office Building C - Floor 1',
+      costs: BigInt(135000),
+    },
+    {
+      asset_id: assetNine.id,
+      status: AssetStatus.IN_USE,
+      location_name: 'Office Building A - Floor 4',
+      costs: BigInt(95000),
+    },
+    {
+      asset_id: assetTen.id,
+      status: AssetStatus.READY,
+      location_name: 'Warehouse - Storage Room C',
+      costs: BigInt(165000),
+    },
+    {
+      asset_id: assetEleven.id,
+      status: AssetStatus.BROKEN,
+      location_name: 'IT Department - Repair Lab',
+      costs: BigInt(72000),
+    },
+    {
+      asset_id: assetTwelve.id,
+      status: AssetStatus.IN_USE,
+      location_name: 'Office Building B - Floor 4',
+      costs: BigInt(220000),
+    },
+  ];
+
+  // Delete existing asset items for these assets, then re-create
+  await prisma.assetItems.deleteMany({
+    where: {
+      asset_id: {
+        in: [
+          assetOne.id, assetTwo.id, assetThree.id, assetFour.id,
+          assetFive.id, assetSix.id, assetSeven.id, assetEight.id,
+          assetNine.id, assetTen.id, assetEleven.id, assetTwelve.id,
+        ],
+      },
+    },
+  });
+
+  for (const item of assetItemsData) {
+    await prisma.assetItems.create({
+      data: {
+        asset_id: item.asset_id,
+        status: item.status,
+        location_name: item.location_name,
+        costs: item.costs,
+        kit_id: item.kit_id ?? null,
+        kit_status: item.kit_status ?? false,
+      },
+    });
+  }
+
+  // Create AssetKitsItems to link assets to kits
+  await prisma.assetsKitsItems.upsert({
+    where: {
+      kit_id_asset_id: {
+        kit_id: kit.id,
+        asset_id: assetTwo.id,
+      },
+    },
+    update: {},
+    create: {
+      kit_id: kit.id,
+      asset_id: assetTwo.id,
     },
   });
 

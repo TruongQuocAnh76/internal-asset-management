@@ -31,9 +31,6 @@ model Assets {
   location_name String
   costs         BigInt      @default(0)
   image_urls    String[]
-  stock         Int         @default(1)
-  kit_id        String?     @db.Uuid
-  kit_status    Boolean     @default(false)
   acquired_at   DateTime    @default(now())
   created_at    DateTime    @default(now())
   updated_at    DateTime    @updatedAt
@@ -44,7 +41,28 @@ model Assets {
   asset_allocation  AssetsAllocation[]
   borrow_requests   BorrowRequests[]
   assets_kits_items AssetsKitsItems[]
+  asset_items       AssetItems[]
 }
+
+model AssetItems {
+  id            String           @id @default(uuid()) @db.Uuid
+  asset_id      String           @db.Uuid
+
+  status        AssetStatus      @default(READY)
+  location_name String?
+  costs         BigInt?
+  acquired_at   DateTime         @default(now())
+
+  kit_id        String?          @db.Uuid
+  kit_status    Boolean          @default(false)
+
+  created_at    DateTime         @default(now())
+  updated_at    DateTime         @updatedAt
+
+  asset         Assets           @relation(fields: [asset_id], references: [id], onDelete: Cascade)
+  kit           AssetsKits?      @relation(fields: [kit_id], references: [id], onDelete: SetNull)
+}
+
 
 model AssetsCategories {
   id   String @id @default(uuid()) @db.Uuid
@@ -87,6 +105,7 @@ model AssetsKits {
   asset_allocations AssetsAllocation[]
   assets_kits_items AssetsKitsItems[]
   borrowRequests    BorrowRequests[]
+  asset_items       AssetItems[]
 }
 
 model AssetsKitsItems {
