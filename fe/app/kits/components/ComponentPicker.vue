@@ -47,7 +47,8 @@ const handleSearch = async () => {
 
   isSearching.value = true
   try {
-    const results = await searchAvailableAssets(searchQuery.value, props.categoryFilter)
+    const { data: response } = await searchAvailableAssets(searchQuery.value, props.categoryFilter)
+    const results = response.value?.data ?? []
     // Filter to only show available assets
     assets.value = (Array.isArray(results) ? results : []).filter(a => a.status === 'READY')
   } catch (err) {

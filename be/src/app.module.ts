@@ -8,12 +8,14 @@ import { AssetsModule } from './packages/assets/assets.module';
 import { RequestsModule } from './packages/requests/requests.module';
 import { CategoryModule } from './packages/category/category.module';
 import { StorageModule } from './core/storage/storage.module';
+import { KitsModule } from './packages/kits/kits.module';
 @Module({
   imports: [
     DatabaseModule,
     UsersModule,
     AuthModule,
     AssetsModule,
+    KitsModule,
     RequestsModule,
     CategoryModule,
     StorageModule,

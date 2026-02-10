@@ -49,7 +49,23 @@ export const useKitDetail = (kitId: string) => {
     error.value = null
 
     try {
-      kit.value = await getKitById(kitId)
+      const data = await getKitById(kitId)
+      // Map assets_kits_items to the components shape the UI expects
+      const components = (data.assets_kits_items || []).map((item: any) => ({
+        id: item.asset_id,
+        assetType: item.asset?.category?.name || 'Unknown',
+        quantity: 1,
+        isPlaceholder: false,
+        asset: item.asset ? {
+          id: item.asset.id,
+          code: item.asset.code,
+          name: item.asset.name,
+          status: item.asset.status,
+          serial: item.asset.serial,
+          category: item.asset.category,
+        } : undefined,
+      }))
+      kit.value = { ...data, components }
     } catch (err: any) {
       error.value = err.data?.message || err.message || 'Failed to load kit'
     } finally {

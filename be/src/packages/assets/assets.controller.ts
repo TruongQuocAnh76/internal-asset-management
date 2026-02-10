@@ -20,13 +20,6 @@ import { EditAssetDto, EditAssetDtoSchema } from './dto/edit-asset.dto';
 import { CreateAssetDto, CreateAssetDtoSchema } from './dto/create-asset.dto';
 import { CurrentUser } from 'src/core/auth/decorator/current-user.decorator';
 import { Permission } from 'src/core/auth/decorator/permission.decorator';
-import {
-  CreateKitDto,
-  CreateKitDtoSchema,
-  UpdateKitDto,
-  UpdateKitDtoSchema,
-} from './dto/create-kit.dto';
-import { GetKitsParams, getKitsParamsSchema } from './dto/get-kits-params.dto';
 
 @Controller('assets')
 export class AssetsController {
@@ -38,14 +31,6 @@ export class AssetsController {
     @Query(new ZodValidationPipe(getAssetsParamsSchema)) query: GetAssetsParams,
   ) {
     return this.assetsService.getAssets(query);
-  }
-
-  @Get('kits')
-  @UseGuards(SessionAuthGuard)
-  getAllAssetKits(
-    @Query(new ZodValidationPipe(getKitsParamsSchema)) query: GetKitsParams,
-  ) {
-    return this.assetsService.getAllAssetKits(query);
   }
 
   @Get('summary')
@@ -90,39 +75,5 @@ export class AssetsController {
     @CurrentUser('id') userId: string,
   ) {
     return this.assetsService.createAsset(body, userId);
-  }
-
-  @Post('kits')
-  @UseGuards(SessionAuthGuard)
-  createAssetKits(
-    @Body(new ZodValidationPipe(CreateKitDtoSchema)) body: CreateKitDto,
-    @CurrentUser('id') userId: string,
-  ) {
-    return this.assetsService.createAssetKit(body, userId);
-  }
-
-  @Get('kits/:id')
-  @UseGuards(SessionAuthGuard)
-  getAssetKitById(@Param('id') id: string) {
-    return this.assetsService.getAssetKitById(id);
-  }
-
-  @Delete('kits/:id')
-  @UseGuards(SessionAuthGuard)
-  deleteAssetKitById(
-    @Param('id') id: string,
-    @CurrentUser('id') userId: string,
-  ) {
-    return this.assetsService.deleteAssetKitById(id, userId);
-  }
-
-  @Put('kits/:id')
-  @UseGuards(SessionAuthGuard)
-  updateAssetKitById(
-    @Param('id') id: string,
-    @Body(new ZodValidationPipe(UpdateKitDtoSchema)) body: UpdateKitDto,
-    @CurrentUser('id') userId: string,
-  ) {
-    return this.assetsService.updateAssetKitById(id, body, userId);
   }
 }
