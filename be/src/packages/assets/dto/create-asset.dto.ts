@@ -33,10 +33,10 @@ export class CreateAssetDto {
   image_num: number;
 
   @ApiProperty({
-    description: 'Stock count of the asset',
+    description: 'Initial quantity of individual asset items to create',
     example: 10,
   })
-  stock: number;
+  initial_quantity: number;
 
   @ApiProperty({
     description: 'Specifications of the asset',
@@ -51,6 +51,6 @@ export const CreateAssetDtoSchema = z.object({
   location_name: z.string(),
   costs: z.number().optional().default(0),
   image_num: z.number().optional().default(0),
-  stock: z.number().optional().default(1),
+  initial_quantity: z.number().int().min(1).optional().default(1),
   specs: z.record(z.string(), z.any()).optional(),
 });

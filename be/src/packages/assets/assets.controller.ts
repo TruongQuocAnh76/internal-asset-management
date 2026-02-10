@@ -40,6 +40,14 @@ export class AssetsController {
     return this.assetsService.getAssets(query);
   }
 
+  @Get('kits')
+  @UseGuards(SessionAuthGuard)
+  getAllAssetKits(
+    @Query(new ZodValidationPipe(getKitsParamsSchema)) query: GetKitsParams,
+  ) {
+    return this.assetsService.getAllAssetKits(query);
+  }
+
   @Get('summary')
   @UseGuards(SessionAuthGuard)
   getSummary() {
@@ -97,14 +105,6 @@ export class AssetsController {
   @UseGuards(SessionAuthGuard)
   getAssetKitById(@Param('id') id: string) {
     return this.assetsService.getAssetKitById(id);
-  }
-
-  @Get('kits')
-  @UseGuards(SessionAuthGuard)
-  getAllAssetKits(
-    @Query(new ZodValidationPipe(getKitsParamsSchema)) query: GetKitsParams,
-  ) {
-    return this.assetsService.getAllAssetKits(query);
   }
 
   @Delete('kits/:id')
