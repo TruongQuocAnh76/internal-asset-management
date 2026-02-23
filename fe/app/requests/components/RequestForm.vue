@@ -4,7 +4,7 @@ import PriorityBadge from './PriorityBadge.vue'
 import RequestPreviewModal from './RequestPreviewModal.vue'
 import DraftRestoreModal from './DraftRestoreModal.vue'
 import RequestSuccessModal from './RequestSuccessModal.vue'
-import type { RequestPriority } from '../types/request.types'
+import type { RequestPriority, RequestType } from '../types/request.types'
 
 const route = useRoute()
 const router = useRouter()
@@ -22,18 +22,24 @@ const {
   selectedCategoryId,
   selectedAsset,
   isLoadingAssets,
+  availableKits,
+  selectedKit,
+  isLoadingKits,
   requesterInfo,
   canSubmit,
   init,
   validateField,
   onCategoryChange,
   onAssetChange,
+  onTypeChange,
+  onKitChange,
   openPreview,
   closePreview,
   submitRequest,
   restoreDraft,
   discardDraft,
-  loadAvailableAssets
+  loadAvailableAssets,
+  loadAvailableKits
 } = useRequestForm()
 
 const priorities: { value: RequestPriority; label: string }[] = [
@@ -74,7 +80,11 @@ let searchTimeout: ReturnType<typeof setTimeout> | null = null
 const debouncedSearch = () => {
   if (searchTimeout) clearTimeout(searchTimeout)
   searchTimeout = setTimeout(() => {
-    loadAvailableAssets(searchQuery.value || undefined)
+    if (formData.value.type === 'kit') {
+      loadAvailableKits(searchQuery.value || undefined)
+    } else {
+      loadAvailableAssets(searchQuery.value || undefined)
+    }
   }, 1000)
 }
 
@@ -178,8 +188,71 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Asset Selection -->
+      <!-- Request Type Toggle -->
       <div class="card">
+        <h2 class="text-lg font-semibold text-secondary-900 mb-4 flex items-center gap-2">
+          <svg
+            class="w-5 h-5 text-primary-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 6h16M4 12h16M4 18h16"
+            />
+          </svg>
+          Request Type
+        </h2>
+
+        <div class="flex gap-3" role="radiogroup" aria-label="Request type">
+          <label
+            :class="[
+              'flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 cursor-pointer transition-all text-center',
+              formData.type === 'asset'
+                ? 'border-primary-500 bg-primary-50 text-primary-700'
+                : 'border-secondary-200 hover:border-secondary-300 text-secondary-700'
+            ]"
+          >
+            <input
+              type="radio"
+              value="asset"
+              :checked="formData.type === 'asset'"
+              @change="onTypeChange('asset')"
+              class="sr-only"
+            />
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+            </svg>
+            <span class="font-medium">Asset</span>
+          </label>
+          <label
+            :class="[
+              'flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 cursor-pointer transition-all text-center',
+              formData.type === 'kit'
+                ? 'border-primary-500 bg-primary-50 text-primary-700'
+                : 'border-secondary-200 hover:border-secondary-300 text-secondary-700'
+            ]"
+          >
+            <input
+              type="radio"
+              value="kit"
+              :checked="formData.type === 'kit'"
+              @change="onTypeChange('kit')"
+              class="sr-only"
+            />
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            <span class="font-medium">Kit</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Asset Selection (shown when type is 'asset') -->
+      <div v-if="formData.type === 'asset'" class="card">
         <h2 class="text-lg font-semibold text-secondary-900 mb-4 flex items-center gap-2">
           <svg
             class="w-5 h-5 text-primary-600"
@@ -278,6 +351,90 @@ onMounted(() => {
           </div>
           <p v-if="errors.assetId" class="error-message mt-2">
             {{ errors.assetId }}
+          </p>
+        </div>
+      </div>
+
+      <!-- Kit Selection (shown when type is 'kit') -->
+      <div v-if="formData.type === 'kit'" class="card">
+        <h2 class="text-lg font-semibold text-secondary-900 mb-4 flex items-center gap-2">
+          <svg
+            class="w-5 h-5 text-primary-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+            />
+          </svg>
+          Kit Selection
+        </h2>
+
+        <!-- Search -->
+        <div class="input-group mb-4">
+          <label for="kit-search" class="label">Search Kits</label>
+          <input
+            id="kit-search"
+            type="text"
+            v-model="searchQuery"
+            placeholder="Search by kit name..."
+            class="w-full"
+          />
+        </div>
+
+        <!-- Kit selection list -->
+        <div class="input-group">
+          <label class="label">
+            Select Kit <span class="text-danger-500">*</span>
+          </label>
+          <div v-if="isLoadingKits" class="py-4 text-center text-secondary-500">
+            <svg class="animate-spin h-5 w-5 mx-auto mb-2" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            Loading kits...
+          </div>
+          <div v-else-if="availableKits.length === 0" class="py-4 text-center text-secondary-500">
+            No available kits found
+          </div>
+          <div v-else class="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto">
+            <label
+              v-for="kit in availableKits"
+              :key="kit.id"
+              :class="[
+                'flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all',
+                formData.kitId === kit.id
+                  ? 'border-primary-500 bg-primary-50'
+                  : 'border-secondary-200 hover:border-secondary-300'
+              ]"
+            >
+              <input
+                type="radio"
+                :value="kit.id"
+                v-model="formData.kitId"
+                @change="onKitChange(kit.id)"
+                class="sr-only"
+              />
+              <div class="flex-1">
+                <p class="font-medium text-secondary-900">{{ kit.template?.name || 'Unnamed Kit' }}</p>
+                <p class="text-sm text-secondary-500">Kit #{{ kit.id.slice(0, 8).toUpperCase() }}</p>
+              </div>
+              <span
+                :class="[
+                  'px-2 py-1 text-xs rounded-full',
+                  kit.status === 'READY' ? 'bg-success-100 text-success-700' : 'bg-secondary-100 text-secondary-700'
+                ]"
+              >
+                {{ kit.status }}
+              </span>
+            </label>
+          </div>
+          <p v-if="(errors as any).kitId" class="error-message mt-2">
+            {{ (errors as any).kitId }}
           </p>
         </div>
       </div>
@@ -424,6 +581,7 @@ onMounted(() => {
       :form-data="formData"
       :requester-info="requesterInfo"
       :selected-asset="selectedAsset"
+      :selected-kit="selectedKit"
       :is-submitting="isSubmitting"
       @close="closePreview"
       @confirm="handlePreviewConfirm"

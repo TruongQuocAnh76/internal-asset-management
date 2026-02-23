@@ -82,8 +82,15 @@ export const useRequestDetail = (requestId: string) => {
   // Format request title
   const requestTitle = computed(() => {
     if (!request.value) return ''
-    const assetName = request.value.asset?.name || 'Asset Request'
-    return assetName
+    if (request.value.kit) {
+      return request.value.kit.template?.name || 'Kit Request'
+    }
+    return request.value.asset?.name || 'Asset Request'
+  })
+
+  // Determine request type
+  const requestType = computed(() => {
+    return request.value?.kit_id ? 'kit' : 'asset'
   })
 
   // Fetch request details
@@ -220,6 +227,7 @@ export const useRequestDetail = (requestId: string) => {
     hasProvidedPermission,
     permissions,
     requestTitle,
+    requestType,
     approvalChain,
 
     // Methods

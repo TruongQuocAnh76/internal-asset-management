@@ -4,6 +4,8 @@ export type BorrowStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'PROVIDED' | 'O
 
 export type RequestPriority = 'LOW' | 'MEDIUM' | 'HIGH'
 
+export type RequestType = 'asset' | 'kit'
+
 export type ApprovalAction = 'APPROVE' | 'REJECT'
 
 export type UserRole = 'EMPLOYEE' | 'TEAM_LEAD' | 'ADMIN'
@@ -45,6 +47,15 @@ export interface RequestAsset {
   category?: AssetCategory
 }
 
+export interface RequestKit {
+  id: string
+  status: string
+  template: {
+    id: string
+    name: string
+  }
+}
+
 // User info
 export interface RequestUser {
   id: string
@@ -73,6 +84,7 @@ export interface BorrowRequest {
   created_at: string
   // Relations (when included)
   asset?: RequestAsset
+  kit?: RequestKit
   user?: RequestUser
 }
 
@@ -86,6 +98,7 @@ export interface ApprovalStep {
 
 // Form data for creating/editing request
 export interface RequestFormData {
+  type: RequestType
   assetId?: string
   kitId?: string
   requesterId: string
@@ -103,7 +116,7 @@ export interface RequestDraft {
 
 // Query params for fetching requests - matches backend getRequestsDto
 export interface GetRequestsParams {
-  filter?: 'requesterId' | 'category' | 'costs' | 'status' | 'acquired_at'
+  filter?: 'requesterId' | 'category' | 'costs' | 'status' | 'acquired_at' | 'kitId'
   filterValue?: string
   search?: string
   sort?: string

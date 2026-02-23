@@ -1,4 +1,4 @@
-import type { BorrowRequest, RequestFormData, GetRequestsParams, RequestAsset, AssetCategory } from '../types/request.types'
+import type { BorrowRequest, RequestFormData, GetRequestsParams, RequestAsset, RequestKit, AssetCategory } from '../types/request.types'
 
 export const useRequests = () => {
   const config = useRuntimeConfig()
@@ -31,9 +31,11 @@ export const useRequests = () => {
 
   // Create request - uses POST /requests
   const createRequest = async (data: RequestFormData) => {
+    // Strip type field - backend doesn't need it, it infers from assetId/kitId
+    const { type, ...payload } = data
     return $fetch<BorrowRequest>(`${baseUrl}/requests`, {
       method: 'POST',
-      body: data,
+      body: payload,
       credentials: 'include'
     })
   }
@@ -114,6 +116,25 @@ export const useRequests = () => {
     })
   }
 
+  // Get available kits (READY status)
+  const getAvailableKits = async (search?: string) => {
+    const params: Record<string, string> = { filter: 'status', filterValue: 'READY' }
+    if (search) params.search = search
+
+    return useFetch<{ data: RequestKit[] }>(`${baseUrl}/kits`, {
+      params,
+      credentials: 'include',
+      transform: (response: any) => {
+        const items = response.data || response || []
+        return Array.isArray(items) ? items.map((kit: any) => ({
+          id: kit.id,
+          status: kit.status,
+          template: kit.template
+        })) : []
+      }
+    })
+  }
+
   return {
     getRequests,
     getRequestById,
@@ -125,6 +146,7 @@ export const useRequests = () => {
     returnRequest,
     cancelRequest,
     getAssetCategories,
-    getAvailableAssets
+    getAvailableAssets,
+    getAvailableKits
   }
 }
