@@ -77,9 +77,6 @@ const handleAssetClick = (asset: Asset) => {
               Status
             </th>
             <th class="px-6 py-4 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">
-              Cost
-            </th>
-            <th class="px-6 py-4 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">
               Acquired Date
             </th>
           </tr>
@@ -128,9 +125,6 @@ const handleAssetClick = (asset: Asset) => {
               >
                 {{ asset.status.replace('_', ' ') }}
               </span>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <span class="text-sm font-medium text-secondary-900">{{ formatCurrency(asset.costs) }}</span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
               <span class="text-sm text-secondary-600">{{ formatDate(asset.acquired_at) }}</span>

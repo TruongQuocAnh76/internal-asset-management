@@ -45,6 +45,12 @@ export class AssetsController {
     return this.assetsService.getAssetById(id);
   }
 
+  @Get(':id/items')
+  @UseGuards(SessionAuthGuard)
+  getAssetItems(@Param('id') id: string) {
+    return this.assetsService.getAssetItems(id);
+  }
+
   @Get('/category/count')
   @UseGuards(SessionAuthGuard)
   getAllAssetsCountByCategory() {

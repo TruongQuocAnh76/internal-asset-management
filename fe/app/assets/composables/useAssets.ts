@@ -1,4 +1,4 @@
-import type { GetAssetsParams, AssetsResponse, Asset, AssetFormData, AssetStatus } from '../types/asset.types'
+import type { GetAssetsParams, AssetsResponse, Asset, AssetItem, AssetFormData, AssetStatus } from '../types/asset.types'
 
 export const useAssets = () => {
   const config = useRuntimeConfig()
@@ -41,6 +41,14 @@ export const useAssets = () => {
 
   const getAssetById = async (id: string) => {
     return await $fetch<Asset>(`/assets/${id}`, {
+      method: 'GET',
+      baseURL: config.public.backendUrl,
+      credentials: 'include'
+    })
+  }
+
+  const getAssetItems = async (assetId: string) => {
+    return await $fetch<AssetItem[]>(`/assets/${assetId}/items`, {
       method: 'GET',
       baseURL: config.public.backendUrl,
       credentials: 'include'
@@ -97,6 +105,7 @@ export const useAssets = () => {
   return {
     getAllAssets,
     getAssetById,
+    getAssetItems,
     createAsset,
     updateAsset,
     updateAssetStatus,

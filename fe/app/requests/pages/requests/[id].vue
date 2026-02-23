@@ -143,7 +143,7 @@ const { formatDateTime } = useRequestHelpers()
                   <dt class="text-sm font-medium text-secondary-500">Requested Asset</dt>
                   <dd class="mt-1">
                     <p class="font-medium text-secondary-900">{{ request.asset.name }}</p>
-                    <p class="text-sm text-secondary-500">{{ request.asset.code }} · {{ request.asset.location_name }}</p>
+                    <p class="text-sm text-secondary-500">{{ request.asset.code }}</p>
                   </dd>
                 </div>
 

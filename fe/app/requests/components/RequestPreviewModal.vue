@@ -114,7 +114,7 @@ const handleConfirm = () => {
                       {{ selectedAsset?.name || 'Not selected' }}
                     </p>
                     <p v-if="selectedAsset" class="text-sm text-secondary-600">
-                      {{ selectedAsset.code }} · {{ selectedAsset.location_name }}
+                      {{ selectedAsset.code }}
                     </p>
                   </div>
                 </div>

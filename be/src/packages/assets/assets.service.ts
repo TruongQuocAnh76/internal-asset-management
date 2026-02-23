@@ -111,6 +111,14 @@ export class AssetsService {
             asset_items: true,
           },
         },
+        borrow_requests: {
+          where: {
+            status: { in: ['APPROVED', 'PROVIDED'] },
+          },
+          select: { requester_id: true },
+          orderBy: { created_at: 'desc' },
+          take: 1,
+        },
       },
     });
 
@@ -118,16 +126,58 @@ export class AssetsService {
       throw new BadRequestException('Asset not found');
     }
 
-    const { _count, ...rest } = asset;
+    const { _count, borrow_requests, ...rest } = asset;
 
     return {
       stock: _count.asset_items,
+      borrower_id: borrow_requests[0]?.requester_id ?? null,
       ...rest,
       asset_items: asset.asset_items.map((item) => ({
         ...item,
         costs: item.costs ? Number(item.costs) : null,
       })),
     };
+  }
+
+  async getAssetItems(assetId: string) {
+    const asset = await this.prisma.assets.findUnique({
+      where: { id: assetId },
+    });
+
+    if (!asset) {
+      throw new BadRequestException('Asset not found');
+    }
+
+    const items = await this.prisma.assetItems.findMany({
+      where: { asset_id: assetId },
+      select: {
+        id: true,
+        status: true,
+        location_name: true,
+        costs: true,
+        acquired_at: true,
+        kit_id: true,
+        kit_status: true,
+        created_at: true,
+        updated_at: true,
+        kit: {
+          select: {
+            id: true,
+            template: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    return items.map((item) => ({
+      ...item,
+      costs: item.costs ? Number(item.costs) : null,
+    }));
   }
 
   async createAsset(body: CreateAssetDto, userId: string) {

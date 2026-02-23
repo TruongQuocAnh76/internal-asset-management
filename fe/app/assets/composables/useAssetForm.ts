@@ -53,9 +53,9 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
         formData.value = {
           name: asset.name || '',
           category_name: asset.category?.name || '',
-          location_name: asset.location_name || '',
+          location_name: '',
           status: asset.status || 'READY',
-          costs: asset.costs || 0,
+          costs: 0,
           initial_quantity: asset.stock || 1,
           specs: asset.asset_specs?.specs || {},
         }
@@ -214,7 +214,6 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
     return (
       formData.value.name !== originalAsset.value.name ||
       formData.value.category_name !== (originalAsset.value.category?.name || '') ||
-      formData.value.costs !== originalAsset.value.costs ||
       formData.value.status !== originalAsset.value.status
     )
   })

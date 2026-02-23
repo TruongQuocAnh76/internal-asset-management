@@ -264,7 +264,7 @@ onMounted(() => {
               />
               <div class="flex-1">
                 <p class="font-medium text-secondary-900">{{ asset.name }}</p>
-                <p class="text-sm text-secondary-500">{{ asset.code }} · {{ asset.location_name }}</p>
+                <p class="text-sm text-secondary-500">{{ asset.code }}</p>
               </div>
               <span
                 :class="[

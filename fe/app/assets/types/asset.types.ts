@@ -8,6 +8,14 @@ export interface AssetItem {
   acquired_at: string
   kit_id: string | null
   kit_status: boolean
+  created_at?: string
+  updated_at?: string
+  kit?: {
+    id: string
+    template: {
+      name: string
+    }
+  } | null
 }
 
 export interface Asset {
@@ -18,10 +26,9 @@ export interface Asset {
     name: string
   }
   status: AssetStatus
-  costs: number
   stock?: number
+  borrower_id?: string | null
   acquired_at: string
-  location_name?: string
   image_urls?: string[]
   asset_specs?: {
     specs: Record<string, string>
