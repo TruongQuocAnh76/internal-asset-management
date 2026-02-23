@@ -6,6 +6,19 @@ import { Entity } from 'src/core/enums/entity.enum';
 import { CreateKitDto, UpdateKitDto } from './dto/create-kit.dto';
 import { GetKitsParams } from './dto/get-kits-params.dto';
 
+const KIT_INCLUDE = {
+  template: {
+    include: {
+      template_items: {
+        include: {
+          asset: true,
+        },
+      },
+    },
+  },
+  asset_items: true,
+} as const;
+
 @Injectable()
 export class KitsService {
   constructor(
@@ -27,30 +40,13 @@ export class KitsService {
       orderBy: orderBy,
       skip: skip,
       take: take,
-      include: {
-        assets_kits_items: {
-          include: {
-            asset: true,
-          },
-        },
-      },
+      include: KIT_INCLUDE,
     });
 
     const totalKitsCount = await this.prisma.assetsKits.count({ where: where });
 
-    const res = kits.map((kit) => ({
-      ...kit,
-      assets_kits_items: kit.assets_kits_items.map((item) => ({
-        ...item,
-        asset: {
-          ...item.asset,
-          costs: Number(item.asset.costs),
-        },
-      })),
-    }));
-
     return {
-      data: res,
+      data: kits,
       pagination: {
         page: skip / take + 1,
         limit: take,
@@ -65,79 +61,40 @@ export class KitsService {
   async getKitById(id: string) {
     const kit = await this.prisma.assetsKits.findUnique({
       where: { id },
-      include: {
-        assets_kits_items: {
-          include: {
-            asset: true,
-          },
-        },
-      },
+      include: KIT_INCLUDE,
     });
 
     if (!kit) {
       throw new BadRequestException('Asset kit not found');
     }
 
-    return {
-      ...kit,
-      assets_kits_items: kit.assets_kits_items.map((item) => ({
-        ...item,
-        asset: {
-          ...item.asset,
-          costs: Number(item.asset.costs),
-        },
-      })),
-    };
+    return kit;
   }
 
   async createKit(body: CreateKitDto, userId: string) {
-    // check for duplicate kit
-    const duplicateKitId = await this.checkDuplicateKit(body.asset_ids);
-    // if duplicate kit found, up the count for that kit, otherwise create new kit
-    if (duplicateKitId) {
-      const initialKit = await this.prisma.assetsKits.findUnique({
-        where: { id: duplicateKitId },
-        include: {
-          assets_kits_items: {
-            include: {
-              asset: true,
-            },
-          },
-        },
-      });
-      const assetKits = await this.prisma.assetsKits.update({
-        where: { id: duplicateKitId },
+    // check for duplicate template
+    const duplicateTemplateId = await this.checkDuplicateTemplate(body.asset_ids);
+
+    if (duplicateTemplateId) {
+      // Create another kit instance for the existing template
+      const newKit = await this.prisma.assetsKits.create({
         data: {
-          stock: {
-            increment: 1,
-          },
+          template_id: duplicateTemplateId,
+          status: AssetStatus.READY,
         },
-        include: {
-          assets_kits_items: {
-            include: {
-              asset: true,
-            },
-          },
-        },
+        include: KIT_INCLUDE,
       });
+
       await this.auditService.addRecord(
         userId,
-        'UPDATE',
+        'CREATE',
         Entity.ASSET_KIT,
-        duplicateKitId,
-        JSON.stringify(initialKit),
-        JSON.stringify({ action: 'increment count' }),
+        newKit.id,
+        JSON.stringify({}),
+        JSON.stringify({ action: 'create from existing template', templateId: duplicateTemplateId }),
       );
-      return {
-        ...assetKits,
-        assets_kits_items: assetKits.assets_kits_items.map((item) => ({
-          ...item,
-          asset: {
-            ...item.asset,
-            costs: Number(item.asset.costs),
-          },
-        })),
-      };
+
+      return newKit;
     }
 
     // check asset item status
@@ -153,41 +110,31 @@ export class KitsService {
       },
     });
 
-    // kit asset will take the status of the worst condition asset
-    const statusPriority = {
-      READY: 1,
-      IN_USE: 2,
-      MAINTAINANCE: 3,
-      BROKEN: 4,
-      LIQUIDATED: 5,
-    };
+    // kit status: READY if all assets are READY, otherwise IN_USE
+    const allReady = assets_status.every(
+      (asset) => asset.status === AssetStatus.READY,
+    );
+    const kitStatus = allReady ? AssetStatus.READY : AssetStatus.IN_USE;
 
-    const kitStatus = assets_status.reduce((worstStatus, asset) => {
-      return statusPriority[asset.status] > statusPriority[worstStatus]
-        ? asset.status
-        : worstStatus;
-    }, 'READY' as AssetStatus);
-
-    // create new kit
-    const newKit = await this.prisma.assetsKits.create({
+    // create template + kit instance
+    const template = await this.prisma.kitTemplates.create({
       data: {
         name: body.name,
         status: kitStatus,
-        assets_kits_items: {
+        template_items: {
           createMany: {
-            data: body.asset_ids.map((asset_id) => ({
-              asset_id,
-            })),
+            data: body.asset_ids.map((asset_id) => ({ asset_id })),
           },
         },
       },
-      include: {
-        assets_kits_items: {
-          include: {
-            asset: true,
-          },
-        },
+    });
+
+    const newKit = await this.prisma.assetsKits.create({
+      data: {
+        template_id: template.id,
+        status: kitStatus,
       },
+      include: KIT_INCLUDE,
     });
 
     // add audit record
@@ -200,46 +147,30 @@ export class KitsService {
       JSON.stringify(body),
     );
 
-    return {
-      ...newKit,
-      assets_kits_items: newKit.assets_kits_items.map((item) => ({
-        ...item,
-        asset: {
-          ...item.asset,
-          costs: Number(item.asset.costs),
-        },
-      })),
-    };
+    return newKit;
   }
 
   async updateKit(id: string, body: UpdateKitDto, userId: string) {
     const initialKit = await this.prisma.assetsKits.findUnique({
       where: { id },
-      include: {
-        assets_kits_items: {
-          include: {
-            asset: true,
-          },
-        },
-      },
+      include: KIT_INCLUDE,
     });
 
     if (!initialKit) {
       throw new BadRequestException('Asset kit not found');
     }
 
-    const updatedKit = await this.prisma.assetsKits.update({
+    // Update the template name if provided
+    if (body.name) {
+      await this.prisma.kitTemplates.update({
+        where: { id: initialKit.template_id },
+        data: { name: body.name },
+      });
+    }
+
+    const updatedKit = await this.prisma.assetsKits.findUnique({
       where: { id },
-      data: {
-        name: body.name,
-      },
-      include: {
-        assets_kits_items: {
-          include: {
-            asset: true,
-          },
-        },
-      },
+      include: KIT_INCLUDE,
     });
 
     // add audit record
@@ -252,16 +183,7 @@ export class KitsService {
       JSON.stringify(body),
     );
 
-    return {
-      ...updatedKit,
-      assets_kits_items: updatedKit.assets_kits_items.map((item) => ({
-        ...item,
-        asset: {
-          ...item.asset,
-          costs: Number(item.asset.costs),
-        },
-      })),
-    };
+    return updatedKit;
   }
 
   async deleteKit(id: string, userId: string) {
@@ -324,10 +246,10 @@ export class KitsService {
       throw new BadRequestException('Asset not found');
     }
 
-    // Add asset to kit
-    await this.prisma.assetsKitsItems.create({
+    // Add asset to the kit's template
+    await this.prisma.kitTemplateItems.create({
       data: {
-        kit_id: kitId,
+        template_id: kit.template_id,
         asset_id: body.assetId,
       },
     });
@@ -341,6 +263,9 @@ export class KitsService {
       JSON.stringify({ action: 'add_component', assetId: body.assetId }),
     );
 
+    // Recompute kit status after adding component
+    await this.recomputeKitStatus(kitId);
+
     return this.getKitById(kitId);
   }
 
@@ -353,12 +278,10 @@ export class KitsService {
       throw new BadRequestException('Asset kit not found');
     }
 
-    await this.prisma.assetsKitsItems.delete({
+    await this.prisma.kitTemplateItems.deleteMany({
       where: {
-        kit_id_asset_id: {
-          kit_id: kitId,
-          asset_id: assetId,
-        },
+        template_id: kit.template_id,
+        asset_id: assetId,
       },
     });
 
@@ -370,6 +293,9 @@ export class KitsService {
       JSON.stringify(kit),
       JSON.stringify({ action: 'remove_component', assetId }),
     );
+
+    // Recompute kit status after removing component
+    await this.recomputeKitStatus(kitId);
 
     return this.getKitById(kitId);
   }
@@ -397,18 +323,16 @@ export class KitsService {
     }
 
     // Remove old, add new
-    await this.prisma.assetsKitsItems.delete({
+    await this.prisma.kitTemplateItems.deleteMany({
       where: {
-        kit_id_asset_id: {
-          kit_id: kitId,
-          asset_id: oldAssetId,
-        },
+        template_id: kit.template_id,
+        asset_id: oldAssetId,
       },
     });
 
-    await this.prisma.assetsKitsItems.create({
+    await this.prisma.kitTemplateItems.create({
       data: {
-        kit_id: kitId,
+        template_id: kit.template_id,
         asset_id: newAssetId,
       },
     });
@@ -422,6 +346,9 @@ export class KitsService {
       JSON.stringify({ action: 'replace_component', oldAssetId, newAssetId }),
     );
 
+    // Recompute kit status after replacing component
+    await this.recomputeKitStatus(kitId);
+
     return this.getKitById(kitId);
   }
 
@@ -434,13 +361,11 @@ export class KitsService {
       throw new BadRequestException('Asset kit not found');
     }
 
-    // Remove the specific asset from the kit
-    await this.prisma.assetsKitsItems.delete({
+    // Remove the specific asset from the kit's template
+    await this.prisma.kitTemplateItems.deleteMany({
       where: {
-        kit_id_asset_id: {
-          kit_id: kitId,
-          asset_id: assetId,
-        },
+        template_id: kit.template_id,
+        asset_id: assetId,
       },
     });
 
@@ -453,32 +378,69 @@ export class KitsService {
       JSON.stringify({ action: 'convert_to_placeholder', assetId }),
     );
 
+    // Recompute kit status after converting to placeholder
+    await this.recomputeKitStatus(kitId);
+
     return this.getKitById(kitId);
   }
 
-  protected async checkDuplicateKit(asset_ids: string[]) {
-    const availableKits = await this.prisma.assetsKits.findMany({
-      where: {
-        asset_allocations: {
-          none: {},
-        },
-      },
+  /**
+   * Recompute cached status on the AssetsKits row.
+   * READY if ALL related asset_items are READY, otherwise IN_USE.
+   * Also recomputes the parent KitTemplate status.
+   */
+  async recomputeKitStatus(kitId: string): Promise<AssetStatus> {
+    const nonReadyCount = await this.prisma.assetItems.count({
+      where: { kit_id: kitId, status: { not: AssetStatus.READY } },
+    });
+    const newStatus = nonReadyCount === 0 ? AssetStatus.READY : AssetStatus.IN_USE;
+    await this.prisma.assetsKits.update({
+      where: { id: kitId },
+      data: { status: newStatus },
+    });
+    // Cascade to parent template
+    const kit = await this.prisma.assetsKits.findUnique({
+      where: { id: kitId },
+      select: { template_id: true },
+    });
+    if (kit) {
+      await this.recomputeTemplateStatus(kit.template_id);
+    }
+    return newStatus;
+  }
+
+  /**
+   * Recompute cached status on the KitTemplates row.
+   * READY if at least 1 of its asset_kits is READY, otherwise IN_USE.
+   */
+  async recomputeTemplateStatus(templateId: string): Promise<AssetStatus> {
+    const readyKitCount = await this.prisma.assetsKits.count({
+      where: { template_id: templateId, status: AssetStatus.READY },
+    });
+    const newStatus = readyKitCount > 0 ? AssetStatus.READY : AssetStatus.IN_USE;
+    await this.prisma.kitTemplates.update({
+      where: { id: templateId },
+      data: { status: newStatus },
+    });
+    return newStatus;
+  }
+
+  protected async checkDuplicateTemplate(asset_ids: string[]): Promise<string | null> {
+    const templates = await this.prisma.kitTemplates.findMany({
       include: {
-        assets_kits_items: {
-          select: {
-            asset_id: true,
-          },
+        template_items: {
+          select: { asset_id: true },
         },
       },
     });
 
-    for (const kit of availableKits) {
-      const kitAssetIds = kit.assets_kits_items.map((item) => item.asset_id);
+    for (const template of templates) {
+      const templateAssetIds = template.template_items.map((item) => item.asset_id);
       if (
-        kitAssetIds.length === asset_ids.length &&
-        kitAssetIds.every((id) => asset_ids.includes(id))
+        templateAssetIds.length === asset_ids.length &&
+        templateAssetIds.every((id) => asset_ids.includes(id))
       ) {
-        return kit.id;
+        return template.id;
       }
     }
     return null;
@@ -492,14 +454,12 @@ export class KitsService {
       }
     }
     if (query.search) {
-      where.OR = [
-        {
-          name: {
-            contains: query.search,
-            mode: 'insensitive',
-          },
+      where.template = {
+        name: {
+          contains: query.search,
+          mode: 'insensitive',
         },
-      ];
+      };
     }
     return where;
   }

@@ -23,46 +23,44 @@ enum AssetStatus {
 }
 
 model Assets {
-  id            String      @id @default(uuid()) @db.Uuid
-  code          String      @unique
-  name          String
-  category_id   String      @db.Uuid
-  status        AssetStatus @default(READY)
-  location_name String
-  costs         BigInt      @default(0)
-  image_urls    String[]
-  acquired_at   DateTime    @default(now())
-  created_at    DateTime    @default(now())
-  updated_at    DateTime    @updatedAt
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  name        String
+  category_id String   @db.Uuid
+  image_urls  String[]
+  acquired_at DateTime @default(now())
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
 
-  asset_specs       AssetsSpecs?
-  asset_events      AssetsEvents[]     @relation("AssetToEvents")
-  category          AssetsCategories   @relation(fields: [category_id], references: [id])
-  asset_allocation  AssetsAllocation[]
-  borrow_requests   BorrowRequests[]
-  assets_kits_items AssetsKitsItems[]
-  asset_items       AssetItems[]
+  asset_specs        AssetsSpecs?
+  asset_events       AssetsEvents[]     @relation("AssetToEvents")
+  category           AssetsCategories   @relation(fields: [category_id], references: [id])
+  asset_allocation   AssetsAllocation[]
+  status             AssetStatus      @default(READY)
+  borrow_requests    BorrowRequests[]
+  kit_template_items KitTemplateItems[]
+  // assets_kits_items AssetsKitsItems[]
+  asset_items        AssetItems[]
 }
 
 model AssetItems {
-  id            String           @id @default(uuid()) @db.Uuid
-  asset_id      String           @db.Uuid
+  id       String @id @default(uuid()) @db.Uuid
+  asset_id String @db.Uuid
 
-  status        AssetStatus      @default(READY)
+  status        AssetStatus @default(READY)
   location_name String?
   costs         BigInt?
-  acquired_at   DateTime         @default(now())
+  acquired_at   DateTime    @default(now())
 
-  kit_id        String?          @db.Uuid
-  kit_status    Boolean          @default(false)
+  kit_id     String? @db.Uuid
+  kit_status Boolean @default(false)
 
-  created_at    DateTime         @default(now())
-  updated_at    DateTime         @updatedAt
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
-  asset         Assets           @relation(fields: [asset_id], references: [id], onDelete: Cascade)
-  kit           AssetsKits?      @relation(fields: [kit_id], references: [id], onDelete: SetNull)
+  asset Assets      @relation(fields: [asset_id], references: [id], onDelete: Cascade)
+  kit   AssetsKits? @relation(fields: [kit_id], references: [id], onDelete: SetNull)
 }
-
 
 model AssetsCategories {
   id   String @id @default(uuid()) @db.Uuid
@@ -96,27 +94,46 @@ model AssetsEvents {
 }
 
 model AssetsKits {
+  id          String      @id @default(uuid()) @db.Uuid
+  template_id String      @db.Uuid
+  status      AssetStatus @default(READY)
+  created_at  DateTime    @default(now())
+
+  asset_allocations AssetsAllocation[]
+  // assets_kits_items AssetsKitsItems[]
+  borrowRequests    BorrowRequests[]
+  asset_items       AssetItems[]
+  template          KitTemplates       @relation(fields: [template_id], references: [id])
+}
+
+model KitTemplates {
   id         String      @id @default(uuid()) @db.Uuid
   name       String
   status     AssetStatus @default(READY)
-  stock      Int         @default(1)
   created_at DateTime    @default(now())
 
-  asset_allocations AssetsAllocation[]
-  assets_kits_items AssetsKitsItems[]
-  borrowRequests    BorrowRequests[]
-  asset_items       AssetItems[]
+  template_items KitTemplateItems[]
+  assetsKits     AssetsKits[]
 }
 
-model AssetsKitsItems {
-  kit_id   String @db.Uuid
-  asset_id String @db.Uuid
+model KitTemplateItems {
+  id          String @id @default(uuid()) @db.Uuid
+  template_id String @db.Uuid
+  asset_id    String @db.Uuid
 
-  kit   AssetsKits @relation(fields: [kit_id], references: [id])
-  asset Assets     @relation(fields: [asset_id], references: [id])
-
-  @@unique([kit_id, asset_id])
+  template KitTemplates @relation(fields: [template_id], references: [id])
+  asset    Assets       @relation(fields: [asset_id], references: [id])
 }
+
+// model AssetsKitsItems {
+//   kit_id   String @db.Uuid
+//   asset_id String @db.Uuid
+
+//   kit   AssetsKits @relation(fields: [kit_id], references: [id])
+//   asset Assets     @relation(fields: [asset_id], references: [id])
+
+//   @@unique([kit_id, asset_id])
+// }
 
 model AssetsAllocation {
   id       String @id @default(uuid()) @db.Uuid
@@ -237,6 +254,7 @@ model BorrowRequests {
 enum Entity {
   ASSET
   ASSET_KIT
+  KIT_ITEM
   USER
   CATEGORY
   BORROW_REQUEST
@@ -257,11 +275,8 @@ model AuditLogs {
 }
 
 model Session {
-  id        String   @id @default(cuid())
+  id        String   @id
   sid       String   @unique
   data      String
   expiresAt DateTime
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }

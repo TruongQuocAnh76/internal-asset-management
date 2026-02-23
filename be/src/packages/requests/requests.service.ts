@@ -95,7 +95,6 @@ export class RequestsService {
             code: true,
             name: true,
             status: true,
-            location_name: true,
           },
         },
         user: {
@@ -140,7 +139,6 @@ export class RequestsService {
             code: true,
             name: true,
             status: true,
-            location_name: true,
           },
         },
         user: {
@@ -219,22 +217,39 @@ export class RequestsService {
       });
     }
 
-    let after = {} as
-      | Prisma.AssetsGetPayload<{}>
-      | Prisma.AssetsKitsGetPayload<{}>
-      | null;
-    // update asset/kit status
+    // Mark an asset_item as IN_USE and recompute cached status
     if (kitId === undefined) {
-      after = await this.prisma.assets.update({
-        where: { id: assetId },
-        data: { status: AssetStatus.IN_USE },
+      const readyItem = await this.prisma.assetItems.findFirst({
+        where: { asset_id: assetId, status: AssetStatus.READY },
       });
+      if (readyItem) {
+        await this.prisma.assetItems.update({
+          where: { id: readyItem.id },
+          data: { status: AssetStatus.IN_USE },
+        });
+        await this.recomputeAssetStatus(assetId!);
+      }
     } else {
-      after = await this.prisma.assetsKits.update({
-        where: { id: kitId },
-        data: { status: AssetStatus.IN_USE },
+      const kitItems = await this.prisma.assetItems.findMany({
+        where: { kit_id: kitId, status: AssetStatus.READY },
       });
+      if (kitItems.length > 0) {
+        await this.prisma.assetItems.updateMany({
+          where: { kit_id: kitId, status: AssetStatus.READY },
+          data: { status: AssetStatus.IN_USE },
+        });
+        await this.recomputeKitStatus(kitId);
+        // Also recompute parent asset statuses
+        const assetIds = [...new Set(kitItems.map((i) => i.asset_id))];
+        for (const id of assetIds) {
+          await this.recomputeAssetStatus(id);
+        }
+      }
     }
+
+    const after = kitId === undefined
+      ? await this.prisma.assets.findUnique({ where: { id: assetId } })
+      : await this.prisma.assetsKits.findUnique({ where: { id: kitId } });
 
     const updatedRequest = await this.prisma.borrowRequests.update({
       where: { id: requestId, status: BorrowStatus.PENDING },
@@ -349,22 +364,39 @@ export class RequestsService {
       });
     }
 
-    // update asset/kit status
-    let after = {} as
-      | Prisma.AssetsGetPayload<{}>
-      | Prisma.AssetsKitsGetPayload<{}>
-      | null;
+    // Mark asset_items as READY and recompute cached status
     if (kitId === undefined) {
-      after = await this.prisma.assets.update({
-        where: { id: assetId },
-        data: { status: AssetStatus.READY },
+      const inUseItem = await this.prisma.assetItems.findFirst({
+        where: { asset_id: assetId, status: AssetStatus.IN_USE },
       });
+      if (inUseItem) {
+        await this.prisma.assetItems.update({
+          where: { id: inUseItem.id },
+          data: { status: AssetStatus.READY },
+        });
+        await this.recomputeAssetStatus(assetId!);
+      }
     } else {
-      after = await this.prisma.assetsKits.update({
-        where: { id: kitId },
-        data: { status: AssetStatus.READY },
+      const kitItems = await this.prisma.assetItems.findMany({
+        where: { kit_id: kitId, status: AssetStatus.IN_USE },
       });
+      if (kitItems.length > 0) {
+        await this.prisma.assetItems.updateMany({
+          where: { kit_id: kitId, status: AssetStatus.IN_USE },
+          data: { status: AssetStatus.READY },
+        });
+        await this.recomputeKitStatus(kitId);
+        // Also recompute parent asset statuses
+        const assetIds = [...new Set(kitItems.map((i) => i.asset_id))];
+        for (const id of assetIds) {
+          await this.recomputeAssetStatus(id);
+        }
+      }
     }
+
+    const after = kitId === undefined
+      ? await this.prisma.assets.findUnique({ where: { id: assetId } })
+      : await this.prisma.assetsKits.findUnique({ where: { id: kitId } });
 
     const updatedRequest = await this.prisma.borrowRequests.update({
       where: {
@@ -476,5 +508,50 @@ export class RequestsService {
     );
 
     return createdRequest;
+  }
+
+  /**
+   * Recompute cached status on the Assets row.
+   * READY if at least 1 asset_item is READY, otherwise IN_USE.
+   */
+  private async recomputeAssetStatus(assetId: string): Promise<void> {
+    const readyCount = await this.prisma.assetItems.count({
+      where: { asset_id: assetId, status: AssetStatus.READY },
+    });
+    const newStatus = readyCount > 0 ? AssetStatus.READY : AssetStatus.IN_USE;
+    await this.prisma.assets.update({
+      where: { id: assetId },
+      data: { status: newStatus },
+    });
+  }
+
+  /**
+   * Recompute cached status on the AssetsKits row.
+   * READY if ALL related asset_items are READY, otherwise IN_USE.
+   * Also recomputes the parent KitTemplate status.
+   */
+  private async recomputeKitStatus(kitId: string): Promise<void> {
+    const nonReadyCount = await this.prisma.assetItems.count({
+      where: { kit_id: kitId, status: { not: AssetStatus.READY } },
+    });
+    const newStatus = nonReadyCount === 0 ? AssetStatus.READY : AssetStatus.IN_USE;
+    await this.prisma.assetsKits.update({
+      where: { id: kitId },
+      data: { status: newStatus },
+    });
+    const kit = await this.prisma.assetsKits.findUnique({
+      where: { id: kitId },
+      select: { template_id: true },
+    });
+    if (kit) {
+      const readyKitCount = await this.prisma.assetsKits.count({
+        where: { template_id: kit.template_id, status: AssetStatus.READY },
+      });
+      const templateStatus = readyKitCount > 0 ? AssetStatus.READY : AssetStatus.IN_USE;
+      await this.prisma.kitTemplates.update({
+        where: { id: kit.template_id },
+        data: { status: templateStatus },
+      });
+    }
   }
 }

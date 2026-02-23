@@ -41,7 +41,6 @@ export class AssetsService {
         },
         status: true,
         image_urls: true,
-        costs: true,
         acquired_at: true,
         _count: {
           select: {
@@ -57,7 +56,6 @@ export class AssetsService {
       const { _count, ...rest } = asset;
       return {
         ...rest,
-        costs: Number(asset.costs),
         stock: _count.asset_items,
       };
     });
@@ -93,7 +91,6 @@ export class AssetsService {
           },
         },
         status: true,
-        costs: true,
         image_urls: true,
         acquired_at: true,
         created_at: true,
@@ -121,10 +118,9 @@ export class AssetsService {
       throw new BadRequestException('Asset not found');
     }
 
-    const { costs, _count, ...rest } = asset;
+    const { _count, ...rest } = asset;
 
     return {
-      costs: Number(costs),
       stock: _count.asset_items,
       ...rest,
       asset_items: asset.asset_items.map((item) => ({
@@ -145,8 +141,8 @@ export class AssetsService {
       .replace(/\s+/g, '_')
       .concat('_', Date.now().toString().slice(-4));
 
-    const { category_name, costs, specs, image_num, initial_quantity, ...rest } = body;
-    const asset_costs = Number(costs);
+    const { category_name, costs, specs, image_num, initial_quantity, location_name, ...rest } = body;
+    const asset_costs = costs !== undefined ? Number(costs) : null;
 
     // create temp url for each images
     const fileNames: string[] = [];
@@ -169,7 +165,6 @@ export class AssetsService {
         ...rest,
         code: asset_code,
         category_id: category.id,
-        costs: asset_costs,
         asset_specs: {
           create: {
             specs: JSON.parse(JSON.stringify(body.specs)) || {},
@@ -200,6 +195,9 @@ export class AssetsService {
       {},
       JSON.stringify(body),
     );
+
+    // Recompute cached asset status
+    await this.recomputeAssetStatus(createdAsset.id);
 
     return { createdAsset, tempImageUrls };
   }
@@ -232,7 +230,6 @@ export class AssetsService {
             specs: JSON.parse(JSON.stringify(data.specs ?? {})),
           },
         },
-        ...(data.costs !== undefined && { costs: Number(data.costs) }),
       },
     });
 
@@ -246,8 +243,7 @@ export class AssetsService {
       JSON.stringify(data),
     );
 
-    const { costs: assetCosts, ...assetRest } = asset;
-    return { costs: Number(assetCosts), ...assetRest };
+    return asset;
   }
 
   protected async checkCategory(category_name: string) {
@@ -272,8 +268,6 @@ export class AssetsService {
           throw new BadRequestException('Invalid asset status');
         }
         where.status = query.filterValue as AssetStatus;
-      } else if (query.filter === 'costs') {
-        where.costs = Number(query.filterValue);
       } else if (query.filter === 'acquired_at') {
         where.acquired_at = new Date(query.filterValue);
       }
@@ -373,8 +367,6 @@ export class AssetsService {
       const newItems = await this.prisma.assetItems.createManyAndReturn({
         data: Array.from({ length: value }, () => ({
           asset_id: assetId,
-          location_name: asset.location_name,
-          costs: asset.costs,
         })),
       });
 
@@ -386,6 +378,9 @@ export class AssetsService {
         JSON.stringify({ action: 'add_items', count: value }),
         JSON.stringify(newItems),
       );
+
+      // Recompute cached asset status
+      await this.recomputeAssetStatus(assetId);
 
       return newItems;
     } else if (value < 0) {
@@ -421,9 +416,28 @@ export class AssetsService {
         JSON.stringify({}),
       );
 
+      // Recompute cached asset status
+      await this.recomputeAssetStatus(assetId);
+
       return { removed: removedIds.length };
     }
 
     return { message: 'No stock adjustment needed' };
+  }
+
+  /**
+   * Recompute cached status on the Assets row.
+   * READY if at least 1 asset_item is READY, otherwise IN_USE.
+   */
+  async recomputeAssetStatus(assetId: string): Promise<AssetStatus> {
+    const readyCount = await this.prisma.assetItems.count({
+      where: { asset_id: assetId, status: AssetStatus.READY },
+    });
+    const newStatus = readyCount > 0 ? AssetStatus.READY : AssetStatus.IN_USE;
+    await this.prisma.assets.update({
+      where: { id: assetId },
+      data: { status: newStatus },
+    });
+    return newStatus;
   }
 }
