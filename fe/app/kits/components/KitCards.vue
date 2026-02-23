@@ -31,17 +31,6 @@ const getStatusClass = (status: string) => {
   return classes[status as keyof typeof classes] || 'bg-secondary-100 text-secondary-700'
 }
 
-const getInventoryStatus = (kit: Kit) => {
-  if (!kit.components || kit.components.length === 0) return { text: 'Empty', class: 'text-secondary-400' }
-  
-  const total = kit.components.length
-  const filled = kit.components.filter(c => c.assignedAssetId).length
-  
-  if (filled === total) return { text: 'Complete', class: 'text-success-600' }
-  if (filled === 0) return { text: 'All missing', class: 'text-danger-600' }
-  return { text: `${filled}/${total}`, class: 'text-warning-600' }
-}
-
 const formatDate = (date: string) => {
   return new Date(date).toLocaleDateString('en-US', {
     month: 'short',
@@ -95,11 +84,8 @@ const formatDate = (date: string) => {
                   @click="emit('view', kit)"
                   class="text-left font-medium text-secondary-900 hover:text-primary-600 truncate block"
                 >
-                  {{ kit.name }}
+                  {{ kit.template.name }}
                 </button>
-                <p class="text-sm text-secondary-500 truncate">
-                  {{ kit.category?.name || 'Uncategorized' }}
-                </p>
               </div>
             </div>
             <span
@@ -116,37 +102,10 @@ const formatDate = (date: string) => {
           <!-- Components & Inventory -->
           <div class="flex items-center justify-between text-sm">
             <span class="text-secondary-500">
-              {{ kit.components?.length || 0 }} component{{ kit.components?.length !== 1 ? 's' : '' }}
+              {{ kit.template.template_items?.length || 0 }} component{{ kit.template.template_items?.length !== 1 ? 's' : '' }}
             </span>
-            <span :class="getInventoryStatus(kit).class" class="font-medium">
-              {{ getInventoryStatus(kit).text }}
-            </span>
-          </div>
-
-          <!-- Tags -->
-          <div v-if="kit.tags && kit.tags.length > 0" class="flex flex-wrap gap-1">
-            <span
-              v-for="tag in kit.tags.slice(0, 3)"
-              :key="tag"
-              class="px-2 py-0.5 text-xs bg-secondary-100 text-secondary-600 rounded-full"
-            >
-              {{ tag }}
-            </span>
-            <span
-              v-if="kit.tags.length > 3"
-              class="px-2 py-0.5 text-xs bg-secondary-100 text-secondary-500 rounded-full"
-            >
-              +{{ kit.tags.length - 3 }}
-            </span>
-          </div>
-
-          <!-- Assignee -->
-          <div v-if="kit.currentAssignment" class="flex items-center gap-2 text-sm">
-            <span class="w-6 h-6 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-xs font-medium">
-              {{ kit.currentAssignment.user?.name?.charAt(0) || '?' }}
-            </span>
-            <span class="text-secondary-600 truncate">
-              {{ kit.currentAssignment.user?.name || 'Assigned' }}
+            <span class="font-medium text-secondary-600">
+              {{ kit.asset_items?.length || 0 }} item{{ kit.asset_items?.length !== 1 ? 's' : '' }}
             </span>
           </div>
         </div>
@@ -154,7 +113,7 @@ const formatDate = (date: string) => {
         <!-- Card Footer -->
         <div class="px-4 py-3 bg-secondary-50 rounded-b-lg flex items-center justify-between">
           <span class="text-xs text-secondary-500">
-            Updated {{ formatDate(kit.updatedAt) }}
+            Created {{ formatDate(kit.created_at) }}
           </span>
           <button
             @click="emit('view', kit)"

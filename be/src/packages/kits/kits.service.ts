@@ -45,8 +45,17 @@ export class KitsService {
 
     const totalKitsCount = await this.prisma.assetsKits.count({ where: where });
 
+    // Convert BigInt costs to numbers
+    const transformedKits = kits.map(kit => ({
+      ...kit,
+      asset_items: kit.asset_items.map(item => ({
+        ...item,
+        costs: item.costs ? Number(item.costs) : null,
+      })),
+    }));
+
     return {
-      data: kits,
+      data: transformedKits,
       pagination: {
         page: skip / take + 1,
         limit: take,
@@ -68,7 +77,13 @@ export class KitsService {
       throw new BadRequestException('Asset kit not found');
     }
 
-    return kit;
+    return {
+      ...kit,
+      asset_items: kit.asset_items.map(item => ({
+        ...item,
+        costs: item.costs ? Number(item.costs) : null,
+      })),
+    };
   }
 
   async createKit(body: CreateKitDto, userId: string) {

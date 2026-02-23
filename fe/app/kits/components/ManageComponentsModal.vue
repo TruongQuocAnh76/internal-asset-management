@@ -50,14 +50,14 @@ const handleAddComponent = async (asset: ComponentPickerAsset | null, assetType:
   }
 }
 
-const handleRemoveComponent = async (componentId: string) => {
+const handleRemoveComponent = async (assetId: string) => {
   if (!props.kit) return
 
   isProcessing.value = true
   error.value = null
 
   try {
-    await removeComponentFromKit(props.kit.id, componentId)
+    await removeComponentFromKit(props.kit.id, assetId)
     successMessage.value = 'Component removed successfully'
     emit('update')
     showConfirmRemove.value = null
@@ -150,7 +150,7 @@ watch(() => props.visible, (visible) => {
             <div class="flex items-center justify-between">
               <div>
                 <h2 class="text-lg font-semibold text-secondary-900">Manage Components</h2>
-                <p v-if="kit" class="text-sm text-secondary-600">{{ kit.name }}</p>
+                <p v-if="kit" class="text-sm text-secondary-600">{{ kit.template.name }}</p>
               </div>
               <button
                 @click="emit('close')"
@@ -232,7 +232,7 @@ watch(() => props.visible, (visible) => {
 
             <!-- Manage Tab -->
             <div v-else>
-              <div v-if="!kit?.components?.length" class="text-center py-8">
+              <div v-if="!kit?.template?.template_items?.length" class="text-center py-8">
                 <svg class="w-12 h-12 mx-auto text-secondary-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                 </svg>
@@ -241,7 +241,7 @@ watch(() => props.visible, (visible) => {
 
               <div v-else class="space-y-3">
                 <div
-                  v-for="component in kit.components"
+                  v-for="component in kit.template.template_items"
                   :key="component.id"
                   class="border border-secondary-200 rounded-lg p-4"
                 >
@@ -250,12 +250,11 @@ watch(() => props.visible, (visible) => {
                     <div class="flex-1 min-w-0">
                       <div class="flex items-center gap-2 mb-1">
                         <span 
-                          class="inline-flex items-center justify-center w-6 h-6 text-xs font-semibold rounded-full"
-                          :class="component.isPlaceholder ? 'bg-warning-100 text-warning-700' : 'bg-primary-100 text-primary-700'"
+                          class="inline-flex items-center justify-center w-6 h-6 text-xs font-semibold rounded-full bg-primary-100 text-primary-700"
                         >
-                          {{ component.quantity }}x
+                          ✓
                         </span>
-                        <span class="font-medium text-secondary-900">{{ component.assetType }}</span>
+                        <span class="font-medium text-secondary-900">{{ component.asset?.name || 'Unknown Asset' }}</span>
                         <span v-if="component.asset?.status" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium" :class="getStatusColor(component.asset.status)">
                           {{ component.asset.status }}
                         </span>
@@ -263,23 +262,15 @@ watch(() => props.visible, (visible) => {
                       
                       <div v-if="component.asset" class="text-sm text-secondary-600">
                         <span class="font-mono">{{ component.asset.code }}</span>
-                        <span class="mx-1">•</span>
-                        {{ component.asset.name }}
-                        <span v-if="component.asset.serial">
-                          <span class="mx-1">•</span>
-                          <span class="font-mono text-xs">{{ component.asset.serial }}</span>
-                        </span>
-                      </div>
-                      <div v-else class="text-sm text-secondary-500 italic">
-                        Any available {{ component.assetType.toLowerCase() }}
+                        <span v-if="component.asset.category?.name" class="mx-1">•</span>
+                        <span v-if="component.asset.category?.name">{{ component.asset.category.name }}</span>
                       </div>
                     </div>
 
                     <!-- Actions -->
                     <div class="flex items-center gap-2">
                       <button
-                        v-if="!component.isPlaceholder"
-                        @click="openReplaceModal(component.id)"
+                        @click="openReplaceModal(component.asset_id)"
                         class="p-2 text-secondary-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                         title="Replace asset"
                       >
@@ -288,18 +279,7 @@ watch(() => props.visible, (visible) => {
                         </svg>
                       </button>
                       <button
-                        v-if="!component.isPlaceholder"
-                        @click="handleConvertToPlaceholder(component.id)"
-                        :disabled="isProcessing"
-                        class="p-2 text-secondary-400 hover:text-warning-600 hover:bg-warning-50 rounded-lg transition-colors disabled:opacity-50"
-                        title="Convert to placeholder"
-                      >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                        </svg>
-                      </button>
-                      <button
-                        @click="showConfirmRemove = component.id"
+                        @click="showConfirmRemove = component.asset_id"
                         :disabled="isProcessing"
                         class="p-2 text-secondary-400 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-colors disabled:opacity-50"
                         title="Remove component"
@@ -312,7 +292,7 @@ watch(() => props.visible, (visible) => {
                   </div>
 
                   <!-- Confirm Remove -->
-                  <div v-if="showConfirmRemove === component.id" class="mt-4 pt-4 border-t border-secondary-200">
+                  <div v-if="showConfirmRemove === component.asset_id" class="mt-4 pt-4 border-t border-secondary-200">
                     <p class="text-sm text-secondary-600 mb-3">Are you sure you want to remove this component?</p>
                     <div class="flex gap-2">
                       <button
@@ -322,7 +302,7 @@ watch(() => props.visible, (visible) => {
                         Cancel
                       </button>
                       <button
-                        @click="handleRemoveComponent(component.id)"
+                        @click="handleRemoveComponent(component.asset_id)"
                         :disabled="isProcessing"
                         class="px-3 py-1.5 text-sm font-medium text-white bg-danger-600 hover:bg-danger-700 rounded-lg transition-colors disabled:opacity-50"
                       >

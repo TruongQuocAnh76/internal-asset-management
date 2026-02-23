@@ -150,18 +150,18 @@ const onCancel = () => {
             <label for="category_name" class="label">
               Category <span v-if="mode === 'create'" class="text-danger-500">*</span>
             </label>
-            <input
+            <select
               id="category_name"
               v-model="formData.category_name"
-              type="text"
-              list="categories-list"
-              placeholder="Select or enter category"
               @blur="validateField('category_name')"
               :class="{ '!border-danger-500': errors.category_name }"
-            />
-            <datalist id="categories-list">
-              <option v-for="cat in categories" :key="cat.category" :value="cat.category" />
-            </datalist>
+              class="w-full"
+            >
+              <option value="" disabled>Select a category</option>
+              <option v-for="cat in categories" :key="cat.category" :value="cat.category">
+                {{ cat.category }}
+              </option>
+            </select>
             <p v-if="errors.category_name" class="error-message">{{ errors.category_name }}</p>
           </div>
 

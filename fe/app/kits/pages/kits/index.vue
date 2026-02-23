@@ -37,7 +37,6 @@ const router = useRouter()
 // Filters state
 const filters = ref<GetKitsParams>({
   search: (route.query.search as string) || '',
-  category: (route.query.category as string) || '',
   status: (route.query.status as GetKitsParams['status']) || undefined,
   filter: (route.query.filter as GetKitsParams['filter']) || undefined,
   order: (route.query.order as 'asc' | 'desc') || 'desc',

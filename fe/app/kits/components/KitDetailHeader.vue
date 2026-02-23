@@ -41,7 +41,7 @@ const formatDate = (dateString: string) => {
         <!-- Kit Info -->
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-3 mb-2">
-            <h1 class="text-2xl font-bold text-secondary-900 truncate">{{ kit.name }}</h1>
+            <h1 class="text-2xl font-bold text-secondary-900 truncate">{{ kit.template.name }}</h1>
             <span 
               class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border flex-shrink-0"
               :class="getStatusColor(kit.status)"
@@ -50,38 +50,21 @@ const formatDate = (dateString: string) => {
             </span>
           </div>
 
-          <p v-if="kit.description" class="text-secondary-600 mb-4">{{ kit.description }}</p>
+          <p v-if="kit.template.description" class="text-secondary-600 mb-4">{{ kit.template.description }}</p>
 
           <div class="flex flex-wrap gap-4 text-sm">
-            <div v-if="kit.category" class="flex items-center gap-2 text-secondary-600">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-              </svg>
-              {{ kit.category }}
-            </div>
             <div class="flex items-center gap-2 text-secondary-600">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              Created {{ formatDate(kit.createdAt) }}
+              Created {{ formatDate(kit.created_at) }}
             </div>
-            <div v-if="kit.createdBy" class="flex items-center gap-2 text-secondary-600">
+            <div class="flex items-center gap-2 text-secondary-600">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              {{ kit.createdBy.firstName }} {{ kit.createdBy.lastName }}
+              {{ kit.template.template_items?.length || 0 }} component{{ kit.template.template_items?.length !== 1 ? 's' : '' }}
             </div>
-          </div>
-
-          <!-- Tags -->
-          <div v-if="kit.tags?.length" class="flex flex-wrap gap-2 mt-4">
-            <span 
-              v-for="tag in kit.tags" 
-              :key="tag"
-              class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-secondary-100 text-secondary-600"
-            >
-              {{ tag }}
-            </span>
           </div>
         </div>
 

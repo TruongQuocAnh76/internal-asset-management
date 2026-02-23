@@ -187,12 +187,6 @@ export const useKitBuilder = () => {
           return false
         }
         break
-      case 'category':
-        if (!formData.value.category.trim()) {
-          errors.value.category = 'Category is required'
-          return false
-        }
-        break
       case 'components':
         if (formData.value.components.length === 0) {
           errors.value.components = 'At least one component is required'
@@ -205,7 +199,8 @@ export const useKitBuilder = () => {
   }
 
   const validateAll = (): boolean => {
-    const fields: (keyof KitFormData)[] = ['name', 'category', 'components']
+    errors.value = {}
+    const fields: (keyof KitFormData)[] = ['name', 'components']
     let isValid = true
 
     for (const field of fields) {
@@ -243,7 +238,6 @@ export const useKitBuilder = () => {
   const canSubmit = computed(() => {
     return (
       formData.value.name.trim() !== '' &&
-      formData.value.category.trim() !== '' &&
       formData.value.components.length > 0 &&
       !isSaving.value
     )

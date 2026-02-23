@@ -2,6 +2,7 @@ import type {
   Kit,
   GetKitsParams,
   KitFormData,
+  KitsResponse,
 } from '../types/kit.types'
 
 export const useKits = () => {
@@ -22,7 +23,7 @@ export const useKits = () => {
     const queryString = queryParams.toString()
     const url = `/kits${queryString ? `?${queryString}` : ''}`
 
-    return await useFetch<Kit[]>(url, {
+    return await useFetch<KitsResponse>(url, {
       method: 'GET',
       baseURL: config.public.backendUrl,
       credentials: 'include'
@@ -44,7 +45,12 @@ export const useKits = () => {
       method: 'POST',
       baseURL: config.public.backendUrl,
       credentials: 'include',
-      body: formData
+      body: {
+        name: formData.name,
+        asset_ids: formData.components
+          .filter(c => c.assetId) // only include components with actual assets
+          .map(c => c.assetId) // extract the asset IDs
+      }
     })
   }
 
@@ -168,6 +174,137 @@ export const useKits = () => {
     })
   }
 
+  // GET /assets/category/count - Get all categories
+  const getCategories = async () => {
+    return await useFetch<{ id: string; name: string; code: string }[]>('/assets/category/count', {
+      method: 'GET',
+      baseURL: config.public.backendUrl,
+      credentials: 'include'
+    })
+  }
+
+  // GET /kits/kpis - Get kit KPIs
+  const getKitKPIs = async () => {
+    try {
+      const { data, error } = await useFetch<any>('/kits/kpis', {
+        method: 'GET',
+        baseURL: config.public.backendUrl,
+        credentials: 'include'
+      })
+      
+      // Return with proper typing for KitKPIs
+      return {
+        data: (data.value as any) || {
+          totalKits: 0,
+          activeKits: 0,
+          assignedKits: 0,
+          archivedKits: 0,
+        },
+        error
+      }
+    } catch (err) {
+      console.error('Error fetching KPIs:', err)
+      return {
+        data: {
+          totalKits: 0,
+          activeKits: 0,
+          assignedKits: 0,
+          archivedKits: 0,
+        },
+        error: null
+      }
+    }
+  }
+
+  // POST /kits/export - Export kits
+  const exportKits = async (kitIds: string[]) => {
+    try {
+      const blob = await $fetch<Blob>('/kits/export', {
+        method: 'POST',
+        baseURL: config.public.backendUrl,
+        credentials: 'include',
+        body: { kitIds },
+        responseType: 'blob'
+      })
+      return blob
+    } catch (error) {
+      console.error('Error exporting kits:', error)
+      throw error
+    }
+  }
+
+  // POST /kits/bulk/archive - Bulk archive kits
+  const bulkArchiveKits = async (kitIds: string[]) => {
+    try {
+      const result = await $fetch<{ success: boolean }[]>('/kits/bulk/archive', {
+        method: 'POST',
+        baseURL: config.public.backendUrl,
+        credentials: 'include',
+        body: { kitIds }
+      })
+      return kitIds.map((id, index) => ({
+        id,
+        success: result?.[index]?.success ?? true,
+        error: result?.[index]?.success === false ? 'Failed to archive' : undefined
+      }))
+    } catch (error) {
+      console.error('Error archiving kits:', error)
+      return kitIds.map(id => ({
+        id,
+        success: false,
+        error: 'Network error'
+      }))
+    }
+  }
+
+  // PUT /kits/bulk/category - Bulk update category
+  const bulkUpdateCategory = async (kitIds: string[], category: string) => {
+    try {
+      const result = await $fetch<{ success: boolean }[]>('/kits/bulk/category', {
+        method: 'PUT',
+        baseURL: config.public.backendUrl,
+        credentials: 'include',
+        body: { kitIds, category }
+      })
+      return kitIds.map((id, index) => ({
+        id,
+        success: result?.[index]?.success ?? true,
+        error: result?.[index]?.success === false ? 'Failed to update category' : undefined
+      }))
+    } catch (error) {
+      console.error('Error updating categories:', error)
+      return kitIds.map(id => ({
+        id,
+        success: false,
+        error: 'Network error'
+      }))
+    }
+  }
+
+  // PUT /kits/bulk/tags - Bulk update tags
+  const bulkUpdateTags = async (kitIds: string[], tags: string[], action: 'add' | 'replace') => {
+    try {
+      const result = await $fetch<{ success: boolean }[]>('/kits/bulk/tags', {
+        method: 'PUT',
+        baseURL: config.public.backendUrl,
+        credentials: 'include',
+        body: { kitIds, tags, action }
+      })
+      return kitIds.map((id, index) => ({
+        id,
+        success: result?.[index]?.success ?? true,
+        error: result?.[index]?.success === false ? 'Failed to update tags' : undefined
+      }))
+    } catch (error) {
+      console.error('Error updating tags:', error)
+      return kitIds.map(id => ({
+        id,
+        success: false,
+        error: 'Network error'
+      }))
+    }
+  }
+
   return {
     getKits,
     getKitById,
@@ -183,5 +320,11 @@ export const useKits = () => {
     archiveKit,
     restoreKit,
     searchAvailableAssets,
+    getCategories,
+    getKitKPIs,
+    exportKits,
+    bulkArchiveKits,
+    bulkUpdateCategory,
+    bulkUpdateTags,
   }
 }

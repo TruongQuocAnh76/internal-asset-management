@@ -15,7 +15,7 @@ const emit = defineEmits<{
   'success': []
 }>()
 
-const { createKit, getCategories } = useKits()
+const { createKit } = useKits()
 
 const {
   formData,
@@ -32,42 +32,13 @@ const {
   removeComponent,
   moveComponentUp,
   moveComponentDown,
-  addTag,
-  removeTag,
   validateField,
   validateAll,
   clearDraft
 } = useKitBuilder()
 
-const categories = ref<{ name: string }[]>([])
-const tagInput = ref('')
 const showComponentPicker = ref(false)
 const showDiscardConfirm = ref(false)
-
-const loadCategories = async () => {
-  try {
-    const { data } = await getCategories()
-    if (data.value) {
-      categories.value = data.value.map(c => ({ name: c.name }))
-    }
-  } catch (err) {
-    console.error('Failed to load categories:', err)
-  }
-}
-
-const handleAddTag = () => {
-  if (tagInput.value.trim()) {
-    addTag(tagInput.value)
-    tagInput.value = ''
-  }
-}
-
-const handleTagKeydown = (event: KeyboardEvent) => {
-  if (event.key === 'Enter' || event.key === ',') {
-    event.preventDefault()
-    handleAddTag()
-  }
-}
 
 const handleComponentSelect = (asset: ComponentPickerAsset | null, assetType: string) => {
   addComponent({
@@ -85,7 +56,10 @@ const handleComponentSelect = (asset: ComponentPickerAsset | null, assetType: st
 }
 
 const handleSubmit = async () => {
-  if (!validateAll()) return
+  if (!validateAll()) {
+    errors.value.general = 'Please fill all required fields'
+    return
+  }
 
   isSaving.value = true
   try {
@@ -124,12 +98,6 @@ const formatLastSaved = computed(() => {
   if (!lastSavedAt.value) return ''
   const date = new Date(lastSavedAt.value)
   return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-})
-
-watch(() => props.visible, (visible) => {
-  if (visible) {
-    loadCategories()
-  }
 })
 </script>
 
@@ -209,26 +177,6 @@ watch(() => props.visible, (visible) => {
                   <p v-if="errors.name" class="text-sm text-danger-600 mt-1">{{ errors.name }}</p>
                 </div>
 
-                <!-- Category -->
-                <div>
-                  <label class="block text-sm font-medium text-secondary-700 mb-2">
-                    Category <span class="text-danger-500">*</span>
-                  </label>
-                  <input
-                    v-model="formData.category"
-                    type="text"
-                    list="categories-list"
-                    placeholder="Select or enter category"
-                    @blur="validateField('category')"
-                    class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow"
-                    :class="errors.category ? 'border-danger-500' : 'border-secondary-300'"
-                  />
-                  <datalist id="categories-list">
-                    <option v-for="cat in categories" :key="cat.name" :value="cat.name" />
-                  </datalist>
-                  <p v-if="errors.category" class="text-sm text-danger-600 mt-1">{{ errors.category }}</p>
-                </div>
-
                 <!-- Description -->
                 <div class="md:col-span-2">
                   <label class="block text-sm font-medium text-secondary-700 mb-2">Description</label>
@@ -238,36 +186,6 @@ watch(() => props.visible, (visible) => {
                     placeholder="Describe what this kit contains and its intended use..."
                     class="w-full px-4 py-2.5 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow resize-none"
                   ></textarea>
-                </div>
-
-                <!-- Tags -->
-                <div class="md:col-span-2">
-                  <label class="block text-sm font-medium text-secondary-700 mb-2">Tags</label>
-                  <div class="flex flex-wrap gap-2 mb-2">
-                    <span
-                      v-for="tag in formData.tags"
-                      :key="tag"
-                      class="inline-flex items-center gap-1 px-2.5 py-1 bg-primary-100 text-primary-700 rounded-md text-sm"
-                    >
-                      {{ tag }}
-                      <button
-                        @click="removeTag(tag)"
-                        class="hover:text-primary-900"
-                      >
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </span>
-                  </div>
-                  <input
-                    v-model="tagInput"
-                    type="text"
-                    placeholder="Type a tag and press Enter"
-                    @keydown="handleTagKeydown"
-                    @blur="handleAddTag"
-                    class="w-full px-4 py-2.5 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow"
-                  />
                 </div>
               </div>
             </div>

@@ -149,20 +149,7 @@ const isPartiallySelected = computed(() => {
             </td>
             <td class="px-6 py-4">
               <div>
-                <div class="text-sm font-medium text-secondary-900">{{ kit.name }}</div>
-                <div v-if="kit.category" class="text-xs text-secondary-500 mt-0.5">{{ kit.category }}</div>
-                <div v-if="kit.tags?.length" class="flex flex-wrap gap-1 mt-1">
-                  <span 
-                    v-for="tag in kit.tags.slice(0, 3)" 
-                    :key="tag"
-                    class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-secondary-100 text-secondary-600"
-                  >
-                    {{ tag }}
-                  </span>
-                  <span v-if="kit.tags.length > 3" class="text-xs text-secondary-400">
-                    +{{ kit.tags.length - 3 }} more
-                  </span>
-                </div>
+                <div class="text-sm font-medium text-secondary-900">{{ kit.template.name }}</div>
               </div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
@@ -170,21 +157,16 @@ const isPartiallySelected = computed(() => {
                 <svg class="w-4 h-4 text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                 </svg>
-                <span class="text-sm font-medium text-secondary-900">{{ kit.components?.length || 0 }}</span>
+                <span class="text-sm font-medium text-secondary-900">{{ kit.template.template_items?.length || 0 }}</span>
               </div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
-              <div class="flex items-center gap-2">
-                <span 
-                  class="text-sm font-semibold"
-                  :class="kit.totalAvailableKits > 0 ? 'text-success-600' : 'text-danger-600'"
-                >
-                  {{ kit.totalAvailableKits }}
-                </span>
-                <span v-if="kit.kitsMissingComponents > 0" class="text-xs text-warning-600">
-                  ({{ kit.kitsMissingComponents }} incomplete)
-                </span>
-              </div>
+              <span 
+                class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium border"
+                :class="kit.asset_items?.length > 0 ? 'bg-success-50 border-success-300 text-success-700' : 'bg-secondary-50 border-secondary-300 text-secondary-600'"
+              >
+                {{ kit.asset_items?.length || 0 }} items
+              </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
               <span 
@@ -196,8 +178,8 @@ const isPartiallySelected = computed(() => {
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
               <div>
-                <span class="text-sm text-secondary-900" :title="formatDate(kit.updatedAt)">
-                  {{ formatRelativeTime(kit.updatedAt) }}
+                <span class="text-sm text-secondary-900" :title="formatDate(kit.created_at)">
+                  {{ formatRelativeTime(kit.created_at) }}
                 </span>
               </div>
             </td>

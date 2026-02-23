@@ -100,8 +100,8 @@ const validateForm = (): boolean => {
 const handleSubmit = async () => {
   if (!validateForm() || !props.kit) return
 
-  // Check inventory availability
-  if (formData.value.quantity > (props.kit.totalAvailableKits || 0)) {
+  // Each kit is a single instance
+  if (formData.value.quantity > 1) {
     insufficientInventory.value = true
     return
   }
@@ -127,7 +127,7 @@ const handleInsufficientInventoryAction = async () => {
 
   switch (assignmentOption.value) {
     case 'partial':
-      formData.value.quantity = props.kit.totalAvailableKits
+      // Kit is a single instance, max quantity is 1
       insufficientInventory.value = false
       break
     case 'hold':
@@ -188,7 +188,7 @@ watch(userSearch, () => {
           <div class="px-6 py-4 border-b border-secondary-200 flex items-center justify-between">
             <div>
               <h2 class="text-lg font-semibold text-secondary-900">Assign Kit</h2>
-              <p v-if="kit" class="text-sm text-secondary-600">{{ kit.name }}</p>
+              <p v-if="kit" class="text-sm text-secondary-600">{{ kit.template.name }}</p>
             </div>
             <button
               @click="emit('close')"
@@ -221,13 +221,13 @@ watch(userSearch, () => {
                 <div class="flex-1">
                   <p class="font-medium text-warning-800">Insufficient Inventory</p>
                   <p class="text-sm text-warning-700 mt-1">
-                    Only {{ kit?.totalAvailableKits || 0 }} complete kit(s) available. You requested {{ formData.quantity }}.
+                    Only 1 kit available. You requested {{ formData.quantity }}.
                   </p>
                   
                   <div class="mt-4 space-y-2">
                     <label class="flex items-center gap-2 cursor-pointer">
                       <input v-model="assignmentOption" type="radio" value="partial" class="text-warning-600 focus:ring-warning-500" />
-                      <span class="text-sm text-warning-800">Partial fulfill (assign {{ kit?.totalAvailableKits || 0 }} kit(s))</span>
+                      <span class="text-sm text-warning-800">Partial fulfill (assign 1 kit)</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer">
                       <input v-model="assignmentOption" type="radio" value="hold" class="text-warning-600 focus:ring-warning-500" />
@@ -304,12 +304,12 @@ watch(userSearch, () => {
                   v-model.number="formData.quantity"
                   type="number"
                   min="1"
-                  :max="kit?.totalAvailableKits || 1"
+                  max="1"
                   class="w-24 px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   :class="errors.quantity ? 'border-danger-500' : 'border-secondary-300'"
                 />
                 <span class="text-sm text-secondary-500">
-                  of {{ kit?.totalAvailableKits || 0 }} available
+                  Kit instances available: 1
                 </span>
               </div>
               <p v-if="errors.quantity" class="text-sm text-danger-600 mt-1">{{ errors.quantity }}</p>

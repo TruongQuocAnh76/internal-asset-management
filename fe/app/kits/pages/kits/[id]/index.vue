@@ -205,7 +205,7 @@ const onRestore = async () => {
               <!-- Components List (shown always on desktop, conditionally on mobile) -->
               <div :class="{ 'hidden lg:block': activeTab !== 'components' }">
                 <ComponentsList
-                  :components="kit.components || []"
+                  :components="kit.template.template_items || []"
                   :loading="loading"
                   @replace="handleReplace"
                   @remove="handleRemove"

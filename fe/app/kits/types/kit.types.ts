@@ -1,5 +1,53 @@
 export type KitStatus = 'READY' | 'IN_USE' | 'MAINTAINANCE' | 'BROKEN' | 'LIQUIDATED'
 
+export interface Asset {
+  id: string
+  code: string
+  name: string
+  status: KitStatus
+  category_id: string
+  image_urls?: string[]
+  acquired_at?: string
+  created_at: string
+  updated_at: string
+  category?: {
+    name: string
+  }
+}
+
+export interface KitTemplateItem {
+  id: string
+  template_id: string
+  asset_id: string
+  asset: Asset
+}
+
+export interface KitTemplate {
+  id: string
+  name: string
+  status: KitStatus
+  created_at: string
+  template_items: KitTemplateItem[]
+}
+
+export interface AssetItem {
+  id: string
+  kit_id: string
+  asset_id: string
+  status: KitStatus
+  costs?: number | null
+  asset?: Asset
+}
+
+export interface Kit {
+  id: string
+  template_id: string
+  status: KitStatus
+  created_at: string
+  template: KitTemplate
+  asset_items: AssetItem[]
+}
+
 export interface KitItem {
   kit_id: string
   asset_id: string
@@ -13,18 +61,6 @@ export interface KitItem {
       name: string
     }
   }
-}
-
-export interface Kit {
-  id: string
-  name: string
-  status: KitStatus
-  stock: number
-  created_at: string
-  assets_kits_items: KitItem[]
-  components?: KitComponent[]
-  totalAvailableKits?: number
-  kitsMissingComponents?: number
 }
 
 export interface GetKitsParams {
@@ -115,9 +151,9 @@ export interface AssignKitFormData {
 }
 
 export interface BulkOperationResult {
-  success: number
-  failed: number
-  errors: string[]
+  id: string
+  success: boolean
+  error?: string
 }
 
 export interface KitComponentDraft {
