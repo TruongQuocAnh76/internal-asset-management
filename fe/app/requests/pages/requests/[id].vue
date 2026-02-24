@@ -18,6 +18,7 @@ const {
   approvalAction,
   permissions,
   requestTitle,
+  requestType,
   approvalChain,
   handleCancel,
   openApprovalModal,
@@ -143,7 +144,16 @@ const { formatDateTime } = useRequestHelpers()
                   <dt class="text-sm font-medium text-secondary-500">Requested Asset</dt>
                   <dd class="mt-1">
                     <p class="font-medium text-secondary-900">{{ request.asset.name }}</p>
-                    <p class="text-sm text-secondary-500">{{ request.asset.code }} · {{ request.asset.location_name }}</p>
+                    <p class="text-sm text-secondary-500">{{ request.asset.code }}</p>
+                  </dd>
+                </div>
+
+                <!-- Kit -->
+                <div v-if="request.kit">
+                  <dt class="text-sm font-medium text-secondary-500">Requested Kit</dt>
+                  <dd class="mt-1">
+                    <p class="font-medium text-secondary-900">{{ request.kit.template?.name || 'Kit' }}</p>
+                    <p class="text-sm text-secondary-500">Kit #{{ request.kit.id.slice(0, 8).toUpperCase() }}</p>
                   </dd>
                 </div>
 
@@ -228,7 +238,7 @@ const { formatDateTime } = useRequestHelpers()
                   :disabled="isProcessing"
                   @click="handleProvide"
                 >
-                  Provide Asset
+                  Provide {{ requestType === 'kit' ? 'Kit' : 'Asset' }}
                 </button>
 
                 <!-- User: Return PROVIDED/OVERDUE -->
@@ -239,7 +249,7 @@ const { formatDateTime } = useRequestHelpers()
                   :disabled="isProcessing"
                   @click="handleReturn"
                 >
-                  Return Asset
+                  Return {{ requestType === 'kit' ? 'Kit' : 'Asset' }}
                 </button>
 
                 <p v-if="!permissions.canCancel && !permissions.canApprove && !permissions.canReject && !permissions.canProvide && !permissions.canReturn" class="text-sm text-secondary-500 text-center">
@@ -275,17 +285,17 @@ const { formatDateTime } = useRequestHelpers()
 
                 <div v-if="request.status === 'APPROVED'">
                   <p class="text-sm text-secondary-500">Waiting for</p>
-                  <p class="font-medium text-secondary-900">Asset to be Provided</p>
+                  <p class="font-medium text-secondary-900">{{ requestType === 'kit' ? 'Kit' : 'Asset' }} to be Provided</p>
                 </div>
 
                 <div v-if="request.status === 'PROVIDED'">
                   <p class="text-sm text-secondary-500">Status</p>
-                  <p class="font-medium text-success-600">Asset in use</p>
+                  <p class="font-medium text-success-600">{{ requestType === 'kit' ? 'Kit' : 'Asset' }} in use</p>
                 </div>
 
                 <div v-if="request.status === 'OVERDUE'">
                   <p class="text-sm text-secondary-500">Status</p>
-                  <p class="font-medium text-danger-600">Overdue - Please return asset</p>
+                  <p class="font-medium text-danger-600">Overdue - Please return {{ requestType === 'kit' ? 'kit' : 'asset' }}</p>
                 </div>
               </div>
             </div>
@@ -309,6 +319,22 @@ const { formatDateTime } = useRequestHelpers()
                     />
                   </svg>
                   View Asset
+                </NuxtLink>
+
+                <NuxtLink
+                  v-if="request.kit"
+                  :to="`/kits/${request.kit.id}`"
+                  class="flex items-center gap-2 p-2 rounded-lg hover:bg-secondary-50 text-primary-600 hover:text-primary-700"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                    />
+                  </svg>
+                  View Kit
                 </NuxtLink>
 
                 <NuxtLink

@@ -32,6 +32,7 @@ export const getRequestsDtoSchema = z.object({
       'costs',
       'acquired_at',
       'assetId',
+      'kitId',
     ])
     .optional(),
   filterValue: z.string().optional(),
@@ -62,7 +63,8 @@ export class GetRequestsDto extends createZodDto(getRequestsDtoSchema) {
     | 'borrowPriority'
     | 'costs'
     | 'acquired_at'
-    | 'assetId';
+    | 'assetId'
+    | 'kitId';
 
   @ApiProperty({
     description: 'Value to filter by',

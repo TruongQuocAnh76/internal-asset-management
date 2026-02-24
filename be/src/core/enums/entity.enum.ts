@@ -1,5 +1,6 @@
 export enum Entity {
   ASSET = 'ASSET',
+  ASSET_KIT = 'ASSET_KIT',
   USER = 'USER',
   CATEGORY = 'CATEGORY',
   BORROW_REQUEST = 'BORROW_REQUEST',

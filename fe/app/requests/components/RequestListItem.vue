@@ -18,7 +18,14 @@ const emit = defineEmits<{
 const { getRelativeTime } = useRequestHelpers()
 
 const requestTitle = computed(() => {
+  if (props.request.kit) {
+    return props.request.kit.template?.name || 'Kit Request'
+  }
   return props.request.asset?.name || 'Asset Request'
+})
+
+const requestType = computed(() => {
+  return props.request.kit_id ? 'kit' : 'asset'
 })
 
 const canCancel = computed(() => {
@@ -81,6 +88,16 @@ const handleCancel = (e: Event) => {
           <h3 class="font-semibold text-secondary-900 group-hover:text-primary-600 transition-colors">
             {{ requestTitle }}
           </h3>
+          <span
+            :class="[
+              'px-2 py-0.5 text-xs font-medium rounded-full',
+              requestType === 'kit'
+                ? 'bg-purple-100 text-purple-700'
+                : 'bg-blue-100 text-blue-700'
+            ]"
+          >
+            {{ requestType === 'kit' ? 'Kit' : 'Asset' }}
+          </span>
           <StatusBadge :status="request.status" size="sm" />
           <PriorityBadge :priority="request.priority" size="sm" />
         </div>

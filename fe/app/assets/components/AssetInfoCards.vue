@@ -3,7 +3,6 @@ import type { Asset } from '../types/asset.types'
 
 interface Props {
   asset: Asset
-  formatCurrency: (value: number | null | undefined) => string
   formatDate: (date: string | null | undefined) => string
 }
 
@@ -36,9 +35,9 @@ const specsEntries = computed(() => {
         </div>
 
         <div class="flex justify-between py-2 border-b border-secondary-100">
-          <dt class="text-sm text-secondary-500">Location</dt>
+          <dt class="text-sm text-secondary-500">Stock</dt>
           <dd class="text-sm font-medium text-secondary-900">
-            {{ asset.location_name || 'Not specified' }}
+            {{ asset.stock ?? '—' }} items
           </dd>
         </div>
 
@@ -63,32 +62,6 @@ const specsEntries = computed(() => {
           </dd>
         </div>
       </dl>
-    </div>
-
-    <!-- Financial Information -->
-    <div class="bg-white rounded-xl shadow-soft p-6">
-      <h2 class="text-lg font-semibold text-secondary-900 mb-4 flex items-center gap-2">
-        <svg class="w-5 h-5 text-secondary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        Financial Information
-      </h2>
-
-      <dl class="space-y-4">
-        <div class="flex justify-between py-2 border-b border-secondary-100">
-          <dt class="text-sm text-secondary-500">Purchase Cost</dt>
-          <dd class="text-sm font-medium text-secondary-900">
-            {{ formatCurrency(asset.costs) }}
-          </dd>
-        </div>
-      </dl>
-
-      <div class="mt-6 p-4 bg-primary-50 rounded-lg">
-        <p class="text-xs text-secondary-500 mb-1">Total Value</p>
-        <p class="text-2xl font-bold text-primary-600">
-          {{ formatCurrency(asset.costs) }}
-        </p>
-      </div>
     </div>
 
     <!-- Specifications -->

@@ -82,8 +82,15 @@ export const useRequestDetail = (requestId: string) => {
   // Format request title
   const requestTitle = computed(() => {
     if (!request.value) return ''
-    const assetName = request.value.asset?.name || 'Asset Request'
-    return assetName
+    if (request.value.kit) {
+      return request.value.kit.template?.name || 'Kit Request'
+    }
+    return request.value.asset?.name || 'Asset Request'
+  })
+
+  // Determine request type
+  const requestType = computed(() => {
+    return request.value?.kit_id ? 'kit' : 'asset'
   })
 
   // Fetch request details
@@ -136,7 +143,11 @@ export const useRequestDetail = (requestId: string) => {
 
     isProcessing.value = true
     try {
-      request.value = await approveRequest(request.value.id)
+      request.value = await approveRequest(
+        request.value.id,
+        request.value.asset_id || undefined,
+        request.value.kit_id || undefined
+      )
       closeApprovalModal()
     } catch (err: any) {
       console.error('Failed to approve request:', err)
@@ -183,7 +194,11 @@ export const useRequestDetail = (requestId: string) => {
 
     isProcessing.value = true
     try {
-      request.value = await returnRequest(request.value.id)
+      request.value = await returnRequest(
+        request.value.id,
+        request.value.asset_id || undefined,
+        request.value.kit_id || undefined
+      )
     } catch (err: any) {
       console.error('Failed to return asset:', err)
       error.value = err.message || 'Failed to return asset'
@@ -212,6 +227,7 @@ export const useRequestDetail = (requestId: string) => {
     hasProvidedPermission,
     permissions,
     requestTitle,
+    requestType,
     approvalChain,
 
     // Methods

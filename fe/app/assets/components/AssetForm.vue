@@ -52,7 +52,6 @@ const handleImageSelect = (event: Event) => {
   const target = event.target as HTMLInputElement
   if (target.files) {
     selectedImages.value = Array.from(target.files)
-    formData.value.image_num = selectedImages.value.length
     
     // Generate preview URLs
     imagePreviewUrls.value = selectedImages.value.map(file => URL.createObjectURL(file))
@@ -64,7 +63,6 @@ const removeImage = (index: number) => {
   selectedImages.value.splice(index, 1)
   URL.revokeObjectURL(imagePreviewUrls.value[index])
   imagePreviewUrls.value.splice(index, 1)
-  formData.value.image_num = selectedImages.value.length
 }
 
 // Initialize
@@ -74,7 +72,7 @@ onMounted(async () => {
 
 // Handle form submission
 const onSubmit = async () => {
-  const result = await handleSubmit()
+  const result = await handleSubmit(selectedImages.value.length)
   if (result && selectedImages.value.length > 0) {
     try {
       // Upload images using presigned URLs
@@ -152,18 +150,18 @@ const onCancel = () => {
             <label for="category_name" class="label">
               Category <span v-if="mode === 'create'" class="text-danger-500">*</span>
             </label>
-            <input
+            <select
               id="category_name"
               v-model="formData.category_name"
-              type="text"
-              list="categories-list"
-              placeholder="Select or enter category"
               @blur="validateField('category_name')"
               :class="{ '!border-danger-500': errors.category_name }"
-            />
-            <datalist id="categories-list">
-              <option v-for="cat in categories" :key="cat.category" :value="cat.category" />
-            </datalist>
+              class="w-full"
+            >
+              <option value="" disabled>Select a category</option>
+              <option v-for="cat in categories" :key="cat.category" :value="cat.category">
+                {{ cat.category }}
+              </option>
+            </select>
             <p v-if="errors.category_name" class="error-message">{{ errors.category_name }}</p>
           </div>
 
@@ -203,6 +201,23 @@ const onCancel = () => {
               />
             </div>
             <p v-if="errors.costs" class="error-message">{{ errors.costs }}</p>
+          </div>
+
+          <!-- Initial Quantity (Create mode only) -->
+          <div v-if="mode === 'create'" class="input-group">
+            <label for="initial_quantity" class="label">
+              Initial Quantity <span class="text-danger-500">*</span>
+            </label>
+            <input
+              id="initial_quantity"
+              v-model.number="formData.initial_quantity"
+              type="number"
+              min="1"
+              placeholder="1"
+              @blur="validateField('initial_quantity')"
+              :class="{ '!border-danger-500': errors.initial_quantity }"
+            />
+            <p v-if="errors.initial_quantity" class="error-message">{{ errors.initial_quantity }}</p>
           </div>
         </div>
       </div>

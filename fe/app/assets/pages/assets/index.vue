@@ -129,6 +129,27 @@ watch(() => route.query, () => {
   <div class="min-h-screen bg-secondary-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div class="space-y-6">
+        <div class="flex items-center justify-between">
+          <button
+            type="button"
+            @click="router.back()"
+            class="flex items-center gap-2 text-sm text-secondary-600 hover:text-secondary-900"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back
+          </button>
+          <NuxtLink
+            to="/kits"
+            class="btn-secondary flex items-center gap-2"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+            View Kits
+          </NuxtLink>
+        </div>
         <!-- Header -->
         <AssetsHeader
           :total-assets="totalAssets"
