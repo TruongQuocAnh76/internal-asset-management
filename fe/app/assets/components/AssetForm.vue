@@ -264,6 +264,78 @@ const onCancel = () => {
         </div>
       </div>
 
+      <!-- Depreciation Settings -->
+      <div class="card">
+        <h2 class="text-lg font-semibold text-secondary-900 mb-6 flex items-center gap-2">
+          <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+          </svg>
+          Depreciation Settings
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Depreciation Method -->
+          <div class="input-group">
+            <label for="depreciation_method" class="label">Depreciation Method</label>
+            <select
+              id="depreciation_method"
+              v-model="formData.depreciation_method"
+              class="w-full"
+            >
+              <option :value="null">None</option>
+              <option value="STRAIGHT_LINE">Straight Line</option>
+              <option value="DECLINING_BALANCE">Declining Balance</option>
+            </select>
+          </div>
+
+          <!-- Salvage Value -->
+          <div class="input-group">
+            <label for="salvage_value" class="label">Salvage Value</label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">$</span>
+              <input
+                id="salvage_value"
+                v-model.number="formData.salvage_value"
+                type="number"
+                min="0"
+                placeholder="0"
+                class="!pl-8"
+                :disabled="!formData.depreciation_method"
+              />
+            </div>
+          </div>
+
+          <!-- Life Months -->
+          <div class="input-group">
+            <label for="life_months" class="label">Useful Life (months)</label>
+            <input
+              id="life_months"
+              v-model.number="formData.life_months"
+              type="number"
+              min="1"
+              placeholder="e.g. 60"
+              :disabled="!formData.depreciation_method"
+            />
+          </div>
+
+          <!-- Decline Balance Rate (only for Declining Balance) -->
+          <div v-if="formData.depreciation_method === 'DECLINING_BALANCE'" class="input-group">
+            <label for="decline_balance_rate" class="label">Decline Balance Rate (%)</label>
+            <div class="relative">
+              <input
+                id="decline_balance_rate"
+                v-model.number="formData.decline_balance_rate"
+                type="number"
+                min="0"
+                max="100"
+                placeholder="e.g. 20"
+              />
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-500">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Specifications Section -->
       <div class="card">
         <SpecsEditor v-model="formData.specs" />
