@@ -137,9 +137,9 @@ model KitTemplateItems {
 
 model AssetsAllocation {
   id       String @id @default(uuid()) @db.Uuid
-  asset_id String @db.Uuid
+  asset_id String @db.Uuid @unique
 
-  kit_id  String? @db.Uuid
+  kit_id  String? @db.Uuid @unique
   user_id String? @db.Uuid
 
   allocated_at DateTime  @default(now())
