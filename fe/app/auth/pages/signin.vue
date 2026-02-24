@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useAuth } from '../composables/useAuth'
+
+definePageMeta({
+  layout: false,
+})
+
 const credential = ref('')
 const password = ref('')
 const isLoading = ref(false)

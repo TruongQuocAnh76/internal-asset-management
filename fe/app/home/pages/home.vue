@@ -4,12 +4,15 @@ import { useAuth } from '../../auth/composables/useAuth'
 import { useHome } from '../composables/useHome'
 
 // Components
-import DashboardNav from '../components/DashboardNav.vue'
 import AssetStatusCards from '../components/AssetStatusCards.vue'
 import CategoryChart from '../components/CategoryChart.vue'
 import PendingApprovals from '../components/PendingApprovals.vue'
 import RecentActivity from '../components/RecentActivity.vue'
 import QuickActions from '../components/QuickActions.vue'
+
+definePageMeta({
+  layout: 'default',
+})
 
 const { user } = useAuth()
 const { getAssetsSummary, getAssetsByCategory, getPendingApprovals, getRecentActivities, getAssetsCountByCategory } = useHome()
@@ -54,17 +57,6 @@ const loadDashboardData = async () => {
   }
 }
 
-const handleLogout = async () => {
-  try {
-    // TODO: Implement logout endpoint
-    // await $fetch('/auth/logout', { method: 'POST' })
-    user.value = null
-    navigateTo('/signin')
-  } catch (error) {
-    console.error('Logout failed:', error)
-  }
-}
-
 onMounted(() => {
   loadDashboardData()
 })
@@ -72,9 +64,6 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50">
-    <!-- Navigation Bar -->
-    <DashboardNav :user-name="user?.username || user?.first_name" @logout="handleLogout" />
-
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <!-- Welcome Header -->

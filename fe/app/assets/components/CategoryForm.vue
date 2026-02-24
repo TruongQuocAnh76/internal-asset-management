@@ -125,8 +125,8 @@ const onCancel = () => {
             </select>
           </div>
 
-          <!-- Salvage Value -->
-          <div class="input-group">
+          <!-- Salvage Value (Straight Line only) -->
+          <div v-if="formData.default_depreciation_method === 'STRAIGHT_LINE'" class="input-group">
             <label for="salvage_value" class="label">Default Salvage Value</label>
             <div class="relative">
               <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">$</span>
@@ -137,13 +137,12 @@ const onCancel = () => {
                 min="0"
                 placeholder="0"
                 class="!pl-8"
-                :disabled="!formData.default_depreciation_method"
               />
             </div>
           </div>
 
-          <!-- Default Life Months -->
-          <div class="input-group">
+          <!-- Default Life Months (Straight Line only) -->
+          <div v-if="formData.default_depreciation_method === 'STRAIGHT_LINE'" class="input-group">
             <label for="default_life_months" class="label">Default Useful Life (months)</label>
             <input
               id="default_life_months"
@@ -151,7 +150,6 @@ const onCancel = () => {
               type="number"
               min="1"
               placeholder="e.g. 60"
-              :disabled="!formData.default_depreciation_method"
             />
           </div>
 

@@ -282,14 +282,15 @@ const onCancel = () => {
               v-model="formData.depreciation_method"
               class="w-full"
             >
-              <option :value="null">None</option>
+              <option :value="null">Use Category Default</option>
               <option value="STRAIGHT_LINE">Straight Line</option>
               <option value="DECLINING_BALANCE">Declining Balance</option>
             </select>
+            <p class="text-xs text-secondary-400 mt-1">If not set, the category's default depreciation settings will be used.</p>
           </div>
 
-          <!-- Salvage Value -->
-          <div class="input-group">
+          <!-- Salvage Value (Straight Line only) -->
+          <div v-if="formData.depreciation_method === 'STRAIGHT_LINE'" class="input-group">
             <label for="salvage_value" class="label">Salvage Value</label>
             <div class="relative">
               <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">$</span>
@@ -300,13 +301,12 @@ const onCancel = () => {
                 min="0"
                 placeholder="0"
                 class="!pl-8"
-                :disabled="!formData.depreciation_method"
               />
             </div>
           </div>
 
-          <!-- Life Months -->
-          <div class="input-group">
+          <!-- Life Months (Straight Line only) -->
+          <div v-if="formData.depreciation_method === 'STRAIGHT_LINE'" class="input-group">
             <label for="life_months" class="label">Useful Life (months)</label>
             <input
               id="life_months"
@@ -314,7 +314,6 @@ const onCancel = () => {
               type="number"
               min="1"
               placeholder="e.g. 60"
-              :disabled="!formData.depreciation_method"
             />
           </div>
 

@@ -8,6 +8,10 @@ import BulkOperationsBar from '../../components/BulkOperationsBar.vue'
 import KitBuilder from '../../components/KitBuilder.vue'
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue'
 import EmptyState from '../../components/EmptyState.vue'
+
+definePageMeta({
+  layout: 'default',
+})
 import ViewToggle from '../../components/ViewToggle.vue'
 import type { Kit, GetKitsParams, KitKPIs } from '../../types/kit.types'
 import { useKits } from '../../composables/useKits'

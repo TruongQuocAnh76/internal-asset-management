@@ -198,6 +198,14 @@ export class AssetsService {
     const { category_name, costs, specs, image_num, initial_quantity, location_name, salvage_value, life_months, decline_balance_rate, depreciation_method, ...rest } = body;
     const asset_costs = costs !== undefined ? Number(costs) : null;
 
+    // Fall back to category defaults when depreciation fields are not provided
+    const resolvedMethod = depreciation_method ?? category.default_depreciation_method ?? null;
+    const resolvedSalvageValue = salvage_value != null
+      ? BigInt(salvage_value)
+      : (category.salvage_value ?? null);
+    const resolvedLifeMonths = life_months ?? category.default_life_months ?? null;
+    const resolvedDeclineRate = decline_balance_rate ?? category.decline_balance_rate ?? null;
+
     // create temp url for each images
     const fileNames: string[] = [];
     const tempImageUrls: string[] = [];
@@ -219,10 +227,10 @@ export class AssetsService {
         ...rest,
         code: asset_code,
         category_id: category.id,
-        salvage_value: salvage_value != null ? BigInt(salvage_value) : null,
-        life_months: life_months ?? null,
-        decline_balance_rate: decline_balance_rate ?? null,
-        depreciation_method: depreciation_method ?? null,
+        salvage_value: resolvedSalvageValue,
+        life_months: resolvedLifeMonths,
+        decline_balance_rate: resolvedDeclineRate,
+        depreciation_method: resolvedMethod,
         asset_specs: {
           create: {
             specs: JSON.parse(JSON.stringify(body.specs)) || {},
