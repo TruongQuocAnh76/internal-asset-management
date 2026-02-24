@@ -7,6 +7,7 @@ import {
   Query,
   Post,
   UseGuards,
+  Delete,
 } from '@nestjs/common';
 import { AssetsService } from './assets.service';
 import { SessionAuthGuard } from 'src/core/auth/guards/session-auth.guard';
@@ -18,6 +19,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import { EditAssetDto, EditAssetDtoSchema } from './dto/edit-asset.dto';
 import { CreateAssetDto, CreateAssetDtoSchema } from './dto/create-asset.dto';
 import { CurrentUser } from 'src/core/auth/decorator/current-user.decorator';
+import { Permission } from 'src/core/auth/decorator/permission.decorator';
 
 @Controller('assets')
 export class AssetsController {
@@ -41,6 +43,12 @@ export class AssetsController {
   @UseGuards(SessionAuthGuard)
   getAssetById(@Param('id') id: string) {
     return this.assetsService.getAssetById(id);
+  }
+
+  @Get(':id/items')
+  @UseGuards(SessionAuthGuard)
+  getAssetItems(@Param('id') id: string) {
+    return this.assetsService.getAssetItems(id);
   }
 
   @Get('/category/count')
@@ -67,6 +75,7 @@ export class AssetsController {
 
   @Post()
   @UseGuards(SessionAuthGuard)
+  @Permission('asset:create')
   createAsset(
     @Body(new ZodValidationPipe(CreateAssetDtoSchema)) body: CreateAssetDto,
     @CurrentUser('id') userId: string,

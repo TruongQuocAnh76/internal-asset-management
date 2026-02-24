@@ -16,6 +16,7 @@ const id = computed(() => route.params.id as string)
 
 const {
   asset,
+  assetItems,
   loading,
   error,
   statusConfig,
@@ -121,9 +122,81 @@ const handleTransitionConfirm = async (status: string, reason: string) => {
             <!-- Asset Info Cards -->
             <AssetInfoCards 
               :asset="asset"
-              :format-currency="formatCurrency"
               :format-date="formatDate"
             />
+
+            <!-- Asset Items Table -->
+            <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+              <div class="px-6 py-4 border-b border-secondary-200">
+                <h2 class="text-lg font-semibold text-secondary-900 flex items-center gap-2">
+                  <svg class="w-5 h-5 text-secondary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                  Asset Items
+                  <span class="ml-2 text-sm font-normal text-secondary-500">({{ assetItems.length }})</span>
+                </h2>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full" v-if="assetItems.length > 0">
+                  <thead class="bg-secondary-50">
+                    <tr>
+                      <th class="px-6 py-3 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">ID</th>
+                      <th class="px-6 py-3 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">Status</th>
+                      <th class="px-6 py-3 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">Location</th>
+                      <th class="px-6 py-3 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">Cost</th>
+                      <th class="px-6 py-3 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">Kit</th>
+                      <th class="px-6 py-3 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">Acquired</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-secondary-100">
+                    <tr v-for="item in assetItems" :key="item.id" class="hover:bg-secondary-50 transition-colors">
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="text-sm font-mono text-secondary-700">{{ item.id.slice(0, 8) }}…</span>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <span 
+                          class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border"
+                          :class="{
+                            'bg-success-100 text-success-700 border-success-200': item.status === 'READY',
+                            'bg-primary-100 text-primary-700 border-primary-200': item.status === 'IN_USE',
+                            'bg-warning-100 text-warning-700 border-warning-200': item.status === 'MAINTAINANCE',
+                            'bg-danger-100 text-danger-700 border-danger-200': item.status === 'BROKEN',
+                            'bg-secondary-100 text-secondary-700 border-secondary-200': item.status === 'LIQUIDATED',
+                          }"
+                        >
+                          {{ item.status.replace('_', ' ') }}
+                        </span>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="text-sm text-secondary-700">{{ item.location_name || '—' }}</span>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="text-sm font-medium text-secondary-900">{{ formatCurrency(item.costs) }}</span>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <span v-if="item.kit" class="inline-flex items-center gap-1 text-sm text-primary-700">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                          </svg>
+                          {{ item.kit.template.name }}
+                        </span>
+                        <span v-else class="text-sm text-secondary-400">—</span>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="text-sm text-secondary-600">{{ formatDate(item.acquired_at) }}</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div v-else class="px-6 py-12 text-center text-secondary-400">
+                  <svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                  </svg>
+                  <p class="text-sm">No individual items found for this asset</p>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Sidebar (1 col) -->

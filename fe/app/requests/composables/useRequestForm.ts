@@ -1,15 +1,17 @@
-import type { RequestFormData, RequestAsset, AssetCategory } from '../types/request.types'
+import type { RequestFormData, RequestAsset, RequestKit, AssetCategory, RequestType } from '../types/request.types'
 import { useRequests } from './useRequests'
 import { useDraft } from './useDraft'
 
 export const useRequestForm = () => {
-  const { createRequest, getAssetCategories, getAvailableAssets } = useRequests()
+  const { createRequest, getAssetCategories, getAvailableAssets, getAvailableKits } = useRequests()
   const { saveDraft, getDraft, clearDraft, hasDraft } = useDraft()
   const { user } = useAuth()
 
   // Form state - matches backend CreateRequestDto
   const formData = ref<RequestFormData>({
-    assetId: '',
+    type: 'asset',
+    assetId: undefined,
+    kitId: undefined,
     requesterId: '',
     reason: '',
     priority: 'MEDIUM'
@@ -33,6 +35,11 @@ export const useRequestForm = () => {
   const selectedAsset = ref<RequestAsset | null>(null)
   const isLoadingAssets = ref(false)
 
+  // Available kits
+  const availableKits = ref<RequestKit[]>([])
+  const selectedKit = ref<RequestKit | null>(null)
+  const isLoadingKits = ref(false)
+
   // Computed
   const requesterInfo = computed(() => ({
     id: user.value?.id || '',
@@ -42,8 +49,11 @@ export const useRequestForm = () => {
   }))
 
   const canSubmit = computed(() => {
+    const hasSelection = formData.value.type === 'kit'
+      ? !!formData.value.kitId
+      : !!formData.value.assetId
     return (
-      formData.value.assetId &&
+      hasSelection &&
       formData.value.reason.trim().length > 0 &&
       Object.keys(errors.value).length === 0
     )
@@ -82,14 +92,66 @@ export const useRequestForm = () => {
     }
   }
 
+  // Load available kits
+  const loadAvailableKits = async (search?: string) => {
+    isLoadingKits.value = true
+    try {
+      const { data } = await getAvailableKits(search)
+      if (data.value) {
+        availableKits.value = Array.isArray(data.value) ? data.value : []
+      } else {
+        availableKits.value = []
+      }
+    } catch (err) {
+      console.error('Failed to load available kits:', err)
+      availableKits.value = []
+    } finally {
+      isLoadingKits.value = false
+    }
+  }
+
+  // Handle type change (asset vs kit)
+  const onTypeChange = (type: RequestType) => {
+    formData.value.type = type
+    // Clear the other selection
+    if (type === 'asset') {
+      formData.value.kitId = undefined
+      selectedKit.value = null
+      loadAvailableAssets()
+    } else {
+      formData.value.assetId = undefined
+      selectedAsset.value = null
+      selectedCategoryId.value = ''
+      loadAvailableKits()
+    }
+    errors.value = {}
+    autoSave()
+  }
+
+  // Handle kit selection
+  const onKitChange = (kitId: string) => {
+    formData.value.kitId = kitId
+    selectedKit.value = Array.isArray(availableKits.value)
+      ? availableKits.value.find((k: RequestKit) => k.id === kitId) || null
+      : null
+    delete errors.value.kitId
+    autoSave()
+  }
+
   // Validate a single field
   const validateField = (field: keyof RequestFormData) => {
     delete errors.value[field]
 
     switch (field) {
       case 'assetId':
-        if (!formData.value.assetId) {
+        if (formData.value.type === 'asset' && !formData.value.assetId) {
           errors.value.assetId = 'Please select an asset'
+        }
+        break
+
+      case 'kitId':
+        if (formData.value.type === 'kit' && !formData.value.kitId) {
+          (errors.value as any).kitId = 'Please select a kit'
         }
         break
 
@@ -111,7 +173,11 @@ export const useRequestForm = () => {
   const validateForm = () => {
     errors.value = {}
     
-    validateField('assetId')
+    if (formData.value.type === 'asset') {
+      validateField('assetId')
+    } else {
+      validateField('kitId')
+    }
     validateField('reason')
 
     return Object.keys(errors.value).length === 0
@@ -191,7 +257,10 @@ export const useRequestForm = () => {
     const draft = getDraft()
     if (draft) {
       formData.value = { ...draft.form_data }
-      if (draft.form_data.assetId) {
+      if (!formData.value.type) formData.value.type = 'asset'
+      if (formData.value.type === 'kit' && formData.value.kitId) {
+        loadAvailableKits()
+      } else if (formData.value.assetId) {
         loadAvailableAssets()
       }
     }
@@ -206,6 +275,7 @@ export const useRequestForm = () => {
   // Reset form
   const resetForm = () => {
     formData.value = {
+      type: 'asset',
       assetId: '',
       requesterId: '',
       reason: '',
@@ -213,7 +283,9 @@ export const useRequestForm = () => {
     }
     selectedCategoryId.value = ''
     selectedAsset.value = null
+    selectedKit.value = null
     availableAssets.value = []
+    availableKits.value = []
     errors.value = {}
     createdRequestId.value = null
   }
@@ -263,6 +335,9 @@ export const useRequestForm = () => {
     selectedCategoryId,
     selectedAsset,
     isLoadingAssets,
+    availableKits,
+    selectedKit,
+    isLoadingKits,
 
     // Computed
     requesterInfo,
@@ -274,12 +349,15 @@ export const useRequestForm = () => {
     validateForm,
     onCategoryChange,
     onAssetChange,
+    onTypeChange,
+    onKitChange,
     openPreview,
     closePreview,
     submitRequest,
     restoreDraft,
     discardDraft,
     resetForm,
-    loadAvailableAssets
+    loadAvailableAssets,
+    loadAvailableKits
   }
 }

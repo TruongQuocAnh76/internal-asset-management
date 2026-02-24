@@ -1,5 +1,6 @@
-import type { Asset, AssetStatus, StateTransition } from '../types/asset.types'
+import type { Asset, AssetItem, AssetStatus, StateTransition } from '../types/asset.types'
 import { useAssets } from './useAssets'
+import { useAuth } from '../../auth/composables/useAuth'
 
 // Define allowed state transitions
 const STATE_TRANSITIONS: Record<AssetStatus, StateTransition[]> = {
@@ -26,10 +27,12 @@ const STATE_TRANSITIONS: Record<AssetStatus, StateTransition[]> = {
 }
 
 export const useAssetDetail = (assetId: string) => {
-  const { getAssetById, updateAssetStatus } = useAssets()
+  const { getAssetById, getAssetItems, updateAssetStatus } = useAssets()
+  const { user } = useAuth()
 
   // State
   const asset = ref<Asset | null>(null)
+  const assetItems = ref<AssetItem[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
   const isTransitioning = ref(false)
@@ -43,7 +46,15 @@ export const useAssetDetail = (assetId: string) => {
   // Computed
   const availableTransitions = computed(() => {
     if (!asset.value) return []
-    return STATE_TRANSITIONS[asset.value.status] || []
+    const transitions = STATE_TRANSITIONS[asset.value.status] || []
+
+    // Only show "Return to Available" when the current user is the borrower
+    return transitions.filter((t) => {
+      if (t.from === 'IN_USE' && t.to === 'READY') {
+        return asset.value?.borrower_id === user.value?.id
+      }
+      return true
+    })
   })
 
   const statusConfig = computed(() => {
@@ -64,6 +75,7 @@ export const useAssetDetail = (assetId: string) => {
 
     try {
       asset.value = await getAssetById(assetId)
+      assetItems.value = await getAssetItems(assetId)
     } catch (err: any) {
       error.value = err.data?.message || err.message || 'Failed to load asset'
     } finally {
@@ -144,6 +156,7 @@ export const useAssetDetail = (assetId: string) => {
   return {
     // State
     asset,
+    assetItems,
     loading: isLoading,
     error,
     transitionLoading: isTransitioning,

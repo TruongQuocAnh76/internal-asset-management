@@ -1,4 +1,4 @@
-import type { BorrowRequest, RequestFormData, GetRequestsParams, RequestAsset, AssetCategory } from '../types/request.types'
+import type { BorrowRequest, RequestFormData, GetRequestsParams, RequestAsset, RequestKit, AssetCategory } from '../types/request.types'
 
 export const useRequests = () => {
   const config = useRuntimeConfig()
@@ -31,9 +31,11 @@ export const useRequests = () => {
 
   // Create request - uses POST /requests
   const createRequest = async (data: RequestFormData) => {
+    // Strip type field - backend doesn't need it, it infers from assetId/kitId
+    const { type, ...payload } = data
     return $fetch<BorrowRequest>(`${baseUrl}/requests`, {
       method: 'POST',
-      body: data,
+      body: payload,
       credentials: 'include'
     })
   }
@@ -49,9 +51,10 @@ export const useRequests = () => {
 
   // Approve request - uses PUT /requests/approve?id=
   // Team Lead approves PENDING -> APPROVED
-  const approveRequest = async (id: string) => {
+  const approveRequest = async (id: string, assetId?: string, kitId?: string) => {
     return $fetch<BorrowRequest>(`${baseUrl}/requests/approve?id=${id}`, {
       method: 'PUT',
+      body: { asset_id: assetId, kit_id: kitId },
       credentials: 'include'
     })
   }
@@ -76,9 +79,10 @@ export const useRequests = () => {
 
   // Return request - uses PUT /requests/return?id=
   // User returns asset PROVIDED -> RETURNED (or OVERDUE -> RETURNED)
-  const returnRequest = async (id: string) => {
+  const returnRequest = async (id: string, assetId?: string, kitId?: string) => {
     return $fetch<BorrowRequest>(`${baseUrl}/requests/return?id=${id}`, {
       method: 'PUT',
+      body: { asset_id: assetId, kit_id: kitId },
       credentials: 'include'
     })
   }
@@ -112,6 +116,25 @@ export const useRequests = () => {
     })
   }
 
+  // Get available kits (READY status)
+  const getAvailableKits = async (search?: string) => {
+    const params: Record<string, string> = { filter: 'status', filterValue: 'READY' }
+    if (search) params.search = search
+
+    return useFetch<{ data: RequestKit[] }>(`${baseUrl}/kits`, {
+      params,
+      credentials: 'include',
+      transform: (response: any) => {
+        const items = response.data || response || []
+        return Array.isArray(items) ? items.map((kit: any) => ({
+          id: kit.id,
+          status: kit.status,
+          template: kit.template
+        })) : []
+      }
+    })
+  }
+
   return {
     getRequests,
     getRequestById,
@@ -123,6 +146,7 @@ export const useRequests = () => {
     returnRequest,
     cancelRequest,
     getAssetCategories,
-    getAvailableAssets
+    getAvailableAssets,
+    getAvailableKits
   }
 }

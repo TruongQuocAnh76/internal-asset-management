@@ -28,7 +28,7 @@ export class UsersController {
   @Post()
   @UseGuards(SessionAuthGuard)
   create(@Body() signupDto: SignupDto, @CurrentUser('id') userId: string) {
-    return this.usersService.create(signupDto, userId);
+    return this.usersService.create(signupDto);
   }
 
   @Get()

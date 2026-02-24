@@ -3,17 +3,12 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from 'src/core/database/prisma.service';
 import { SignupDto } from 'src/core/auth/dto/signup.dto';
 import { DeploymentStatus } from '@prisma/client';
-import { AuditService } from 'src/core/audit/audit.service';
-import { Entity } from 'src/core/enums/entity.enum';
 
 @Injectable()
 export class UsersService {
-  constructor(
-    private prisma: PrismaService,
-    private auditService: AuditService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
-  async create(dto: SignupDto, userId: string) {
+  async create(dto: SignupDto) {
     const createdUser = await this.prisma.users.create({
       data: {
         username: dto.username,
@@ -25,16 +20,6 @@ export class UsersService {
         status: DeploymentStatus.ACTIVE,
       },
     });
-
-    // Add audit record
-    await this.auditService.addRecord(
-      createdUser.id,
-      'CREATE',
-      Entity.USER,
-      createdUser.id,
-      JSON.stringify({}),
-      JSON.stringify(dto),
-    );
 
     return createdUser;
   }
@@ -48,52 +33,16 @@ export class UsersService {
   }
 
   update(id: number, updateUserDto: UpdateUserDto, userId: string) {
-    return this.prisma.users
-      .findUnique({
-        where: { id: id.toString() },
-      })
-      .then(async (beforeUser) => {
-        const updatedUser = await this.prisma.users.update({
-          where: { id: id.toString() },
-          data: updateUserDto,
-        });
-
-        // Add audit record
-        await this.auditService.addRecord(
-          userId,
-          'UPDATE',
-          Entity.USER,
-          id.toString(),
-          JSON.stringify(beforeUser),
-          JSON.stringify(updateUserDto),
-        );
-
-        return updatedUser;
-      });
+    return this.prisma.users.update({
+      where: { id: id.toString() },
+      data: updateUserDto,
+    });
   }
 
   remove(id: number, userId: string) {
-    return this.prisma.users
-      .findUnique({
-        where: { id: id.toString() },
-      })
-      .then(async (beforeUser) => {
-        const deletedUser = await this.prisma.users.delete({
-          where: { id: id.toString() },
-        });
-
-        // Add audit record
-        await this.auditService.addRecord(
-          userId,
-          'DELETE',
-          Entity.USER,
-          id.toString(),
-          JSON.stringify(beforeUser),
-          JSON.stringify({}),
-        );
-
-        return deletedUser;
-      });
+    return this.prisma.users.delete({
+      where: { id: id.toString() },
+    });
   }
 
   async findByCredential(credential: string) {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { RequestFormData, RequestAsset } from '../types/request.types'
+import type { RequestFormData, RequestAsset, RequestKit } from '../types/request.types'
 import PriorityBadge from './PriorityBadge.vue'
 
 interface Props {
@@ -11,6 +11,7 @@ interface Props {
     department: string
   }
   selectedAsset: RequestAsset | null
+  selectedKit: RequestKit | null
   isSubmitting: boolean
 }
 
@@ -105,7 +106,7 @@ const handleConfirm = () => {
                 </div>
 
                 <!-- Asset Info -->
-                <div>
+                <div v-if="formData.type === 'asset'">
                   <h3 class="text-sm font-medium text-secondary-500 uppercase tracking-wider mb-2">
                     Requested Asset
                   </h3>
@@ -114,7 +115,22 @@ const handleConfirm = () => {
                       {{ selectedAsset?.name || 'Not selected' }}
                     </p>
                     <p v-if="selectedAsset" class="text-sm text-secondary-600">
-                      {{ selectedAsset.code }} · {{ selectedAsset.location_name }}
+                      {{ selectedAsset.code }}
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Kit Info -->
+                <div v-if="formData.type === 'kit'">
+                  <h3 class="text-sm font-medium text-secondary-500 uppercase tracking-wider mb-2">
+                    Requested Kit
+                  </h3>
+                  <div class="bg-secondary-50 rounded-lg p-4">
+                    <p class="font-medium text-secondary-900">
+                      {{ selectedKit?.template?.name || 'Not selected' }}
+                    </p>
+                    <p v-if="selectedKit" class="text-sm text-secondary-600">
+                      Kit #{{ selectedKit.id.slice(0, 8).toUpperCase() }}
                     </p>
                   </div>
                 </div>

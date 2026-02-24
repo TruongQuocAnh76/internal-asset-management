@@ -1,18 +1,19 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/core/database/prisma.service';
 import { GetAssetsParams } from './dto/get-assets-params.dto';
 import { AssetStatus, Prisma } from '@prisma/client';
 import { EditAssetDto, EditAssetDtoSchema } from './dto/edit-asset.dto';
 import { CreateAssetDto } from './dto/create-asset.dto';
-import { AuditService } from 'src/core/audit/audit.service';
-import { Entity } from 'src/core/enums/entity.enum';
 import { StorageService } from 'src/core/storage/storage.service';
 
 @Injectable()
 export class AssetsService {
   constructor(
     private prisma: PrismaService,
-    private auditService: AuditService,
     private storageService: StorageService,
   ) {}
 
@@ -41,17 +42,22 @@ export class AssetsService {
         },
         status: true,
         image_urls: true,
-        costs: true,
         acquired_at: true,
+        _count: {
+          select: {
+            asset_items: true,
+          },
+        },
       },
     });
 
     const totalAssetsCount = await this.prisma.assets.count({ where: where });
 
     const res = assets.map((asset) => {
+      const { _count, ...rest } = asset;
       return {
-        ...asset,
-        costs: Number(asset.costs),
+        ...rest,
+        stock: _count.asset_items,
       };
     });
 
@@ -86,11 +92,34 @@ export class AssetsService {
           },
         },
         status: true,
-        costs: true,
         image_urls: true,
         acquired_at: true,
         created_at: true,
         updated_at: true,
+        asset_items: {
+          select: {
+            id: true,
+            status: true,
+            location_name: true,
+            costs: true,
+            acquired_at: true,
+            kit_id: true,
+            kit_status: true,
+          },
+        },
+        _count: {
+          select: {
+            asset_items: true,
+          },
+        },
+        borrow_requests: {
+          where: {
+            status: { in: ['APPROVED', 'PROVIDED'] },
+          },
+          select: { requester_id: true },
+          orderBy: { created_at: 'desc' },
+          take: 1,
+        },
       },
     });
 
@@ -98,9 +127,61 @@ export class AssetsService {
       throw new BadRequestException('Asset not found');
     }
 
-    const { costs, ...rest } = asset;
+    const { _count, borrow_requests, ...rest } = asset;
 
-    return { costs: Number(costs), ...rest };
+    return {
+      stock: _count.asset_items,
+      borrower_id: borrow_requests[0]?.requester_id ?? null,
+      ...rest,
+      asset_items: asset.asset_items.map((item) => ({
+        ...item,
+        costs: item.costs ? Number(item.costs) : null,
+      })),
+    };
+  }
+
+  async getAssetItems(assetId: string) {
+    const items = await this.prisma.assetItems.findMany({
+      where: { asset_id: assetId },
+      select: {
+        id: true,
+        status: true,
+        location_name: true,
+        costs: true,
+        acquired_at: true,
+        kit_id: true,
+        kit_status: true,
+        created_at: true,
+        updated_at: true,
+        kit: {
+          select: {
+            id: true,
+            template: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    // Verify asset exists when no items are found
+    if (items.length === 0) {
+      const asset = await this.prisma.assets.findUnique({
+        where: { id: assetId },
+        select: { id: true },
+      });
+      if (!asset) {
+        throw new NotFoundException('Asset not found');
+      }
+    }
+
+    return items.map((item) => ({
+      ...item,
+      costs: item.costs ? Number(item.costs) : null,
+    }));
   }
 
   async createAsset(body: CreateAssetDto, userId: string) {
@@ -114,8 +195,8 @@ export class AssetsService {
       .replace(/\s+/g, '_')
       .concat('_', Date.now().toString().slice(-4));
 
-    const { category_name, costs, specs, image_num, ...rest } = body;
-    const asset_costs = Number(costs);
+    const { category_name, costs, specs, image_num, initial_quantity, location_name, ...rest } = body;
+    const asset_costs = costs !== undefined ? Number(costs) : null;
 
     // create temp url for each images
     const fileNames: string[] = [];
@@ -138,28 +219,29 @@ export class AssetsService {
         ...rest,
         code: asset_code,
         category_id: category.id,
-        costs: asset_costs,
         asset_specs: {
           create: {
             specs: JSON.parse(JSON.stringify(body.specs)) || {},
           },
         },
         image_urls: fileNames,
+        // Create individual asset items based on initial_quantity
+        asset_items: {
+          createMany: {
+            data: Array.from({ length: initial_quantity || 1 }, () => ({
+              location_name: body.location_name,
+              costs: asset_costs,
+            })),
+          },
+        },
       },
       select: {
         id: true,
       },
     });
 
-    // add audit record
-    await this.auditService.addRecord(
-      userId,
-      'CREATE',
-      Entity.ASSET,
-      createdAsset.id,
-      {},
-      JSON.stringify(body),
-    );
+    // Recompute cached asset status
+    await this.recomputeAssetStatus(createdAsset.id);
 
     return { createdAsset, tempImageUrls };
   }
@@ -169,11 +251,6 @@ export class AssetsService {
     if (Object.keys(data).length === 0) {
       throw new BadRequestException('No fields to update');
     }
-
-    // Fetch the current asset state before update
-    const beforeAsset = await this.prisma.assets.findUnique({
-      where: { id: id },
-    });
 
     // create the category if not exists
     let category;
@@ -189,25 +266,13 @@ export class AssetsService {
         ...(category?.id && { category_id: category.id }),
         asset_specs: {
           update: {
-            specs: JSON.parse(JSON.stringify(data.specs)) || {},
+            specs: JSON.parse(JSON.stringify(data.specs ?? {})),
           },
         },
-        costs: Number(data.costs),
       },
     });
 
-    // Add audit record
-    await this.auditService.addRecord(
-      userId,
-      'UPDATE',
-      Entity.ASSET,
-      id,
-      JSON.stringify(beforeAsset),
-      JSON.stringify(data),
-    );
-
-    const { costs: assetCosts, ...assetRest } = asset;
-    return { costs: Number(assetCosts), ...assetRest };
+    return asset;
   }
 
   protected async checkCategory(category_name: string) {
@@ -232,8 +297,6 @@ export class AssetsService {
           throw new BadRequestException('Invalid asset status');
         }
         where.status = query.filterValue as AssetStatus;
-      } else if (query.filter === 'costs') {
-        where.costs = Number(query.filterValue);
       } else if (query.filter === 'acquired_at') {
         where.acquired_at = new Date(query.filterValue);
       }
@@ -290,29 +353,118 @@ export class AssetsService {
 
   async getSummary() {
     const [
-      countAll,
-      countAvailable,
-      countInUse,
-      countMaintenance,
-      countBroken,
-      countLiquidated,
+      countAllAssets,
+      countAllItems,
+      countItemsReady,
+      countItemsInUse,
+      countItemsMaintenance,
+      countItemsBroken,
+      countItemsLiquidated,
     ] = await Promise.all([
       this.prisma.assets.count(),
-      this.prisma.assets.count({ where: { status: 'READY' } }),
-      this.prisma.assets.count({ where: { status: 'IN_USE' } }),
-      this.prisma.assets.count({ where: { status: 'MAINTAINANCE' } }),
-      this.prisma.assets.count({ where: { status: 'BROKEN' } }),
-      this.prisma.assets.count({ where: { status: 'LIQUIDATED' } }),
+      this.prisma.assetItems.count(),
+      this.prisma.assetItems.count({ where: { status: 'READY' } }),
+      this.prisma.assetItems.count({ where: { status: 'IN_USE' } }),
+      this.prisma.assetItems.count({ where: { status: 'MAINTAINANCE' } }),
+      this.prisma.assetItems.count({ where: { status: 'BROKEN' } }),
+      this.prisma.assetItems.count({ where: { status: 'LIQUIDATED' } }),
     ]);
     return {
-      countAll,
-      byStatus: {
-        countAvailable,
-        countInUse,
-        countMaintenance,
-        countBroken,
-        countLiquidated,
+      countAllAssets,
+      countAllItems,
+      byItemStatus: {
+        countItemsReady,
+        countItemsInUse,
+        countItemsMaintenance,
+        countItemsBroken,
+        countItemsLiquidated,
       },
     };
+  }
+
+  protected async adjustAssetStock(assetId: string, value: number) {
+    return this.prisma.$transaction(async (tx) => {
+      if (value > 0) {
+        try {
+          const newItems = await tx.assetItems.createManyAndReturn({
+            data: Array.from({ length: value }, () => ({
+              asset_id: assetId,
+            })),
+          });
+
+          await this.recomputeAssetStatusTx(tx, assetId);
+          return newItems;
+        } catch (error) {
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            (error.code === 'P2003' || error.code === 'P2025')
+          ) {
+            throw new NotFoundException('Asset not found');
+          }
+          throw error;
+        }
+      } else if (value < 0) {
+        const itemsToRemove = await tx.assetItems.findMany({
+          where: {
+            asset_id: assetId,
+            status: 'READY',
+            kit_id: null,
+          },
+          take: Math.abs(value),
+          orderBy: { created_at: 'asc' },
+        });
+
+        if (itemsToRemove.length < Math.abs(value)) {
+          throw new BadRequestException(
+            `Cannot remove ${Math.abs(value)} items. Only ${itemsToRemove.length} available READY items found.`,
+          );
+        }
+
+        const removedIds = itemsToRemove.map((item) => item.id);
+
+        await tx.assetItems.deleteMany({
+          where: { id: { in: removedIds } },
+        });
+
+        await this.recomputeAssetStatusTx(tx, assetId);
+        return { removed: removedIds.length };
+      }
+
+      return { message: 'No stock adjustment needed' };
+    });
+  }
+
+  /**
+   * Recompute cached status on the Assets row (transaction-aware).
+   */
+  private async recomputeAssetStatusTx(
+    tx: any,
+    assetId: string,
+  ): Promise<AssetStatus> {
+    const readyCount = await tx.assetItems.count({
+      where: { asset_id: assetId, status: AssetStatus.READY },
+    });
+    const newStatus = readyCount > 0 ? AssetStatus.READY : AssetStatus.IN_USE;
+    await tx.assets.update({
+      where: { id: assetId },
+      data: { status: newStatus },
+    });
+    return newStatus;
+  }
+
+  /**
+   * Recompute cached status on the Assets row.
+   * READY if at least 1 asset_item is READY, otherwise IN_USE.
+   */
+  async recomputeAssetStatus(assetId: string): Promise<AssetStatus> {
+    const readyCount = await this.prisma.assetItems.count({
+      where: { asset_id: assetId, status: AssetStatus.READY },
+    });
+    const newStatus = readyCount > 0 ? AssetStatus.READY : AssetStatus.IN_USE;
+    await this.prisma.assets.update({
+      where: { id: assetId },
+      data: { status: newStatus },
+    });
+    return newStatus;
   }
 }

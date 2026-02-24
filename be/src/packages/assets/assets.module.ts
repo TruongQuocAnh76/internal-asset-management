@@ -2,11 +2,10 @@ import { Module } from '@nestjs/common';
 import { AssetsService } from './assets.service';
 import { AssetsController } from './assets.controller';
 import { DatabaseModule } from 'src/core/database/database.module';
-import { AuditModule } from 'src/core/audit/audit.module';
 import { StorageService } from 'src/core/storage/storage.service';
 
 @Module({
-  imports: [DatabaseModule, AuditModule],
+  imports: [DatabaseModule],
   controllers: [AssetsController],
   providers: [AssetsService, StorageService],
 })
