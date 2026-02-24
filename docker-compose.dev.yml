@@ -26,8 +26,24 @@ services:
       - ./be/.env
     volumes:
       - ./be:/app
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=supa_secret_redis_password
     networks:
       - app_network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+
   db:
     image: postgres:latest
     ports:
@@ -73,6 +89,7 @@ services:
 volumes:
   minio_data:
   db_data:
+  redis_data:
   
 networks:
   app_network:

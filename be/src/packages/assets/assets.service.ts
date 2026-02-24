@@ -9,13 +9,13 @@ import { AssetStatus, Prisma } from '@prisma/client';
 import { EditAssetDto, EditAssetDtoSchema } from './dto/edit-asset.dto';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { StorageService } from 'src/core/storage/storage.service';
-
+import { DepreciationMethod } from '@prisma/client';
 @Injectable()
 export class AssetsService {
   constructor(
     private prisma: PrismaService,
     private storageService: StorageService,
-  ) {}
+  ) { }
 
   async getAssets(query: GetAssetsParams) {
     const where = this.buildWhere(query);
@@ -466,5 +466,112 @@ export class AssetsService {
       data: { status: newStatus },
     });
     return newStatus;
+  }
+
+  computeDepreciation(params: {
+    costs: bigint;
+    salvage_value?: bigint | null;
+    life_months?: number | null;
+    decline_balance_rate?: number | null;
+    depreciation_method: DepreciationMethod;
+  }): bigint {
+    const { costs, depreciation_method } = params;
+    const salvageValue = params.salvage_value ?? BigInt(0);
+
+    // Already fully depreciated
+    if (costs <= salvageValue) return salvageValue;
+
+    let monthlyDepreciation = BigInt(0);
+
+    if (depreciation_method === DepreciationMethod.STRAIGHT_LINE) {
+      if (params.life_months && params.life_months > 0) {
+        monthlyDepreciation = (costs - salvageValue) / BigInt(params.life_months);
+      }
+    } else if (depreciation_method === DepreciationMethod.DECLINNING_BALANCE) {
+      if (params.decline_balance_rate && params.decline_balance_rate > 0) {
+        monthlyDepreciation = (costs * BigInt(params.decline_balance_rate)) / BigInt(100);
+      }
+    }
+
+    if (monthlyDepreciation <= BigInt(0)) return costs;
+
+    const newCost = costs - monthlyDepreciation;
+    return newCost < salvageValue ? salvageValue : newCost;
+  }
+
+  /**
+   * Apply monthly depreciation to all asset items whose parent asset
+   * has a depreciation_method configured. Processes in batches using
+   * cursor-based pagination.
+   */
+  async applyMonthlyDepreciation(): Promise<number> {
+    const batchSize = 500;
+    let processed = 0;
+    let cursor: string | undefined;
+    while (true) {
+      const items = await this.prisma.assetItems.findMany({
+        where: {
+          asset: {
+            depreciation_method: { not: null },
+            status: { not: 'LIQUIDATED' },
+          },
+        },
+        select: {
+          id: true,
+          costs: true,
+          asset: {
+            select: {
+              salvage_value: true,
+              life_months: true,
+              decline_balance_rate: true,
+              depreciation_method: true,
+            },
+          },
+          acquired_at: true,
+        },
+        take: batchSize,
+        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+        orderBy: { id: 'asc' },
+      });
+
+      if (items.length === 0) break;
+
+
+      const updates: { id: string; newCost: bigint }[] = [];
+      for (const item of items) {
+        const currentCost = item.costs;
+        const salvageValue = item.asset.salvage_value ?? BigInt(0);
+
+        if (currentCost <= salvageValue) continue;
+
+        const newCost = this.computeDepreciation({
+          costs: currentCost,
+          salvage_value: item.asset.salvage_value,
+          life_months: item.asset.life_months,
+          decline_balance_rate: item.asset.decline_balance_rate,
+          depreciation_method: item.asset.depreciation_method!,
+        });
+
+        if (newCost >= currentCost) continue;
+
+        updates.push({ id: item.id, newCost });
+      }
+
+      if (updates.length > 0) {
+        const values = updates
+          .map((u) => `('${u.id}'::uuid, ${u.newCost}::bigint)`)
+          .join(', ');
+
+        await this.prisma.$executeRawUnsafe(`
+          UPDATE "AssetItems" ai
+          SET costs = v.new_cost
+          FROM (VALUES ${values}) AS v(id, new_cost)
+          WHERE ai.id = v.id::uuid
+        `);
+      }
+      processed += items.length;
+      cursor = items[items.length - 1].id;
+    }
+    return processed;
   }
 }

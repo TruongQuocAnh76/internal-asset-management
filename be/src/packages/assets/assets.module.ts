@@ -8,5 +8,6 @@ import { StorageService } from 'src/core/storage/storage.service';
   imports: [DatabaseModule],
   controllers: [AssetsController],
   providers: [AssetsService, StorageService],
+  exports: [AssetsService],
 })
 export class AssetsModule {}

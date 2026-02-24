@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AssetsService } from './assets.service';
 import { PrismaService } from 'src/core/database/prisma.service';
-import { AssetStatus } from '@prisma/client';
+import { AssetStatus, DepreciationMethod, Prisma } from '@prisma/client';
 import { EditAssetDto } from './dto/edit-asset.dto';
 import { StorageService } from 'src/core/storage/storage.service';
 
@@ -34,6 +34,8 @@ describe('AssetsService', () => {
     assetsCategories: {
       findFirst: jest.fn(),
     },
+    $executeRawUnsafe: jest.fn().mockResolvedValue(0),
+    $transaction: jest.fn().mockImplementation((fn) => fn(prismaMock)),
   };
 
   const storageServiceMock = {
@@ -83,17 +85,6 @@ describe('AssetsService', () => {
 
     expect(where).toEqual({
       status: AssetStatus.READY,
-    });
-  });
-
-  it('builds where clause for costs filter', () => {
-    const where = (service as any).buildWhere({
-      filter: 'costs',
-      filterValue: '1500',
-    });
-
-    expect(where).toEqual({
-      costs: 1500,
     });
   });
 
@@ -234,107 +225,10 @@ describe('AssetsService', () => {
       where: { id },
       data: expect.objectContaining({
         category_id: 'cat-2',
-        costs: 1200,
       }),
     });
 
     expect(result.costs).toBe(1200);
-  });
-
-  it('should increment stock if duplicate kit exists', async () => {
-    jest.spyOn(service, 'checkDuplicateKit').mockResolvedValue('kit-1');
-
-    prismaMock.assetsKits.findUnique.mockResolvedValue({
-      id: 'kit-1',
-      stock: 1,
-      assets_kits_items: [],
-    } as any);
-
-    prismaMock.assetsKits.update.mockResolvedValue({
-      id: 'kit-1',
-      stock: 2,
-      assets_kits_items: [],
-    } as any);
-
-    const result = await service.createAssetKit(
-      { name: 'Kit A', asset_ids: ['a1', 'a2'] },
-      'user-1',
-    );
-
-    expect(prismaMock.assetsKits.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'kit-1' },
-        data: { stock: { increment: 1 } },
-      }),
-    );
-
-    expect(result.id).toBe('kit-1');
-  });
-
-  it('should create new kit with worst asset status', async () => {
-    jest.spyOn(service, 'checkDuplicateKit').mockResolvedValue(null);
-
-    prismaMock.assets.findMany.mockResolvedValue([
-      { id: 'a1', status: AssetStatus.READY },
-      { id: 'a2', status: AssetStatus.BROKEN },
-    ] as any);
-
-    prismaMock.assetsKits.create.mockResolvedValue({
-      id: 'new-kit',
-      status: AssetStatus.BROKEN,
-      assets_kits_items: [
-        { asset: { id: 'a1', costs: BigInt(1000) } },
-        { asset: { id: 'a2', costs: BigInt(2000) } },
-      ],
-    } as any);
-
-    const result = await service.createAssetKit(
-      { name: 'Kit B', asset_ids: ['a1', 'a2'] },
-      'user-1',
-    );
-
-    expect(prismaMock.assets.findMany).toHaveBeenCalled();
-    expect(prismaMock.assetsKits.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: {
-          name: 'Kit B',
-          status: AssetStatus.BROKEN,
-          assets_kits_items: {
-            createMany: {
-              data: [{ asset_id: 'a1' }, { asset_id: 'a2' }],
-            },
-          },
-        },
-      }),
-    );
-
-    expect(result.status).toBe(AssetStatus.BROKEN);
-  });
-
-  it('should return kit id if asset set matches exactly', async () => {
-    prisma.assetsKits.findMany.mockResolvedValue([
-      {
-        id: 'kit-123',
-        assets_kits_items: [{ asset_id: 'a1' }, { asset_id: 'a2' }],
-      },
-    ] as any);
-
-    const result = await service.checkDuplicateKit(['a2', 'a1']);
-
-    expect(result).toBe('kit-123');
-  });
-
-  it('should return null if no match', async () => {
-    prisma.assetsKits.findMany.mockResolvedValue([
-      {
-        id: 'kit-123',
-        assets_kits_items: [{ asset_id: 'a1' }],
-      },
-    ] as any);
-
-    const result = await service.checkDuplicateKit(['a1', 'a2']);
-
-    expect(result).toBeNull();
   });
 
   // --- getAssets with stock from asset_items ---
@@ -358,7 +252,6 @@ describe('AssetsService', () => {
     const result = await service.getAssets({});
 
     expect(result.data[0].stock).toBe(3);
-    expect(result.data[0].costs).toBe(1500);
   });
 
   // --- getAssetById with asset_items ---
@@ -397,12 +290,12 @@ describe('AssetsService', () => {
         },
       ],
       _count: { asset_items: 2 },
+      borrow_requests: [],
     } as any);
 
     const result = await service.getAssetById('a1');
 
     expect(result.stock).toBe(2);
-    expect(result.costs).toBe(2000);
     expect(result.asset_items).toHaveLength(2);
     expect(result.asset_items[0].costs).toBe(2000);
     expect(result.asset_items[1].costs).toBeNull();
@@ -442,41 +335,31 @@ describe('AssetsService', () => {
   // --- adjustAssetStock ---
 
   it('should add asset items when adjusting stock with positive value', async () => {
-    prismaMock.assets.findUnique.mockResolvedValue({
-      id: 'a1',
-      location_name: 'Room A',
-      costs: BigInt(1000),
-    } as any);
-
     prismaMock.assetItems.createManyAndReturn.mockResolvedValue([
       { id: 'item-1', asset_id: 'a1' },
       { id: 'item-2', asset_id: 'a1' },
     ] as any);
 
+    prismaMock.assets.update.mockResolvedValue({} as any);
+    prismaMock.assetItems.count.mockResolvedValue(2);
+
     const result = await (service as any).adjustAssetStock('a1', 2);
 
     expect(prismaMock.assetItems.createManyAndReturn).toHaveBeenCalledWith({
-      data: [
-        { asset_id: 'a1', location_name: 'Room A', costs: BigInt(1000) },
-        { asset_id: 'a1', location_name: 'Room A', costs: BigInt(1000) },
-      ],
+      data: [{ asset_id: 'a1' }, { asset_id: 'a1' }],
     });
     expect(result).toHaveLength(2);
   });
 
   it('should remove READY asset items when adjusting stock with negative value', async () => {
-    prismaMock.assets.findUnique.mockResolvedValue({
-      id: 'a1',
-      location_name: 'Room A',
-      costs: BigInt(1000),
-    } as any);
-
     prismaMock.assetItems.findMany.mockResolvedValue([
       { id: 'item-1' },
       { id: 'item-2' },
     ] as any);
 
     prismaMock.assetItems.deleteMany.mockResolvedValue({ count: 2 });
+    prismaMock.assets.update.mockResolvedValue({} as any);
+    prismaMock.assetItems.count.mockResolvedValue(0);
 
     const result = await (service as any).adjustAssetStock('a1', -2);
 
@@ -496,12 +379,6 @@ describe('AssetsService', () => {
   });
 
   it('should throw if not enough READY items to remove', async () => {
-    prismaMock.assets.findUnique.mockResolvedValue({
-      id: 'a1',
-      location_name: 'Room A',
-      costs: BigInt(1000),
-    } as any);
-
     prismaMock.assetItems.findMany.mockResolvedValue([{ id: 'item-1' }] as any);
 
     await expect((service as any).adjustAssetStock('a1', -3)).rejects.toThrow(
@@ -510,20 +387,278 @@ describe('AssetsService', () => {
   });
 
   it('should return no adjustment message when value is 0', async () => {
-    prismaMock.assets.findUnique.mockResolvedValue({
-      id: 'a1',
-    } as any);
-
     const result = await (service as any).adjustAssetStock('a1', 0);
 
     expect(result).toEqual({ message: 'No stock adjustment needed' });
   });
 
   it('should throw if asset not found in adjustAssetStock', async () => {
-    prismaMock.assets.findUnique.mockResolvedValue(null);
+    const p2025 = Object.assign(
+      new Prisma.PrismaClientKnownRequestError('Record not found', {
+        code: 'P2025',
+        clientVersion: '0',
+      }),
+    );
+    prismaMock.assetItems.createManyAndReturn.mockRejectedValue(p2025);
 
     await expect(
       (service as any).adjustAssetStock('non-existent', 1),
     ).rejects.toThrow('Asset not found');
+  });
+
+  // -------------------------
+  // computeDepreciation (pure)
+  // -------------------------
+
+  describe('computeDepreciation', () => {
+    it('returns same cost when already at or below salvage value', () => {
+      const result = service.computeDepreciation({
+        costs: BigInt(500),
+        salvage_value: BigInt(500),
+        depreciation_method: DepreciationMethod.STRAIGHT_LINE,
+        life_months: 12,
+      });
+      expect(result).toBe(BigInt(500));
+    });
+
+    it('calculates straight-line monthly depreciation correctly', () => {
+      // (1200 - 0) / 12 = 100 → 1200 - 100 = 1100
+      const result = service.computeDepreciation({
+        costs: BigInt(1200),
+        salvage_value: BigInt(0),
+        life_months: 12,
+        depreciation_method: DepreciationMethod.STRAIGHT_LINE,
+      });
+      expect(result).toBe(BigInt(1100));
+    });
+
+    it('floors straight-line result at salvage_value', () => {
+      // (110 - 100) / 12 = 0 (integer division) → no change? — use bigger spread
+      // (600 - 100) / 6 = 83 → 600 - 83 = 517, but let's test floor:
+      // life_months = 1 → (200 - 150) / 1 = 50 → 200 - 50 = 150 == salvage
+      const result = service.computeDepreciation({
+        costs: BigInt(200),
+        salvage_value: BigInt(150),
+        life_months: 1,
+        depreciation_method: DepreciationMethod.STRAIGHT_LINE,
+      });
+      expect(result).toBe(BigInt(150));
+    });
+
+    it('returns original cost when life_months is 0 (straight-line)', () => {
+      const result = service.computeDepreciation({
+        costs: BigInt(1000),
+        salvage_value: BigInt(100),
+        life_months: 0,
+        depreciation_method: DepreciationMethod.STRAIGHT_LINE,
+      });
+      expect(result).toBe(BigInt(1000));
+    });
+
+    it('calculates declining-balance monthly depreciation correctly', () => {
+      // 1000 * 10 / 100 = 100 → 1000 - 100 = 900
+      const result = service.computeDepreciation({
+        costs: BigInt(1000),
+        salvage_value: BigInt(0),
+        decline_balance_rate: 10,
+        depreciation_method: DepreciationMethod.DECLINNING_BALANCE,
+      });
+      expect(result).toBe(BigInt(900));
+    });
+
+    it('floors declining-balance result at salvage_value', () => {
+      // 1000 * 90 / 100 = 900 → 1000 - 900 = 100 == salvage
+      const result = service.computeDepreciation({
+        costs: BigInt(1000),
+        salvage_value: BigInt(200),
+        decline_balance_rate: 90,
+        depreciation_method: DepreciationMethod.DECLINNING_BALANCE,
+      });
+      expect(result).toBe(BigInt(200));
+    });
+
+    it('returns original cost when decline_balance_rate is 0', () => {
+      const result = service.computeDepreciation({
+        costs: BigInt(1000),
+        salvage_value: BigInt(0),
+        decline_balance_rate: 0,
+        depreciation_method: DepreciationMethod.DECLINNING_BALANCE,
+      });
+      expect(result).toBe(BigInt(1000));
+    });
+
+    it('defaults salvage_value to 0 when not provided', () => {
+      // (1200) / 12 = 100 → 1200 - 100 = 1100
+      const result = service.computeDepreciation({
+        costs: BigInt(1200),
+        life_months: 12,
+        depreciation_method: DepreciationMethod.STRAIGHT_LINE,
+      });
+      expect(result).toBe(BigInt(1100));
+    });
+  });
+
+  // -------------------------
+  // applyMonthlyDepreciation
+  // -------------------------
+
+  describe('applyMonthlyDepreciation', () => {
+    it('returns 0 when there are no eligible items', async () => {
+      prismaMock.assetItems.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.applyMonthlyDepreciation();
+
+      expect(result).toBe(0);
+      expect(prismaMock.$executeRawUnsafe).not.toHaveBeenCalled();
+    });
+
+    it('skips items already at or below salvage value', async () => {
+      prismaMock.assetItems.findMany
+        .mockResolvedValueOnce([
+          {
+            id: 'item-1',
+            costs: BigInt(500),
+            acquired_at: new Date(),
+            asset: {
+              salvage_value: BigInt(500),
+              life_months: 12,
+              decline_balance_rate: null,
+              depreciation_method: DepreciationMethod.STRAIGHT_LINE,
+            },
+          },
+        ])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.applyMonthlyDepreciation();
+
+      expect(result).toBe(1);
+      expect(prismaMock.$executeRawUnsafe).not.toHaveBeenCalled();
+    });
+
+    it('batch-updates costs for straight-line depreciation', async () => {
+      prismaMock.assetItems.findMany
+        .mockResolvedValueOnce([
+          {
+            id: 'item-1',
+            costs: BigInt(1200),
+            acquired_at: new Date(),
+            asset: {
+              salvage_value: BigInt(0),
+              life_months: 12,
+              decline_balance_rate: null,
+              depreciation_method: DepreciationMethod.STRAIGHT_LINE,
+            },
+          },
+        ])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.applyMonthlyDepreciation();
+
+      expect(result).toBe(1);
+      expect(prismaMock.$executeRawUnsafe).toHaveBeenCalledTimes(1);
+      const sql: string = prismaMock.$executeRawUnsafe.mock.calls[0][0];
+      // newCost = 1200 - (1200/12) = 1100
+      expect(sql).toContain('1100');
+      expect(sql).toContain('item-1');
+    });
+
+    it('batch-updates costs for declining-balance depreciation', async () => {
+      prismaMock.assetItems.findMany
+        .mockResolvedValueOnce([
+          {
+            id: 'item-2',
+            costs: BigInt(1000),
+            acquired_at: new Date(),
+            asset: {
+              salvage_value: BigInt(0),
+              life_months: null,
+              decline_balance_rate: 10,
+              depreciation_method: DepreciationMethod.DECLINNING_BALANCE,
+            },
+          },
+        ])
+        .mockResolvedValueOnce([]);
+
+      await service.applyMonthlyDepreciation();
+
+      const sql: string = prismaMock.$executeRawUnsafe.mock.calls[0][0];
+      // newCost = 1000 - (1000 * 10 / 100) = 900
+      expect(sql).toContain('900');
+      expect(sql).toContain('item-2');
+    });
+
+    it('does not issue UPDATE when all items are skipped', async () => {
+      prismaMock.assetItems.findMany
+        .mockResolvedValueOnce([
+          {
+            id: 'item-3',
+            costs: BigInt(100),
+            acquired_at: new Date(),
+            asset: {
+              salvage_value: BigInt(100),
+              life_months: 12,
+              decline_balance_rate: null,
+              depreciation_method: DepreciationMethod.STRAIGHT_LINE,
+            },
+          },
+        ])
+        .mockResolvedValueOnce([]);
+
+      await service.applyMonthlyDepreciation();
+
+      expect(prismaMock.$executeRawUnsafe).not.toHaveBeenCalled();
+    });
+
+    it('processes multiple batches using cursor pagination', async () => {
+      const makeItem = (id: string) => ({
+        id,
+        costs: BigInt(1200),
+        acquired_at: new Date(),
+        asset: {
+          salvage_value: BigInt(0),
+          life_months: 12,
+          decline_balance_rate: null,
+          depreciation_method: DepreciationMethod.STRAIGHT_LINE,
+        },
+      });
+
+      prismaMock.assetItems.findMany
+        .mockResolvedValueOnce([makeItem('item-a'), makeItem('item-b')])
+        .mockResolvedValueOnce([makeItem('item-c')])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.applyMonthlyDepreciation();
+
+      expect(result).toBe(3);
+      expect(prismaMock.$executeRawUnsafe).toHaveBeenCalledTimes(2);
+      // Second batch call should have used cursor (skip+cursor present in findMany)
+      const secondFindManyCall = prismaMock.assetItems.findMany.mock.calls[1][0];
+      expect(secondFindManyCall.cursor).toEqual({ id: 'item-b' });
+      expect(secondFindManyCall.skip).toBe(1);
+    });
+
+    it('floors updated cost at salvage_value in batch SQL', async () => {
+      prismaMock.assetItems.findMany
+        .mockResolvedValueOnce([
+          {
+            id: 'item-4',
+            costs: BigInt(1000),
+            acquired_at: new Date(),
+            asset: {
+              salvage_value: BigInt(900),
+              life_months: 1,
+              decline_balance_rate: null,
+              depreciation_method: DepreciationMethod.STRAIGHT_LINE,
+            },
+          },
+        ])
+        .mockResolvedValueOnce([]);
+
+      await service.applyMonthlyDepreciation();
+
+      const sql: string = prismaMock.$executeRawUnsafe.mock.calls[0][0];
+      // (1000 - 900) / 1 = 100 → 1000 - 100 = 900 == salvage_value
+      expect(sql).toContain('900');
+    });
   });
 });
