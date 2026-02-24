@@ -3,7 +3,6 @@ import { AssetsService } from './assets.service';
 import { PrismaService } from 'src/core/database/prisma.service';
 import { AssetStatus } from '@prisma/client';
 import { EditAssetDto } from './dto/edit-asset.dto';
-import { AuditService } from 'src/core/audit/audit.service';
 import { StorageService } from 'src/core/storage/storage.service';
 
 describe('AssetsService', () => {
@@ -37,11 +36,6 @@ describe('AssetsService', () => {
     },
   };
 
-  const auditServiceMock = {
-    logAction: jest.fn(),
-    addRecord: jest.fn(),
-  };
-
   const storageServiceMock = {
     getPresignedUploadUrl: jest.fn(),
     getUrl: jest.fn(),
@@ -54,10 +48,6 @@ describe('AssetsService', () => {
         {
           provide: PrismaService,
           useValue: prismaMock,
-        },
-        {
-          provide: AuditService,
-          useValue: auditServiceMock,
         },
         {
           provide: StorageService,
@@ -237,8 +227,6 @@ describe('AssetsService', () => {
       category_id: 'cat-2',
       costs: 1200,
     });
-
-    auditServiceMock.addRecord = jest.fn().mockResolvedValue(undefined);
 
     const result = await service.updateAsset(id, body, userId);
 

@@ -2,11 +2,12 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import session from 'express-session';
 import { PrismaSessionStore } from '@quixo3/prisma-session-store';
-import { PrismaClient } from '@prisma/client';
+import { PrismaService } from './core/database/prisma.service';
 import passport from 'passport';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from '@nestjs/common';
 import { LoggingInterceptor } from './core/interceptors/logging.interceptor';
+import { AuditInterceptor } from './core/audit/audit.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -17,13 +18,7 @@ async function bootstrap() {
   });
 
   // initialize passport
-  const prisma = new PrismaClient({
-    // log: ['query', 'info', 'warn', 'error'],
-  });
-  // prisma.$on('query', (e) => {
-  //   console.log('Query: ' + e.query);
-  //   console.log('Duration: ' + e.duration + 'ms');
-  // });
+  const prisma = app.get(PrismaService);
 
   app.use(
     session({
@@ -44,7 +39,10 @@ async function bootstrap() {
   );
 
   app.useLogger(new Logger());
-  app.useGlobalInterceptors(new LoggingInterceptor());
+  app.useGlobalInterceptors(
+    new LoggingInterceptor(),
+    new AuditInterceptor(),
+  );
 
   const config = new DocumentBuilder()
     .setTitle('Asset Management API')

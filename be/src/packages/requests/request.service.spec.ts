@@ -1,8 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { RequestsService } from './requests.service';
-import { BorrowStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { CreateRequestDto } from './dto/create-request.dto';
-import { Entity } from 'src/core/enums/entity.enum';
 
 describe('RequestsService', () => {
   let service: RequestsService;
@@ -16,6 +15,13 @@ describe('RequestsService', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    assetItems: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      count: jest.fn(),
+    },
     borrowRequests: {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
@@ -25,82 +31,51 @@ describe('RequestsService', () => {
     },
   };
 
-  const auditServiceMock = {
-    addRecord: jest.fn(),
-  };
-
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new RequestsService(prismaMock as any, auditServiceMock as any);
+    service = new RequestsService(prismaMock as any);
   });
 
   describe('createRequest (asset)', () => {
-    it('throws NotFoundException when asset does not exist', async () => {
-      // arrange
-      prismaMock.assets.findUnique.mockResolvedValue(null);
+    it('throws NotFoundException when asset does not exist (P2025)', async () => {
+      const error = new Prisma.PrismaClientKnownRequestError('FK constraint', {
+        code: 'P2025',
+        clientVersion: '6.0.0',
+      });
+      prismaMock.borrowRequests.create.mockRejectedValue(error);
 
-      const dto: CreateRequestDto = {
+      const dto = {
         assetId: 'asset-1',
         requesterId: 'user-1',
         reason: 'need it',
-        priority: 'LOW' as any,
-        kitId: undefined,
-      };
+        priority: 'LOW',
+      } as CreateRequestDto;
 
-      // act/assert
       await expect(service.createRequest(dto, 'user-1')).rejects.toThrow(
         NotFoundException,
       );
-
-      expect(prismaMock.assets.findUnique).toHaveBeenCalledWith({
-        where: { id: dto.assetId },
-      });
-      expect(prismaMock.borrowRequests.findFirst).not.toHaveBeenCalled();
-      expect(prismaMock.borrowRequests.create).not.toHaveBeenCalled();
     });
 
-    it('throws ConflictException when user already has an active request', async () => {
-      // arrange
-      prismaMock.assets.findUnique.mockResolvedValue({ id: 'asset-1' });
-      prismaMock.borrowRequests.findFirst.mockResolvedValue({
-        id: 'req-1',
-        asset_id: 'asset-1',
-      });
+    it('throws ConflictException on duplicate active request (P2002)', async () => {
+      const error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint',
+        { code: 'P2002', clientVersion: '6.0.0' },
+      );
+      prismaMock.borrowRequests.create.mockRejectedValue(error);
 
-      const dto: CreateRequestDto = {
+      const dto = {
         assetId: 'asset-1',
         requesterId: 'user-1',
         reason: 'need it',
-        priority: 'LOW' as any,
-        kitId: undefined,
-      };
+        priority: 'LOW',
+      } as CreateRequestDto;
 
-      // act/assert
       await expect(service.createRequest(dto, 'user-1')).rejects.toThrow(
         ConflictException,
       );
-
-      expect(prismaMock.borrowRequests.findFirst).toHaveBeenCalledWith({
-        where: {
-          asset_id: dto.assetId,
-          requester_id: dto.requesterId,
-          status: {
-            in: [
-              BorrowStatus.PENDING,
-              BorrowStatus.APPROVED,
-              BorrowStatus.PROVIDED,
-            ],
-          },
-        },
-      });
-
-      expect(prismaMock.borrowRequests.create).not.toHaveBeenCalled();
     });
 
-    it('creates request and writes audit on success', async () => {
-      // arrange
-      prismaMock.assets.findUnique.mockResolvedValue({ id: 'asset-1' });
-      prismaMock.borrowRequests.findFirst.mockResolvedValue(null);
+    it('creates request on success', async () => {
       const created = {
         id: 'req-xyz',
         asset_id: 'asset-1',
@@ -108,18 +83,15 @@ describe('RequestsService', () => {
       };
       prismaMock.borrowRequests.create.mockResolvedValue(created);
 
-      const dto: CreateRequestDto = {
+      const dto = {
         assetId: 'asset-1',
         requesterId: 'user-1',
         reason: 'need it',
-        priority: 'LOW' as any,
-        kitId: undefined,
-      };
+        priority: 'LOW',
+      } as CreateRequestDto;
 
-      // act
       const res = await service.createRequest(dto, 'user-1');
 
-      // assert
       expect(prismaMock.borrowRequests.create).toHaveBeenCalledWith({
         data: {
           asset_id: dto.assetId,
@@ -129,80 +101,50 @@ describe('RequestsService', () => {
         },
       });
 
-      expect(auditServiceMock.addRecord).toHaveBeenCalledTimes(1);
-      expect(auditServiceMock.addRecord).toHaveBeenCalledWith(
-        'user-1',
-        'CREATE',
-        Entity.BORROW_REQUEST,
-        created.id,
-        JSON.stringify({}),
-        JSON.stringify(dto),
-      );
-
       expect(res).toEqual(created);
     });
   });
 
-  describe('createKitRequest', () => {
-    it('throws NotFoundException when kit does not exist', async () => {
-      prismaMock.assetsKits.findUnique.mockResolvedValue(null);
+  describe('createRequest (kit)', () => {
+    it('throws NotFoundException when kit does not exist (P2025)', async () => {
+      const error = new Prisma.PrismaClientKnownRequestError('FK constraint', {
+        code: 'P2025',
+        clientVersion: '6.0.0',
+      });
+      prismaMock.borrowRequests.create.mockRejectedValue(error);
 
-      const dto: CreateRequestDto = {
-        assetId: undefined,
+      const dto = {
         kitId: 'kit-1',
         requesterId: 'user-2',
         reason: 'for testing',
-        priority: 'LOW' as any,
-      };
+        priority: 'LOW',
+      } as CreateRequestDto;
 
-      await expect(service.createKitRequest(dto, 'user-2')).rejects.toThrow(
+      await expect(service.createRequest(dto, 'user-2')).rejects.toThrow(
         NotFoundException,
       );
-
-      expect(prismaMock.assetsKits.findUnique).toHaveBeenCalledWith({
-        where: { id: dto.kitId },
-      });
-      expect(prismaMock.borrowRequests.findFirst).not.toHaveBeenCalled();
-      expect(prismaMock.borrowRequests.create).not.toHaveBeenCalled();
     });
 
-    it('throws ConflictException when user already requested same kit', async () => {
-      prismaMock.assetsKits.findUnique.mockResolvedValue({ id: 'kit-1' });
-      prismaMock.borrowRequests.findFirst.mockResolvedValue({ id: 'req-1' });
+    it('throws ConflictException on duplicate active kit request (P2002)', async () => {
+      const error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint',
+        { code: 'P2002', clientVersion: '6.0.0' },
+      );
+      prismaMock.borrowRequests.create.mockRejectedValue(error);
 
-      const dto: CreateRequestDto = {
-        assetId: undefined,
+      const dto = {
         kitId: 'kit-1',
         requesterId: 'user-2',
         reason: 'for testing',
-        priority: 'LOW' as any,
-      };
+        priority: 'LOW',
+      } as CreateRequestDto;
 
-      await expect(service.createKitRequest(dto, 'user-2')).rejects.toThrow(
+      await expect(service.createRequest(dto, 'user-2')).rejects.toThrow(
         ConflictException,
       );
-
-      expect(prismaMock.borrowRequests.findFirst).toHaveBeenCalledWith({
-        where: {
-          kit_id: dto.kitId,
-          requester_id: dto.requesterId,
-          status: {
-            in: [
-              BorrowStatus.PENDING,
-              BorrowStatus.APPROVED,
-              BorrowStatus.PROVIDED,
-            ],
-          },
-        },
-      });
-
-      expect(prismaMock.borrowRequests.create).not.toHaveBeenCalled();
     });
 
-    it('creates kit request and writes audit on success', async () => {
-      prismaMock.assetsKits.findUnique.mockResolvedValue({ id: 'kit-1' });
-      prismaMock.borrowRequests.findFirst.mockResolvedValue(null);
-
+    it('creates kit request on success', async () => {
       const created = {
         id: 'req-kit-1',
         kit_id: 'kit-1',
@@ -210,15 +152,14 @@ describe('RequestsService', () => {
       };
       prismaMock.borrowRequests.create.mockResolvedValue(created);
 
-      const dto: CreateRequestDto = {
-        assetId: undefined,
+      const dto = {
         kitId: 'kit-1',
         requesterId: 'user-2',
         reason: 'for testing',
-        priority: 'LOW' as any,
-      };
+        priority: 'LOW',
+      } as CreateRequestDto;
 
-      const res = await service.createKitRequest(dto, 'user-2');
+      const res = await service.createRequest(dto, 'user-2');
 
       expect(prismaMock.borrowRequests.create).toHaveBeenCalledWith({
         data: {
@@ -228,15 +169,6 @@ describe('RequestsService', () => {
           priority: dto.priority,
         },
       });
-
-      expect(auditServiceMock.addRecord).toHaveBeenCalledWith(
-        'user-2',
-        'CREATE',
-        Entity.BORROW_REQUEST,
-        created.id,
-        JSON.stringify({}),
-        JSON.stringify(dto),
-      );
 
       expect(res).toEqual(created);
     });

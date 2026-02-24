@@ -3,15 +3,10 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { PrismaService } from 'src/core/database/prisma.service';
 import { Prisma } from '@prisma/client';
-import { AuditService } from 'src/core/audit/audit.service';
-import { Entity } from 'src/core/enums/entity.enum';
 
 @Injectable()
 export class CategoryService {
-  constructor(
-    private prisma: PrismaService,
-    private auditService: AuditService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
   create(createCategoryDto: CreateCategoryDto, userId: string) {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     return this.prisma.assetsCategories
@@ -20,18 +15,6 @@ export class CategoryService {
           name: createCategoryDto.name,
           code: code,
         },
-      })
-      .then(async (category) => {
-        // Add audit record
-        await this.auditService.addRecord(
-          userId,
-          'CREATE',
-          Entity.CATEGORY,
-          category.id,
-          {},
-          JSON.stringify(createCategoryDto),
-        );
-        return category;
       });
   }
 
@@ -70,53 +53,17 @@ export class CategoryService {
   }
 
   update(id: number, updateCategoryDto: UpdateCategoryDto, userId: string) {
-    return this.prisma.assetsCategories
-      .findUnique({
-        where: { id: id.toString() },
-      })
-      .then(async (beforeCategory) => {
-        const updatedCategory = await this.prisma.assetsCategories.update({
-          where: { id: id.toString() },
-          data: {
-            name: updateCategoryDto.name,
-          },
-        });
-
-        // Add audit record
-        await this.auditService.addRecord(
-          userId,
-          'UPDATE',
-          Entity.CATEGORY,
-          id.toString(),
-          JSON.stringify(beforeCategory),
-          JSON.stringify(updateCategoryDto),
-        );
-
-        return updatedCategory;
-      });
+    return this.prisma.assetsCategories.update({
+      where: { id: id.toString() },
+      data: {
+        name: updateCategoryDto.name,
+      },
+    });
   }
 
   remove(id: string, userId: string) {
-    return this.prisma.assetsCategories
-      .findUnique({
-        where: { id: id },
-      })
-      .then(async (beforeCategory) => {
-        const deletedCategory = await this.prisma.assetsCategories.delete({
-          where: { id: id },
-        });
-
-        // Add audit record
-        await this.auditService.addRecord(
-          userId,
-          'DELETE',
-          Entity.CATEGORY,
-          id,
-          JSON.stringify(beforeCategory),
-          JSON.stringify({}),
-        );
-
-        return deletedCategory;
-      });
+    return this.prisma.assetsCategories.delete({
+      where: { id: id },
+    });
   }
 }

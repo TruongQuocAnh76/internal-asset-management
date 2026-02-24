@@ -1,18 +1,19 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/core/database/prisma.service';
 import { GetAssetsParams } from './dto/get-assets-params.dto';
 import { AssetStatus, Prisma } from '@prisma/client';
 import { EditAssetDto, EditAssetDtoSchema } from './dto/edit-asset.dto';
 import { CreateAssetDto } from './dto/create-asset.dto';
-import { AuditService } from 'src/core/audit/audit.service';
-import { Entity } from 'src/core/enums/entity.enum';
 import { StorageService } from 'src/core/storage/storage.service';
 
 @Injectable()
 export class AssetsService {
   constructor(
     private prisma: PrismaService,
-    private auditService: AuditService,
     private storageService: StorageService,
   ) {}
 
@@ -140,14 +141,6 @@ export class AssetsService {
   }
 
   async getAssetItems(assetId: string) {
-    const asset = await this.prisma.assets.findUnique({
-      where: { id: assetId },
-    });
-
-    if (!asset) {
-      throw new BadRequestException('Asset not found');
-    }
-
     const items = await this.prisma.assetItems.findMany({
       where: { asset_id: assetId },
       select: {
@@ -173,6 +166,17 @@ export class AssetsService {
       },
       orderBy: { created_at: 'desc' },
     });
+
+    // Verify asset exists when no items are found
+    if (items.length === 0) {
+      const asset = await this.prisma.assets.findUnique({
+        where: { id: assetId },
+        select: { id: true },
+      });
+      if (!asset) {
+        throw new NotFoundException('Asset not found');
+      }
+    }
 
     return items.map((item) => ({
       ...item,
@@ -236,16 +240,6 @@ export class AssetsService {
       },
     });
 
-    // add audit record
-    await this.auditService.addRecord(
-      userId,
-      'CREATE',
-      Entity.ASSET,
-      createdAsset.id,
-      {},
-      JSON.stringify(body),
-    );
-
     // Recompute cached asset status
     await this.recomputeAssetStatus(createdAsset.id);
 
@@ -257,11 +251,6 @@ export class AssetsService {
     if (Object.keys(data).length === 0) {
       throw new BadRequestException('No fields to update');
     }
-
-    // Fetch the current asset state before update
-    const beforeAsset = await this.prisma.assets.findUnique({
-      where: { id: id },
-    });
 
     // create the category if not exists
     let category;
@@ -282,16 +271,6 @@ export class AssetsService {
         },
       },
     });
-
-    // Add audit record
-    await this.auditService.addRecord(
-      userId,
-      'UPDATE',
-      Entity.ASSET,
-      id,
-      JSON.stringify(beforeAsset),
-      JSON.stringify(data),
-    );
 
     return asset;
   }
@@ -404,75 +383,73 @@ export class AssetsService {
   }
 
   protected async adjustAssetStock(assetId: string, value: number) {
-    const asset = await this.prisma.assets.findUnique({
-      where: { id: assetId },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      if (value > 0) {
+        try {
+          const newItems = await tx.assetItems.createManyAndReturn({
+            data: Array.from({ length: value }, () => ({
+              asset_id: assetId,
+            })),
+          });
 
-    if (!asset) {
-      throw new BadRequestException('Asset not found');
-    }
+          await this.recomputeAssetStatusTx(tx, assetId);
+          return newItems;
+        } catch (error) {
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            (error.code === 'P2003' || error.code === 'P2025')
+          ) {
+            throw new NotFoundException('Asset not found');
+          }
+          throw error;
+        }
+      } else if (value < 0) {
+        const itemsToRemove = await tx.assetItems.findMany({
+          where: {
+            asset_id: assetId,
+            status: 'READY',
+            kit_id: null,
+          },
+          take: Math.abs(value),
+          orderBy: { created_at: 'asc' },
+        });
 
-    if (value > 0) {
-      // Add new asset items
-      const newItems = await this.prisma.assetItems.createManyAndReturn({
-        data: Array.from({ length: value }, () => ({
-          asset_id: assetId,
-        })),
-      });
+        if (itemsToRemove.length < Math.abs(value)) {
+          throw new BadRequestException(
+            `Cannot remove ${Math.abs(value)} items. Only ${itemsToRemove.length} available READY items found.`,
+          );
+        }
 
-      await this.auditService.addRecord(
-        'system',
-        'UPDATE',
-        Entity.ASSET,
-        assetId,
-        JSON.stringify({ action: 'add_items', count: value }),
-        JSON.stringify(newItems),
-      );
+        const removedIds = itemsToRemove.map((item) => item.id);
 
-      // Recompute cached asset status
-      await this.recomputeAssetStatus(assetId);
+        await tx.assetItems.deleteMany({
+          where: { id: { in: removedIds } },
+        });
 
-      return newItems;
-    } else if (value < 0) {
-      // Remove READY asset items (only unallocated, not in a kit)
-      const itemsToRemove = await this.prisma.assetItems.findMany({
-        where: {
-          asset_id: assetId,
-          status: 'READY',
-          kit_id: null,
-        },
-        take: Math.abs(value),
-        orderBy: { created_at: 'asc' },
-      });
-
-      if (itemsToRemove.length < Math.abs(value)) {
-        throw new BadRequestException(
-          `Cannot remove ${Math.abs(value)} items. Only ${itemsToRemove.length} available READY items found.`,
-        );
+        await this.recomputeAssetStatusTx(tx, assetId);
+        return { removed: removedIds.length };
       }
 
-      const removedIds = itemsToRemove.map((item) => item.id);
+      return { message: 'No stock adjustment needed' };
+    });
+  }
 
-      await this.prisma.assetItems.deleteMany({
-        where: { id: { in: removedIds } },
-      });
-
-      await this.auditService.addRecord(
-        'system',
-        'DELETE',
-        Entity.ASSET,
-        assetId,
-        JSON.stringify({ action: 'remove_items', ids: removedIds }),
-        JSON.stringify({}),
-      );
-
-      // Recompute cached asset status
-      await this.recomputeAssetStatus(assetId);
-
-      return { removed: removedIds.length };
-    }
-
-    return { message: 'No stock adjustment needed' };
+  /**
+   * Recompute cached status on the Assets row (transaction-aware).
+   */
+  private async recomputeAssetStatusTx(
+    tx: any,
+    assetId: string,
+  ): Promise<AssetStatus> {
+    const readyCount = await tx.assetItems.count({
+      where: { asset_id: assetId, status: AssetStatus.READY },
+    });
+    const newStatus = readyCount > 0 ? AssetStatus.READY : AssetStatus.IN_USE;
+    await tx.assets.update({
+      where: { id: assetId },
+      data: { status: newStatus },
+    });
+    return newStatus;
   }
 
   /**
