@@ -28,6 +28,10 @@ model Assets {
   name        String
   category_id String   @db.Uuid
   image_urls  String[]
+  salvage_value BigInt?
+  life_months Int?
+  decline_balance_rate Int?
+  depreciation_method DepreciationMethod?
   acquired_at DateTime @default(now())
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
@@ -49,7 +53,7 @@ model AssetItems {
 
   status        AssetStatus @default(READY)
   location_name String?
-  costs         BigInt?
+  costs         BigInt
   acquired_at   DateTime    @default(now())
 
   kit_id     String? @db.Uuid
@@ -62,10 +66,20 @@ model AssetItems {
   kit   AssetsKits? @relation(fields: [kit_id], references: [id], onDelete: SetNull)
 }
 
+enum DepreciationMethod {
+  STRAIGHT_LINE
+  DECLINING_BALANCE
+}
+
 model AssetsCategories {
   id   String @id @default(uuid()) @db.Uuid
   code String @unique
   name String
+
+  salvage_value BigInt?
+  default_life_months Int?
+  decline_balance_rate Int?
+  default_depreciation_method DepreciationMethod?
 
   assets Assets[]
 }
