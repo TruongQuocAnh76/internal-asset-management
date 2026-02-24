@@ -14,6 +14,10 @@ export class CategoryService {
         data: {
           name: createCategoryDto.name,
           code: code,
+          salvage_value: createCategoryDto.salvage_value != null ? BigInt(createCategoryDto.salvage_value) : null,
+          default_life_months: createCategoryDto.default_life_months ?? null,
+          decline_balance_rate: createCategoryDto.decline_balance_rate ?? null,
+          default_depreciation_method: createCategoryDto.default_depreciation_method ?? null,
         },
       });
   }
@@ -25,8 +29,8 @@ export class CategoryService {
     filter: string,
     search: string,
   ) {
-    const take = limit || 20;
-    const skip = page ? (page - 1) * take : 0;
+    const take = Number(limit) || 20;
+    const skip = page ? (Number(page) - 1) * take : 0;
     const orderBy = filter ? { [filter]: { name: sort || 'asc' } } : undefined;
 
     const where = search
@@ -57,6 +61,18 @@ export class CategoryService {
       where: { id: id.toString() },
       data: {
         name: updateCategoryDto.name,
+        ...(updateCategoryDto.salvage_value !== undefined && {
+          salvage_value: updateCategoryDto.salvage_value != null ? BigInt(updateCategoryDto.salvage_value) : null,
+        }),
+        ...(updateCategoryDto.default_life_months !== undefined && {
+          default_life_months: updateCategoryDto.default_life_months ?? null,
+        }),
+        ...(updateCategoryDto.decline_balance_rate !== undefined && {
+          decline_balance_rate: updateCategoryDto.decline_balance_rate ?? null,
+        }),
+        ...(updateCategoryDto.default_depreciation_method !== undefined && {
+          default_depreciation_method: updateCategoryDto.default_depreciation_method ?? null,
+        }),
       },
     });
   }

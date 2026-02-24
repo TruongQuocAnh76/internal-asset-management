@@ -346,7 +346,7 @@ describe('AssetsService', () => {
     const result = await (service as any).adjustAssetStock('a1', 2);
 
     expect(prismaMock.assetItems.createManyAndReturn).toHaveBeenCalledWith({
-      data: [{ asset_id: 'a1' }, { asset_id: 'a1' }],
+      data: [{ asset_id: 'a1', costs: BigInt(0) }, { asset_id: 'a1', costs: BigInt(0) }],
     });
     expect(result).toHaveLength(2);
   });
@@ -461,7 +461,7 @@ describe('AssetsService', () => {
         costs: BigInt(1000),
         salvage_value: BigInt(0),
         decline_balance_rate: 10,
-        depreciation_method: DepreciationMethod.DECLINNING_BALANCE,
+        depreciation_method: DepreciationMethod.DECLINING_BALANCE,
       });
       expect(result).toBe(BigInt(900));
     });
@@ -472,7 +472,7 @@ describe('AssetsService', () => {
         costs: BigInt(1000),
         salvage_value: BigInt(200),
         decline_balance_rate: 90,
-        depreciation_method: DepreciationMethod.DECLINNING_BALANCE,
+        depreciation_method: DepreciationMethod.DECLINING_BALANCE,
       });
       expect(result).toBe(BigInt(200));
     });
@@ -482,7 +482,7 @@ describe('AssetsService', () => {
         costs: BigInt(1000),
         salvage_value: BigInt(0),
         decline_balance_rate: 0,
-        depreciation_method: DepreciationMethod.DECLINNING_BALANCE,
+        depreciation_method: DepreciationMethod.DECLINING_BALANCE,
       });
       expect(result).toBe(BigInt(1000));
     });
@@ -573,7 +573,7 @@ describe('AssetsService', () => {
               salvage_value: BigInt(0),
               life_months: null,
               decline_balance_rate: 10,
-              depreciation_method: DepreciationMethod.DECLINNING_BALANCE,
+              depreciation_method: DepreciationMethod.DECLINING_BALANCE,
             },
           },
         ])

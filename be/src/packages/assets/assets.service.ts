@@ -195,7 +195,7 @@ export class AssetsService {
       .replace(/\s+/g, '_')
       .concat('_', Date.now().toString().slice(-4));
 
-    const { category_name, costs, specs, image_num, initial_quantity, location_name, ...rest } = body;
+    const { category_name, costs, specs, image_num, initial_quantity, location_name, salvage_value, life_months, decline_balance_rate, depreciation_method, ...rest } = body;
     const asset_costs = costs !== undefined ? Number(costs) : null;
 
     // create temp url for each images
@@ -219,6 +219,10 @@ export class AssetsService {
         ...rest,
         code: asset_code,
         category_id: category.id,
+        salvage_value: salvage_value != null ? BigInt(salvage_value) : null,
+        life_months: life_months ?? null,
+        decline_balance_rate: decline_balance_rate ?? null,
+        depreciation_method: depreciation_method ?? null,
         asset_specs: {
           create: {
             specs: JSON.parse(JSON.stringify(body.specs)) || {},
@@ -230,7 +234,7 @@ export class AssetsService {
           createMany: {
             data: Array.from({ length: initial_quantity || 1 }, () => ({
               location_name: body.location_name,
-              costs: asset_costs,
+              costs: asset_costs ?? BigInt(0),
             })),
           },
         },
@@ -258,12 +262,16 @@ export class AssetsService {
       category = await this.checkCategory(data.category_name);
     }
 
-    const { category_name, specs, costs, ...rest } = data;
+    const { category_name, specs, costs, salvage_value, life_months, decline_balance_rate, depreciation_method, ...rest } = data;
     const asset = await this.prisma.assets.update({
       where: { id: id },
       data: {
         ...rest,
         ...(category?.id && { category_id: category.id }),
+        ...(salvage_value !== undefined && { salvage_value: salvage_value != null ? BigInt(salvage_value) : null }),
+        ...(life_months !== undefined && { life_months: life_months ?? null }),
+        ...(decline_balance_rate !== undefined && { decline_balance_rate: decline_balance_rate ?? null }),
+        ...(depreciation_method !== undefined && { depreciation_method: depreciation_method ?? null }),
         asset_specs: {
           update: {
             specs: JSON.parse(JSON.stringify(data.specs ?? {})),
@@ -389,6 +397,7 @@ export class AssetsService {
           const newItems = await tx.assetItems.createManyAndReturn({
             data: Array.from({ length: value }, () => ({
               asset_id: assetId,
+              costs: BigInt(0),
             })),
           });
 
@@ -487,7 +496,7 @@ export class AssetsService {
       if (params.life_months && params.life_months > 0) {
         monthlyDepreciation = (costs - salvageValue) / BigInt(params.life_months);
       }
-    } else if (depreciation_method === DepreciationMethod.DECLINNING_BALANCE) {
+    } else if (depreciation_method === DepreciationMethod.DECLINING_BALANCE) {
       if (params.decline_balance_rate && params.decline_balance_rate > 0) {
         monthlyDepreciation = (costs * BigInt(params.decline_balance_rate)) / BigInt(100);
       }
