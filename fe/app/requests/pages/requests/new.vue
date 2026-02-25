@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import RequestForm from '../../components/RequestForm.vue'
 
+definePageMeta({
+  layout: 'default',
+})
 </script>
 
 <template>

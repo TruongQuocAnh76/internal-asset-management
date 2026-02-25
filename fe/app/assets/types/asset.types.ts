@@ -1,4 +1,5 @@
 export type AssetStatus = 'READY' | 'IN_USE' | 'MAINTAINANCE' | 'BROKEN' | 'LIQUIDATED'
+export type DepreciationMethod = 'STRAIGHT_LINE' | 'DECLINING_BALANCE'
 
 export interface AssetItem {
   id: string
@@ -30,6 +31,10 @@ export interface Asset {
   borrower_id?: string | null
   acquired_at: string
   image_urls?: string[]
+  salvage_value?: number | null
+  life_months?: number | null
+  decline_balance_rate?: number | null
+  depreciation_method?: DepreciationMethod | null
   asset_specs?: {
     specs: Record<string, string>
   }
@@ -51,6 +56,10 @@ export interface AssetFormData {
   costs: number
   initial_quantity: number
   specs: Record<string, string>
+  salvage_value?: number | null
+  life_months?: number | null
+  decline_balance_rate?: number | null
+  depreciation_method?: DepreciationMethod | null
 }
 
 // State transition types

@@ -23,6 +23,10 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
     costs: 0,
     initial_quantity: 1,
     specs: {},
+    salvage_value: null,
+    life_months: null,
+    decline_balance_rate: null,
+    depreciation_method: null,
   })
 
   // UI state
@@ -58,6 +62,10 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
           costs: 0,
           initial_quantity: asset.stock || 1,
           specs: asset.asset_specs?.specs || {},
+          salvage_value: asset.salvage_value ?? null,
+          life_months: asset.life_months ?? null,
+          decline_balance_rate: asset.decline_balance_rate ?? null,
+          depreciation_method: asset.depreciation_method ?? null,
         }
       }
     } catch (err: any) {
@@ -202,6 +210,10 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
       costs: 0,
       initial_quantity: 1,
       specs: {},
+      salvage_value: null,
+      life_months: null,
+      decline_balance_rate: null,
+      depreciation_method: null,
     }
     errors.value = {}
     successMessage.value = ''
