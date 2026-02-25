@@ -6,6 +6,7 @@ export interface FormErrors {
   category_name?: string
   location_name?: string
   costs?: string
+  initial_quantity?: string
   general?: string
 }
 
@@ -20,7 +21,12 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
     location_name: '',
     status: 'READY' as AssetStatus,
     costs: 0,
+    initial_quantity: 1,
     specs: {},
+    salvage_value: null,
+    life_months: null,
+    decline_balance_rate: null,
+    depreciation_method: null,
   })
 
   // UI state
@@ -51,10 +57,15 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
         formData.value = {
           name: asset.name || '',
           category_name: asset.category?.name || '',
-          location_name: asset.location_name || '',
+          location_name: '',
           status: asset.status || 'READY',
-          costs: asset.costs || 0,
+          costs: 0,
+          initial_quantity: asset.stock || 1,
           specs: asset.asset_specs?.specs || {},
+          salvage_value: asset.salvage_value ?? null,
+          life_months: asset.life_months ?? null,
+          decline_balance_rate: asset.decline_balance_rate ?? null,
+          depreciation_method: asset.depreciation_method ?? null,
         }
       }
     } catch (err: any) {
@@ -107,6 +118,13 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
           return false
         }
         break
+
+      case 'initial_quantity':
+        if (formData.value.initial_quantity < 1) {
+          errors.value.initial_quantity = 'Initial quantity must be at least 1'
+          return false
+        }
+        break
     }
 
     return true
@@ -149,7 +167,7 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
   }
 
   // Submit handlers
-  const handleSubmit = async () => {
+  const handleSubmit = async (imageCount: number = 0) => {
     errors.value.general = undefined
     successMessage.value = ''
 
@@ -162,12 +180,11 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
 
     try {
       if (mode === 'create') {
-        const result = await createAsset(formData.value)
+        const result = await createAsset(formData.value, imageCount)
         successMessage.value = 'Asset created successfully'
         
-        // Navigate to the assets list
-        await router.push('/asset')
-        return true
+        // Return result so form can upload images
+        return result
       } else if (mode === 'edit' && assetId) {
         await updateAsset(assetId, formData.value)
         successMessage.value = 'Asset updated successfully'
@@ -191,7 +208,12 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
       location_name: '',
       status: 'READY',
       costs: 0,
+      initial_quantity: 1,
       specs: {},
+      salvage_value: null,
+      life_months: null,
+      decline_balance_rate: null,
+      depreciation_method: null,
     }
     errors.value = {}
     successMessage.value = ''
@@ -204,7 +226,6 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
     return (
       formData.value.name !== originalAsset.value.name ||
       formData.value.category_name !== (originalAsset.value.category?.name || '') ||
-      formData.value.costs !== originalAsset.value.costs ||
       formData.value.status !== originalAsset.value.status
     )
   })

@@ -46,6 +46,7 @@ export const useAuth = () => {
     }    catch (error) {
         user.value = null
     } finally {
+        user.value = null
         checked.value = true
     }
         return { user: user.value, checked: checked.value }
@@ -71,6 +72,7 @@ export const useAuth = () => {
         checked,
         login,
         signup,
-        getUser
+        getUser,
+        signout
     }
 }

@@ -1,3 +1,24 @@
+export type AssetStatus = 'READY' | 'IN_USE' | 'MAINTAINANCE' | 'BROKEN' | 'LIQUIDATED'
+export type DepreciationMethod = 'STRAIGHT_LINE' | 'DECLINING_BALANCE'
+
+export interface AssetItem {
+  id: string
+  status: AssetStatus
+  location_name: string | null
+  costs: number | null
+  acquired_at: string
+  kit_id: string | null
+  kit_status: boolean
+  created_at?: string
+  updated_at?: string
+  kit?: {
+    id: string
+    template: {
+      name: string
+    }
+  } | null
+}
+
 export interface Asset {
   id?: string
   code: string
@@ -6,17 +27,21 @@ export interface Asset {
     name: string
   }
   status: AssetStatus
-  costs: number
+  stock?: number
+  borrower_id?: string | null
   acquired_at: string
-  location_name?: string
+  image_urls?: string[]
+  salvage_value?: number | null
+  life_months?: number | null
+  decline_balance_rate?: number | null
+  depreciation_method?: DepreciationMethod | null
   asset_specs?: {
     specs: Record<string, string>
   }
+  asset_items?: AssetItem[]
   created_at?: string
   updated_at?: string
 }
-
-export type AssetStatus = 'READY' | 'IN_USE' | 'MAINTAINANCE' | 'BROKEN' | 'LIQUIDATED'
 
 export interface AssetSpec {
   key: string
@@ -29,17 +54,24 @@ export interface AssetFormData {
   location_name: string
   status: AssetStatus
   costs: number
+  initial_quantity: number
   specs: Record<string, string>
+  salvage_value?: number | null
+  life_months?: number | null
+  decline_balance_rate?: number | null
+  depreciation_method?: DepreciationMethod | null
 }
 
 // State transition types
 export interface StateTransition {
-  from: AssetStatus
-  to: AssetStatus
+  from: AssetStatus | 'READY'
+  to: AssetStatus | 'BORROW'
   label: string
   description: string
   requiresReason: boolean
   color: 'success' | 'warning' | 'danger' | 'primary' | 'secondary'
+  isNavigation?: boolean
+  navigationRoute?: string
 }
 
 export interface AssetEvent {

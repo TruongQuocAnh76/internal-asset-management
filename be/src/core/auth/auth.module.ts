@@ -18,7 +18,34 @@ export class SessionSerializer extends PassportSerializer {
     done(null, user.id);
   }
   async deserializeUser(userId: string, done: DoneCallback) {
-    const user = await this.prisma.users.findUnique({ where: { id: userId } });
+    const user = await this.prisma.users.findUnique({
+      where: { id: userId },
+      include: {
+        user_roles: {
+          include: {
+            role: {
+              include: {
+                role_permissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // flatten permissions
+    if (user) {
+      const permissions = user.user_roles.flatMap((userRole) =>
+        userRole.role.role_permissions.map(
+          (rolePermission) => rolePermission.permission.name,
+        ),
+      );
+      (user as any).permissions = Array.from(new Set(permissions));
+    }
     done(null, user);
   }
 }

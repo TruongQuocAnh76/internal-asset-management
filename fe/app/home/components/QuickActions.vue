@@ -15,8 +15,17 @@ const allActions: QuickAction[] = [
     label: 'View Assets',
     description: 'Browse all available assets',
     icon: 'cube',
-    route: '/asset',
+    route: '/assets',
     color: 'primary',
+    roles: ['admin', 'team_lead', 'employee'],
+  },
+  {
+    id: 'view-kits',
+    label: 'View Kits',
+    description: 'Browse all asset kits',
+    icon: 'kit',
+    route: '/kits',
+    color: 'secondary',
     roles: ['admin', 'team_lead', 'employee'],
   },
   {
@@ -24,7 +33,7 @@ const allActions: QuickAction[] = [
     label: 'Request Asset',
     description: 'Submit a borrow request',
     icon: 'hand',
-    route: '/borrows/new',
+    route: '/requests/new',
     color: 'success',
     roles: ['admin', 'team_lead', 'employee'],
   },
@@ -33,7 +42,7 @@ const allActions: QuickAction[] = [
     label: 'Review Approvals',
     description: 'Manage pending requests',
     icon: 'clipboard-check',
-    route: '/approvals',
+    route: '/requests',
     color: 'warning',
     roles: ['admin', 'team_lead'],
   },
@@ -106,6 +115,10 @@ const availableActions = computed(() =>
             <!-- Users Icon -->
             <svg v-else-if="action.icon === 'users'" class="w-6 h-6 text-secondary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+            </svg>
+            <!-- Kit Icon -->
+            <svg v-else-if="action.icon === 'kit'" class="w-6 h-6 text-secondary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
           </div>
           <div class="min-w-0">

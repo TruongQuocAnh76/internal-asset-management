@@ -10,9 +10,9 @@ import {
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { SessionAuthGuard } from 'src/core/auth/guards/session-auth.guard';
-import { UseGuards, Request } from '@nestjs/common';
+import { UseGuards } from '@nestjs/common';
 import { SignupDto } from 'src/core/auth/dto/signup.dto';
-import { AuthenticatedRequest } from './dto/authenticated-request.dto';
+import { CurrentUser } from 'src/core/auth/decorator/current-user.decorator';
 
 @Controller('users')
 export class UsersController {
@@ -21,13 +21,13 @@ export class UsersController {
   @UseGuards(SessionAuthGuard)
   @Get('@me')
   @UseGuards(SessionAuthGuard)
-  getProfile(@Request() req: AuthenticatedRequest) {
-    return req.user;
+  getProfile(@CurrentUser() user: any) {
+    return user;
   }
 
   @Post()
   @UseGuards(SessionAuthGuard)
-  create(@Body() signupDto: SignupDto) {
+  create(@Body() signupDto: SignupDto, @CurrentUser('id') userId: string) {
     return this.usersService.create(signupDto);
   }
 
@@ -45,13 +45,17 @@ export class UsersController {
 
   @Patch(':id')
   @UseGuards(SessionAuthGuard)
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(+id, updateUserDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateUserDto: UpdateUserDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.usersService.update(+id, updateUserDto, userId);
   }
 
   @Delete(':id')
   @UseGuards(SessionAuthGuard)
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(+id);
+  remove(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.usersService.remove(+id, userId);
   }
 }

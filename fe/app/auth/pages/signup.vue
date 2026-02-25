@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useAuth } from '../composables/useAuth'
+
+definePageMeta({
+  layout: false,
+})
+
 const firstName = ref('')
 const lastName = ref('')
 const username = ref('')

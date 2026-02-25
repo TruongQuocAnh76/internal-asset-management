@@ -9,7 +9,7 @@ export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: SignupDto) {
-    return await this.prisma.users.create({
+    const createdUser = await this.prisma.users.create({
       data: {
         username: dto.username,
         email: dto.email,
@@ -20,6 +20,8 @@ export class UsersService {
         status: DeploymentStatus.ACTIVE,
       },
     });
+
+    return createdUser;
   }
 
   findAll() {
@@ -30,12 +32,17 @@ export class UsersService {
     return `This action returns a #${id} user`;
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+  update(id: number, updateUserDto: UpdateUserDto, userId: string) {
+    return this.prisma.users.update({
+      where: { id: id.toString() },
+      data: updateUserDto,
+    });
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} user`;
+  remove(id: number, userId: string) {
+    return this.prisma.users.delete({
+      where: { id: id.toString() },
+    });
   }
 
   async findByCredential(credential: string) {

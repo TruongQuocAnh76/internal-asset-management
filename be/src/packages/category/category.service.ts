@@ -1,0 +1,85 @@
+import { Injectable } from '@nestjs/common';
+import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
+import { PrismaService } from 'src/core/database/prisma.service';
+import { Prisma } from '@prisma/client';
+
+@Injectable()
+export class CategoryService {
+  constructor(private prisma: PrismaService) {}
+  create(createCategoryDto: CreateCategoryDto, userId: string) {
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    return this.prisma.assetsCategories
+      .create({
+        data: {
+          name: createCategoryDto.name,
+          code: code,
+          salvage_value: createCategoryDto.salvage_value != null ? BigInt(createCategoryDto.salvage_value) : null,
+          default_life_months: createCategoryDto.default_life_months ?? null,
+          decline_balance_rate: createCategoryDto.decline_balance_rate ?? null,
+          default_depreciation_method: createCategoryDto.default_depreciation_method ?? null,
+        },
+      });
+  }
+
+  findAll(
+    page: number,
+    limit: number,
+    sort: 'asc' | 'desc',
+    filter: string,
+    search: string,
+  ) {
+    const take = Number(limit) || 20;
+    const skip = page ? (Number(page) - 1) * take : 0;
+    const orderBy = filter ? { [filter]: { name: sort || 'asc' } } : undefined;
+
+    const where = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: Prisma.QueryMode.insensitive } },
+            { code: { contains: search, mode: Prisma.QueryMode.insensitive } },
+          ],
+        }
+      : {};
+
+    return this.prisma.assetsCategories.findMany({
+      where: where,
+      orderBy: orderBy,
+      skip: skip,
+      take: take,
+    });
+  }
+
+  findOne(id: string) {
+    return this.prisma.assetsCategories.findUnique({
+      where: { id: id },
+    });
+  }
+
+  update(id: number, updateCategoryDto: UpdateCategoryDto, userId: string) {
+    return this.prisma.assetsCategories.update({
+      where: { id: id.toString() },
+      data: {
+        name: updateCategoryDto.name,
+        ...(updateCategoryDto.salvage_value !== undefined && {
+          salvage_value: updateCategoryDto.salvage_value != null ? BigInt(updateCategoryDto.salvage_value) : null,
+        }),
+        ...(updateCategoryDto.default_life_months !== undefined && {
+          default_life_months: updateCategoryDto.default_life_months ?? null,
+        }),
+        ...(updateCategoryDto.decline_balance_rate !== undefined && {
+          decline_balance_rate: updateCategoryDto.decline_balance_rate ?? null,
+        }),
+        ...(updateCategoryDto.default_depreciation_method !== undefined && {
+          default_depreciation_method: updateCategoryDto.default_depreciation_method ?? null,
+        }),
+      },
+    });
+  }
+
+  remove(id: string, userId: string) {
+    return this.prisma.assetsCategories.delete({
+      where: { id: id },
+    });
+  }
+}
