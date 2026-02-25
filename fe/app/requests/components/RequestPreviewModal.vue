@@ -153,6 +153,14 @@ const handleConfirm = () => {
                   <PriorityBadge :priority="formData.priority" />
                 </div>
 
+                <!-- Due Date -->
+                <div v-if="formData.dueDate">
+                  <h3 class="text-sm font-medium text-secondary-500 uppercase tracking-wider mb-2">
+                    Due Date
+                  </h3>
+                  <p class="text-secondary-700">{{ new Date(formData.dueDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) }}</p>
+                </div>
+
                 <!-- Approval note -->
                 <div class="bg-primary-50 border border-primary-200 rounded-lg p-4">
                   <div class="flex items-start gap-3">

@@ -81,6 +81,7 @@ export interface BorrowRequest {
   provided_at: string | null
   provided_by: string | null
   returned_at: string | null
+  due_date: string
   created_at: string
   // Relations (when included)
   asset?: RequestAsset
@@ -104,6 +105,7 @@ export interface RequestFormData {
   requesterId: string
   reason: string
   priority: RequestPriority
+  dueDate: string
 }
 
 // Draft data stored in localStorage

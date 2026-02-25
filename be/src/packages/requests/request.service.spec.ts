@@ -29,6 +29,10 @@ describe('RequestsService', () => {
       update: jest.fn(),
       updateMany: jest.fn(),
     },
+    users: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
   };
 
   const notificationQueueMock: any = {
@@ -92,6 +96,7 @@ describe('RequestsService', () => {
         requesterId: 'user-1',
         reason: 'need it',
         priority: 'LOW',
+        dueDate: '2026-04-01',
       } as CreateRequestDto;
 
       const res = await service.createRequest(dto, 'user-1');
@@ -102,6 +107,7 @@ describe('RequestsService', () => {
           requester_id: dto.requesterId,
           reason: dto.reason,
           priority: dto.priority,
+          due_date: new Date('2026-04-01'),
         },
         include: {
           user: { select: { first_name: true, last_name: true, email: true } },
@@ -165,6 +171,7 @@ describe('RequestsService', () => {
         requesterId: 'user-2',
         reason: 'for testing',
         priority: 'LOW',
+        dueDate: '2026-04-01',
       } as CreateRequestDto;
 
       const res = await service.createRequest(dto, 'user-2');
@@ -175,6 +182,7 @@ describe('RequestsService', () => {
           requester_id: dto.requesterId,
           reason: dto.reason,
           priority: dto.priority,
+          due_date: new Date('2026-04-01'),
         },
         include: {
           user: { select: { first_name: true, last_name: true, email: true } },

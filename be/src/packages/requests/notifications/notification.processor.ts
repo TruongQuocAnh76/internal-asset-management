@@ -12,7 +12,8 @@ export type NotificationJobName =
   | 'request-provided'
   | 'request-returned'
   | 'request-canceled'
-  | 'request-overdue';
+  | 'request-overdue'
+  | 'request-due-reminder';
 
 @Processor(NOTIFICATION_QUEUE)
 export class NotificationProcessor extends WorkerHost {
@@ -48,6 +49,9 @@ export class NotificationProcessor extends WorkerHost {
         break;
       case 'request-overdue':
         await this.mailService.sendRequestOverdue(ctx);
+        break;
+      case 'request-due-reminder':
+        await this.mailService.sendDueReminder(ctx);
         break;
       default:
         this.logger.warn(`Unknown job name: ${job.name}`);

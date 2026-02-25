@@ -17,6 +17,7 @@ import {
 import { GetRequestsDto } from './dto/get-request.dto';
 import { NOTIFICATION_QUEUE, NotificationJobName } from './notifications/notification.processor';
 import { BorrowMailContext } from 'src/mail/mail.service';
+import { buildMailContextBase, resolveRecipients } from './notifications/notification.util';
 
 @Injectable()
 export class RequestsService {
@@ -28,13 +29,14 @@ export class RequestsService {
   ) {}
 
   /**
-   * Build mail context from the pre-fetched request (with user/asset/kit included)
-   * and enqueue the notification job.
+   * Resolve recipients via the notification util and enqueue one job per recipient.
    */
-  private async enqueueNotification(
+  private async enqueueNotifications(
     request: {
       id: string;
       reason: string | null;
+      due_date: Date;
+      provided_by?: string | null;
       user: { first_name: string; last_name: string; email: string };
       asset?: { name: string } | null;
       kit?: { template: { name: string } } | null;
@@ -42,23 +44,23 @@ export class RequestsService {
     jobName: NotificationJobName,
   ) {
     try {
-      if (!request.user.email) return;
+      const recipients = await resolveRecipients(jobName, request, this.prisma);
 
-      const assetName =
-        request.asset?.name ??
-        request.kit?.template?.name ??
-        'Unknown Asset';
+      if (recipients.length === 0) {
+        this.logger.warn(`No recipients resolved for ${jobName} on request ${request.id}`);
+        return;
+      }
 
-      const ctx: BorrowMailContext = {
-        requesterName: `${request.user.first_name} ${request.user.last_name}`,
-        requesterEmail: request.user.email,
-        assetName,
-        requestId: request.id,
-        reason: request.reason ?? undefined,
-      };
+      const base = buildMailContextBase(request);
 
-      await this.notificationQueue.add(jobName, ctx);
-      this.logger.log(`Enqueued ${jobName} notification for request ${request.id}`);
+      for (const recipient of recipients) {
+        const ctx: BorrowMailContext = { ...base, ...recipient };
+        await this.notificationQueue.add(jobName, ctx);
+      }
+
+      this.logger.log(
+        `Enqueued ${jobName} to ${recipients.length} recipient(s) for request ${request.id}`,
+      );
     } catch (error) {
       this.logger.error(`Failed to enqueue ${jobName} notification: ${error.message}`);
     }
@@ -79,13 +81,14 @@ export class RequestsService {
           requester_id: body.requesterId,
           reason: body.reason,
           priority: body.priority,
+          due_date: new Date(body.dueDate),
         },
         include: {
           user: { select: { first_name: true, last_name: true, email: true } },
           asset: { select: { name: true } },
         }
       });
-      await this.enqueueNotification(request, 'request-submitted');
+      await this.enqueueNotifications(request, 'request-submitted');
       return request;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -110,13 +113,14 @@ export class RequestsService {
           requester_id: body.requesterId,
           reason: body.reason,
           priority: body.priority,
+          due_date: new Date(body.dueDate),
         },
         include: {
           user: { select: { first_name: true, last_name: true, email: true } },
           kit: { select: { template: { select: { name: true } } } },
         }
       });
-      await this.enqueueNotification(request, 'request-submitted');
+      await this.enqueueNotifications(request, 'request-submitted');
       return request;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -245,6 +249,7 @@ export class RequestsService {
         ...(body.assetId ? { asset_id: body.assetId } : { kit_id: body.kitId }),
         reason: body.reason,
         priority: body.priority,
+        due_date: new Date(body.dueDate),
       },
     });
   }
@@ -311,7 +316,7 @@ export class RequestsService {
             kit: { select: { template: { select: { name: true } } } },
           }
         });
-        await this.enqueueNotification(updated, 'request-approved');
+        await this.enqueueNotifications(updated, 'request-approved');
         return updated;
       } catch (error) {
         if (
@@ -338,7 +343,7 @@ export class RequestsService {
           kit: { select: { template: { select: { name: true } } } },
         }
       });
-      await this.enqueueNotification(updated, 'request-rejected');
+      await this.enqueueNotifications(updated, 'request-rejected');
       return updated;
     } catch (error) {
       if (
@@ -368,7 +373,7 @@ export class RequestsService {
           kit: { select: { template: { select: { name: true } } } },
         }
       });
-      await this.enqueueNotification(updated, 'request-provided');
+      await this.enqueueNotifications(updated, 'request-provided');
       return updated;
     } catch (error) {
       if (
@@ -447,7 +452,7 @@ export class RequestsService {
             kit: { select: { template: { select: { name: true } } } },
           } 
         });
-        await this.enqueueNotification(updated, 'request-returned');
+        await this.enqueueNotifications(updated, 'request-returned');
         return updated;
       } catch (error) {
         if (
@@ -477,7 +482,7 @@ export class RequestsService {
           kit: { select: { template: { select: { name: true } } } },
         }
       });
-      await this.enqueueNotification(updated, 'request-canceled');
+      await this.enqueueNotifications(updated, 'request-canceled');
       return updated;
     } catch (error) {
       if (
