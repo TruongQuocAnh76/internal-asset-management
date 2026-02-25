@@ -11,6 +11,8 @@ import { CategoryModule } from './packages/category/category.module';
 import { StorageModule } from './core/storage/storage.module';
 import { KitsModule } from './packages/kits/kits.module';
 import { DepreciationModule } from './packages/assets/depreciation/depreciation.module';
+import { MailModule } from './mail/mail.module';
+import { NotificationsModule } from './packages/requests/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { DepreciationModule } from './packages/assets/depreciation/depreciation.
     CategoryModule,
     StorageModule,
     DepreciationModule,
+    MailModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

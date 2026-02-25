@@ -31,9 +31,13 @@ describe('RequestsService', () => {
     },
   };
 
+  const notificationQueueMock: any = {
+    add: jest.fn(),
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new RequestsService(prismaMock as any);
+    service = new RequestsService(prismaMock as any, notificationQueueMock as any);
   });
 
   describe('createRequest (asset)', () => {
@@ -98,6 +102,10 @@ describe('RequestsService', () => {
           requester_id: dto.requesterId,
           reason: dto.reason,
           priority: dto.priority,
+        },
+        include: {
+          user: { select: { first_name: true, last_name: true, email: true } },
+          asset: { select: { name: true } },
         },
       });
 
@@ -167,6 +175,10 @@ describe('RequestsService', () => {
           requester_id: dto.requesterId,
           reason: dto.reason,
           priority: dto.priority,
+        },
+        include: {
+          user: { select: { first_name: true, last_name: true, email: true } },
+          kit: { select: { template: { select: { name: true } } } },
         },
       });
 
