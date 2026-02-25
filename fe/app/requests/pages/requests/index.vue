@@ -5,6 +5,10 @@ import RequestsHeader from '../components/RequestsHeader.vue'
 import RequestFilters from '../components/RequestFilters.vue'
 import RequestList from '../components/RequestList.vue'
 
+definePageMeta({
+  layout: 'default',
+})
+
 const router = useRouter()
 const route = useRoute()
 const { getRequests, cancelRequest } = useRequests()

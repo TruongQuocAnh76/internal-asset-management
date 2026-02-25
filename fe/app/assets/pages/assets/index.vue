@@ -5,6 +5,10 @@ import AssetTable from '../components/AssetTable.vue'
 import type { Asset, GetAssetsParams } from '../../types/asset.types'
 import { useAssets } from '../../composables/useAssets'
 
+definePageMeta({
+  layout: 'default',
+})
+
 const { getAllAssets } = useAssets()
 const route = useRoute()
 const router = useRouter()

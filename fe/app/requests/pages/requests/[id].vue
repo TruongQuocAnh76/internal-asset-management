@@ -6,6 +6,10 @@ import PriorityBadge from '../../components/PriorityBadge.vue'
 import ApprovalChain from '../../components/ApprovalChain.vue'
 import ApprovalModal from '../../components/ApprovalModal.vue'
 
+definePageMeta({
+  layout: 'default',
+})
+
 const route = useRoute()
 const requestId = route.params.id as string
 
