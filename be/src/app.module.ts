@@ -10,7 +10,7 @@ import { RequestsModule } from './packages/requests/requests.module';
 import { CategoryModule } from './packages/category/category.module';
 import { StorageModule } from './core/storage/storage.module';
 import { KitsModule } from './packages/kits/kits.module';
-import { DepreciationModule } from './core/depreciation/depreciation.module';
+import { DepreciationModule } from './packages/assets/depreciation/depreciation.module';
 
 @Module({
   imports: [
