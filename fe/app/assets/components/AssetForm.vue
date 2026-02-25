@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAssetForm } from '../composables/useAssetForm'
 import { useAssets } from '../composables/useAssets'
+import { useImageUpload } from '../composables/useImageUpload'
 import SpecsEditor from './SpecsEditor.vue'
 
 interface Props {
@@ -27,6 +28,11 @@ const {
 } = useAssetForm(props.mode, props.assetId)
 
 const { getCategories } = useAssets()
+const { uploadImages } = useImageUpload()
+
+// Image upload state
+const selectedImages = ref<File[]>([])
+const imagePreviewUrls = ref<string[]>([])
 
 // Categories for autocomplete
 const categories = ref<{ category: string; count: number }[]>([])
@@ -41,6 +47,24 @@ const loadCategories = async () => {
   }
 }
 
+// Handle image selection
+const handleImageSelect = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  if (target.files) {
+    selectedImages.value = Array.from(target.files)
+    
+    // Generate preview URLs
+    imagePreviewUrls.value = selectedImages.value.map(file => URL.createObjectURL(file))
+  }
+}
+
+// Remove image
+const removeImage = (index: number) => {
+  selectedImages.value.splice(index, 1)
+  URL.revokeObjectURL(imagePreviewUrls.value[index])
+  imagePreviewUrls.value.splice(index, 1)
+}
+
 // Initialize
 onMounted(async () => {
   await loadCategories()
@@ -48,8 +72,20 @@ onMounted(async () => {
 
 // Handle form submission
 const onSubmit = async () => {
-  const success = await handleSubmit()
-  if (success) {
+  const result = await handleSubmit(selectedImages.value.length)
+  if (result && selectedImages.value.length > 0) {
+    try {
+      // Upload images using presigned URLs
+      await uploadImages(selectedImages.value, result.tempImageUrls)
+    } catch (err) {
+      console.error('Image upload failed:', err)
+    }
+  }
+  if (result) {
+    if (props.mode === 'create') {
+      // Navigate to asset detail page
+      await navigateTo('/assets')
+    }
     emit('success')
   }
 }
@@ -114,18 +150,18 @@ const onCancel = () => {
             <label for="category_name" class="label">
               Category <span v-if="mode === 'create'" class="text-danger-500">*</span>
             </label>
-            <input
+            <select
               id="category_name"
               v-model="formData.category_name"
-              type="text"
-              list="categories-list"
-              placeholder="Select or enter category"
               @blur="validateField('category_name')"
               :class="{ '!border-danger-500': errors.category_name }"
-            />
-            <datalist id="categories-list">
-              <option v-for="cat in categories" :key="cat.category" :value="cat.category" />
-            </datalist>
+              class="w-full"
+            >
+              <option value="" disabled>Select a category</option>
+              <option v-for="cat in categories" :key="cat.category" :value="cat.category">
+                {{ cat.category }}
+              </option>
+            </select>
             <p v-if="errors.category_name" class="error-message">{{ errors.category_name }}</p>
           </div>
 
@@ -165,6 +201,136 @@ const onCancel = () => {
               />
             </div>
             <p v-if="errors.costs" class="error-message">{{ errors.costs }}</p>
+          </div>
+
+          <!-- Initial Quantity (Create mode only) -->
+          <div v-if="mode === 'create'" class="input-group">
+            <label for="initial_quantity" class="label">
+              Initial Quantity <span class="text-danger-500">*</span>
+            </label>
+            <input
+              id="initial_quantity"
+              v-model.number="formData.initial_quantity"
+              type="number"
+              min="1"
+              placeholder="1"
+              @blur="validateField('initial_quantity')"
+              :class="{ '!border-danger-500': errors.initial_quantity }"
+            />
+            <p v-if="errors.initial_quantity" class="error-message">{{ errors.initial_quantity }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Images Section (Create mode only) -->
+      <div v-if="mode === 'create'" class="card">
+        <h2 class="text-lg font-semibold text-secondary-900 mb-6 flex items-center gap-2">
+          <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          Images
+        </h2>
+
+        <div class="space-y-4">
+          <!-- File Input -->
+          <div class="input-group">
+            <label for="images" class="label">Upload Images</label>
+            <input
+              id="images"
+              type="file"
+              multiple
+              accept="image/*"
+              @change="handleImageSelect"
+              class="block w-full text-sm text-secondary-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 cursor-pointer"
+            />
+            <p class="text-sm text-secondary-500 mt-1">You can select multiple images</p>
+          </div>
+
+          <!-- Image Previews -->
+          <div v-if="imagePreviewUrls.length > 0" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div v-for="(url, index) in imagePreviewUrls" :key="index" class="relative group">
+              <img :src="url" :alt="`Preview ${index + 1}`" class="w-full h-32 object-cover rounded-lg" />
+              <button
+                type="button"
+                @click="removeImage(index)"
+                class="absolute top-2 right-2 p-1 bg-danger-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Depreciation Settings -->
+      <div class="card">
+        <h2 class="text-lg font-semibold text-secondary-900 mb-6 flex items-center gap-2">
+          <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+          </svg>
+          Depreciation Settings
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Depreciation Method -->
+          <div class="input-group">
+            <label for="depreciation_method" class="label">Depreciation Method</label>
+            <select
+              id="depreciation_method"
+              v-model="formData.depreciation_method"
+              class="w-full"
+            >
+              <option :value="null">Use Category Default</option>
+              <option value="STRAIGHT_LINE">Straight Line</option>
+              <option value="DECLINING_BALANCE">Declining Balance</option>
+            </select>
+            <p class="text-xs text-secondary-400 mt-1">If not set, the category's default depreciation settings will be used.</p>
+          </div>
+
+          <!-- Salvage Value (Straight Line only) -->
+          <div v-if="formData.depreciation_method === 'STRAIGHT_LINE'" class="input-group">
+            <label for="salvage_value" class="label">Salvage Value</label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">$</span>
+              <input
+                id="salvage_value"
+                v-model.number="formData.salvage_value"
+                type="number"
+                min="0"
+                placeholder="0"
+                class="!pl-8"
+              />
+            </div>
+          </div>
+
+          <!-- Life Months (Straight Line only) -->
+          <div v-if="formData.depreciation_method === 'STRAIGHT_LINE'" class="input-group">
+            <label for="life_months" class="label">Useful Life (months)</label>
+            <input
+              id="life_months"
+              v-model.number="formData.life_months"
+              type="number"
+              min="1"
+              placeholder="e.g. 60"
+            />
+          </div>
+
+          <!-- Decline Balance Rate (only for Declining Balance) -->
+          <div v-if="formData.depreciation_method === 'DECLINING_BALANCE'" class="input-group">
+            <label for="decline_balance_rate" class="label">Decline Balance Rate (%)</label>
+            <div class="relative">
+              <input
+                id="decline_balance_rate"
+                v-model.number="formData.decline_balance_rate"
+                type="number"
+                min="0"
+                max="100"
+                placeholder="e.g. 20"
+              />
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-500">%</span>
+            </div>
           </div>
         </div>
       </div>

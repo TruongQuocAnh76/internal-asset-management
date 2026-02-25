@@ -8,7 +8,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private usersService: UsersService,
-  ) { }
+  ) {}
   async signin(req) {
     const user = await this.validateUser(
       req.body.credential,

@@ -14,19 +14,19 @@ describe('AuthService', () => {
   const mockUsersService = {
     findByCredential: jest.fn(),
     create: jest.fn(),
-  };
+  } as Partial<UsersService>;
   const mockPrismaService = {} as PrismaService;
 
   let service: AuthService = new AuthService(
     mockPrismaService,
-    mockUsersService as any,
+    mockUsersService as UsersService,
   );
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
-        { provide: UsersService, useValue: mockUsersService },
+        { provide: UsersService, useValue: mockUsersService as UsersService },
         { provide: PrismaService, useValue: mockPrismaService },
       ],
     }).compile();

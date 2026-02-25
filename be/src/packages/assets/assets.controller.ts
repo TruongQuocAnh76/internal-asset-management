@@ -7,6 +7,7 @@ import {
   Query,
   Post,
   UseGuards,
+  Delete,
 } from '@nestjs/common';
 import { AssetsService } from './assets.service';
 import { SessionAuthGuard } from 'src/core/auth/guards/session-auth.guard';
@@ -17,6 +18,8 @@ import {
 import { ZodValidationPipe } from 'nestjs-zod';
 import { EditAssetDto, EditAssetDtoSchema } from './dto/edit-asset.dto';
 import { CreateAssetDto, CreateAssetDtoSchema } from './dto/create-asset.dto';
+import { CurrentUser } from 'src/core/auth/decorator/current-user.decorator';
+import { Permission } from 'src/core/auth/decorator/permission.decorator';
 
 @Controller('assets')
 export class AssetsController {
@@ -30,16 +33,22 @@ export class AssetsController {
     return this.assetsService.getAssets(query);
   }
 
+  @Get('summary')
+  @UseGuards(SessionAuthGuard)
+  getSummary() {
+    return this.assetsService.getSummary();
+  }
+
   @Get(':id')
   @UseGuards(SessionAuthGuard)
   getAssetById(@Param('id') id: string) {
     return this.assetsService.getAssetById(id);
   }
 
-  @Get('summary')
+  @Get(':id/items')
   @UseGuards(SessionAuthGuard)
-  getSummary() {
-    return this.assetsService.getSummary();
+  getAssetItems(@Param('id') id: string) {
+    return this.assetsService.getAssetItems(id);
   }
 
   @Get('/category/count')
@@ -59,15 +68,18 @@ export class AssetsController {
   updateAssetStatus(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(EditAssetDtoSchema)) body: EditAssetDto,
+    @CurrentUser('id') userId: string,
   ) {
-    return this.assetsService.updateAsset(id, body);
+    return this.assetsService.updateAsset(id, body, userId);
   }
 
   @Post()
   @UseGuards(SessionAuthGuard)
+  @Permission('asset:create')
   createAsset(
     @Body(new ZodValidationPipe(CreateAssetDtoSchema)) body: CreateAssetDto,
+    @CurrentUser('id') userId: string,
   ) {
-    return this.assetsService.createAsset(body);
+    return this.assetsService.createAsset(body, userId);
   }
 }

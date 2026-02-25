@@ -4,12 +4,15 @@ import { useAuth } from '../../auth/composables/useAuth'
 import { useHome } from '../composables/useHome'
 
 // Components
-import DashboardNav from '../components/DashboardNav.vue'
 import AssetStatusCards from '../components/AssetStatusCards.vue'
 import CategoryChart from '../components/CategoryChart.vue'
 import PendingApprovals from '../components/PendingApprovals.vue'
 import RecentActivity from '../components/RecentActivity.vue'
 import QuickActions from '../components/QuickActions.vue'
+
+definePageMeta({
+  layout: 'default',
+})
 
 const { user } = useAuth()
 const { getAssetsSummary, getAssetsByCategory, getPendingApprovals, getRecentActivities, getAssetsCountByCategory } = useHome()
@@ -54,17 +57,6 @@ const loadDashboardData = async () => {
   }
 }
 
-const handleLogout = async () => {
-  try {
-    // TODO: Implement logout endpoint
-    // await $fetch('/auth/logout', { method: 'POST' })
-    user.value = null
-    navigateTo('/signin')
-  } catch (error) {
-    console.error('Logout failed:', error)
-  }
-}
-
 onMounted(() => {
   loadDashboardData()
 })
@@ -72,12 +64,6 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50">
-    <!-- Navigation Bar -->
-    <DashboardNav
-      :user-name="user?.username || user?.first_name"
-      @logout="handleLogout"
-    />
-
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <!-- Welcome Header -->
@@ -94,7 +80,8 @@ onMounted(() => {
       <section class="mb-8">
         <h2 class="text-lg font-semibold text-secondary-800 mb-4 flex items-center gap-2">
           <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
           Asset Status Overview
         </h2>
@@ -107,11 +94,7 @@ onMounted(() => {
         <CategoryChart :categories="categoryData" :loading="isLoading" />
 
         <!-- Pending Approvals (Role-Based) -->
-        <PendingApprovals
-          :approvals="pendingApprovals"
-          :user-role="userRole"
-          :loading="isLoading"
-        />
+        <PendingApprovals :approvals="pendingApprovals" :user-role="userRole" :loading="isLoading" />
       </section>
 
       <!-- Section 4 & 5: Recent Activity + Quick Actions -->

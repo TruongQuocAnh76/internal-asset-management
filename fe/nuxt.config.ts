@@ -1,5 +1,5 @@
 export default defineNuxtConfig({
-  extends: ['./app/auth', './app/home', './app/assets'],  
+  extends: ['./app/auth', './app/home', './app/assets', './app/requests', './app/kits'],  
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
   modules: ['@nuxtjs/tailwindcss'],
@@ -13,7 +13,9 @@ export default defineNuxtConfig({
       '~/components',
       '~/app/auth/components',
       '~/app/home/components',
-      '~/app/assets/components'
+      '~/app/assets/components',
+      '~/app/requests/components',
+      '~/app/kits/components'
     ]
   },
   devServer: {
@@ -22,7 +24,7 @@ export default defineNuxtConfig({
   nitro: {
     devProxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://backend:3000',
         changeOrigin: true
       }
     }

@@ -1,0 +1,45 @@
+services:
+  frontend:
+    build:
+      context: ./fe
+      dockerfile: Dockerfile
+    ports: 
+      - "5173:5173"
+    env_file:
+      - ./fe/.env
+    depends_on:
+      - backend 
+    networks:
+      - app_network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+
+  backend:
+    build:
+      context: ./be
+      dockerfile: Dockerfile    
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./be/.env
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    networks:
+      - app_network
+
+volumes:
+  redis_data:
+  
+networks:
+  app_network:
+    driver: bridge

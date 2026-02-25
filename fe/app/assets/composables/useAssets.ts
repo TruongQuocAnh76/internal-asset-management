@@ -1,4 +1,4 @@
-import type { GetAssetsParams, AssetsResponse, Asset, AssetFormData, AssetStatus } from '../types/asset.types'
+import type { GetAssetsParams, AssetsResponse, Asset, AssetItem, AssetFormData, AssetStatus } from '../types/asset.types'
 
 export const useAssets = () => {
   const config = useRuntimeConfig()
@@ -8,7 +8,7 @@ export const useAssets = () => {
     
     if (params.filter && params.filter_value) {
       queryParams.append('filter', params.filter)
-      queryParams.append('filter_value', params.filter_value)
+      queryParams.append('filterValue', params.filter_value)
     }
     
     if (params.search) {
@@ -47,13 +47,22 @@ export const useAssets = () => {
     })
   }
 
-  const createAsset = async (formData: AssetFormData) => {
-    return await $fetch<{ id: string }>('/assets', {
+  const getAssetItems = async (assetId: string) => {
+    return await $fetch<AssetItem[]>(`/assets/${assetId}/items`, {
+      method: 'GET',
+      baseURL: config.public.backendUrl,
+      credentials: 'include'
+    })
+  }
+
+  const createAsset = async (formData: AssetFormData, imageCount: number = 0) => {
+    return await $fetch<{ createdAsset: { id: string }; tempImageUrls: string[] }>('/assets', {
       method: 'POST',
       baseURL: config.public.backendUrl,
       credentials: 'include',
       body: {
         ...formData,
+        image_num: imageCount,
         specs: formData.specs || {}
       }
     })
@@ -96,6 +105,7 @@ export const useAssets = () => {
   return {
     getAllAssets,
     getAssetById,
+    getAssetItems,
     createAsset,
     updateAsset,
     updateAssetStatus,
