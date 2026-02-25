@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
-import { AssetsModule } from '../assets.module';
+import { AssetsModule } from '../../assets.module';
 import { DepreciationProcessor, DEPRECIATION_QUEUE } from './depreciation.processor';
 import { DepreciationScheduler } from './depreciation.scheduler';
 

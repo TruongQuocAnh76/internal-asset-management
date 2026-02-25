@@ -1,6 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
-import { AssetsService } from '../assets.service';
+import { AssetsService } from '../../assets.service';
 import { Job } from 'bullmq';
 
 export const DEPRECIATION_QUEUE = 'depreciation';

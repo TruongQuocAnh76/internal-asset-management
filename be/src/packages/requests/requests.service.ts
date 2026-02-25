@@ -15,9 +15,9 @@ import {
   Prisma,
 } from '@prisma/client';
 import { GetRequestsDto } from './dto/get-request.dto';
-import { NOTIFICATION_QUEUE, NotificationJobName } from './notifications/notification.processor';
+import { NOTIFICATION_QUEUE, NotificationJobName } from './cron/notifications/notification.processor';
 import { BorrowMailContext } from 'src/mail/mail.service';
-import { buildMailContextBase, resolveRecipients } from './notifications/notification.util';
+import { buildMailContextBase, resolveRecipients } from './cron/notifications/notification.util';
 
 @Injectable()
 export class RequestsService {

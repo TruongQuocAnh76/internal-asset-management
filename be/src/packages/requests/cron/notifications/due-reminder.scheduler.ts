@@ -32,6 +32,34 @@ export class DueReminderScheduler {
 
     let totalEnqueued = 0;
 
+    const overdueRequests = await this.prisma.borrowRequests.findMany({
+      where: {
+        status: BorrowStatus.OVERDUE,
+      },
+      include: {
+        user: { select: { first_name: true, last_name: true, email: true } },
+        asset: { select: { name: true } },
+        kit: { select: { template: { select: { name: true } } } },
+      },
+    });
+
+    for (const request of overdueRequests) {
+      if (!request.user.email) continue;
+      const ctx = this.buildContext(request, 0);
+      await this.notificationQueue.add('request-overdue' as NotificationJobName, ctx, {
+        removeOnComplete: 100,
+        removeOnFail: 200,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 60_000 },
+      });
+      totalEnqueued++;
+    }
+
+    if (overdueRequests.length > 0) {
+      this.logger.log(`Notifying ${overdueRequests.length} OVERDUE request(s)`);
+    }
+
+    // --- Upcoming due-date reminders: 7, 3, 1 day(s) away ---
     for (const days of REMINDER_DAYS) {
       const targetStart = new Date(today);
       targetStart.setDate(targetStart.getDate() + days);
@@ -57,35 +85,13 @@ export class DueReminderScheduler {
       for (const request of requests) {
         if (!request.user.email) continue;
 
-        const assetName =
-          request.asset?.name ??
-          request.kit?.template?.name ??
-          'Unknown Asset';
-
-        const ctx: BorrowMailContext = {
-          recipientName: `${request.user.first_name} ${request.user.last_name}`,
-          recipientEmail: request.user.email,
-          requesterName: `${request.user.first_name} ${request.user.last_name}`,
-          requesterEmail: request.user.email,
-          assetName,
-          requestId: request.id,
-          reason: request.reason ?? undefined,
-          dueDate: new Date(request.due_date).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-          }),
-          daysRemaining: days,
-        };
-
-        const jobName: NotificationJobName = 'request-due-reminder';
-        await this.notificationQueue.add(jobName, ctx, {
+        const ctx = this.buildContext(request, days);
+        await this.notificationQueue.add('request-due-reminder' as NotificationJobName, ctx, {
           removeOnComplete: 100,
           removeOnFail: 200,
           attempts: 3,
           backoff: { type: 'exponential', delay: 60_000 },
         });
-
         totalEnqueued++;
       }
 
@@ -96,6 +102,39 @@ export class DueReminderScheduler {
       }
     }
 
-    this.logger.log(`Due-date reminder scan complete – ${totalEnqueued} reminder(s) enqueued`);
+    this.logger.log(`Due-date reminder scan complete – ${totalEnqueued} notification(s) enqueued`);
+  }
+
+  private buildContext(
+    request: {
+      id: string;
+      reason: string | null;
+      due_date: Date;
+      user: { first_name: string; last_name: string; email: string };
+      asset?: { name: string } | null;
+      kit?: { template: { name: string } } | null;
+    },
+    daysRemaining: number,
+  ): BorrowMailContext {
+    const assetName =
+      request.asset?.name ??
+      request.kit?.template?.name ??
+      'Unknown Asset';
+
+    return {
+      recipientName: `${request.user.first_name} ${request.user.last_name}`,
+      recipientEmail: request.user.email,
+      requesterName: `${request.user.first_name} ${request.user.last_name}`,
+      requesterEmail: request.user.email,
+      assetName,
+      requestId: request.id,
+      reason: request.reason ?? undefined,
+      dueDate: new Date(request.due_date).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      }),
+      daysRemaining,
+    };
   }
 }
