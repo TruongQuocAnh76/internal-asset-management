@@ -577,7 +577,7 @@ async function main() {
   });
 
   const allocationOne = await prisma.assetsAllocation.upsert({
-    where: { id: ids.allocation1Id },
+    where: { asset_id: assetOne.id },
     update: {},
     create: {
       id: ids.allocation1Id,
@@ -589,7 +589,7 @@ async function main() {
   });
 
   const allocationTwo = await prisma.assetsAllocation.upsert({
-    where: { id: ids.allocation2Id },
+    where: { asset_id: assetTwo.id },
     update: {},
     create: {
       id: ids.allocation2Id,
@@ -600,10 +600,12 @@ async function main() {
     },
   });
 
-  await prisma.assetsEvents.upsert({
-    where: { id: ids.event1Id },
-    update: {},
-    create: {
+  await prisma.assetsEvents.deleteMany({
+    where: { asset_id: assetOne.id, event_type: 'ALLOCATED' },
+  });
+
+  await prisma.assetsEvents.create({
+    data: {
       id: ids.event1Id,
       asset_id: assetOne.id,
       event_type: 'ALLOCATED',
@@ -626,6 +628,7 @@ async function main() {
       requester_id: employeeUser.id,
       status: BorrowStatus.PENDING,
       priority: BorrowPriority.MEDIUM,
+      due_date: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30), 
     },
   });
 
