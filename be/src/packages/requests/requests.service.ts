@@ -1,8 +1,11 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { CreateRequestDto } from './dto/create-request.dto';
 import { PrismaService } from 'src/core/database/prisma.service';
 import {
@@ -12,10 +15,56 @@ import {
   Prisma,
 } from '@prisma/client';
 import { GetRequestsDto } from './dto/get-request.dto';
+import { NOTIFICATION_QUEUE, NotificationJobName } from './cron/notifications/notification.processor';
+import { BorrowMailContext } from 'src/mail/mail.service';
+import { buildMailContextBase, resolveRecipients } from './cron/notifications/notification.util';
 
 @Injectable()
 export class RequestsService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(RequestsService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    @InjectQueue(NOTIFICATION_QUEUE) private notificationQueue: Queue,
+  ) {}
+
+  /**
+   * Resolve recipients via the notification util and enqueue one job per recipient.
+   */
+  private async enqueueNotifications(
+    request: {
+      id: string;
+      reason: string | null;
+      due_date: Date;
+      provided_by?: string | null;
+      user: { first_name: string; last_name: string; email: string };
+      asset?: { name: string } | null;
+      kit?: { template: { name: string } } | null;
+    },
+    jobName: NotificationJobName,
+  ) {
+    try {
+      const recipients = await resolveRecipients(jobName, request, this.prisma);
+
+      if (recipients.length === 0) {
+        this.logger.warn(`No recipients resolved for ${jobName} on request ${request.id}`);
+        return;
+      }
+
+      const base = buildMailContextBase(request);
+
+      for (const recipient of recipients) {
+        const ctx: BorrowMailContext = { ...base, ...recipient };
+        await this.notificationQueue.add(jobName, ctx);
+      }
+
+      this.logger.log(
+        `Enqueued ${jobName} to ${recipients.length} recipient(s) for request ${request.id}`,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to enqueue ${jobName} notification: ${error.message}`);
+    }
+  }
 
   async createRequest(body: CreateRequestDto, userId: string) {
     if (body.kitId) {
@@ -26,14 +75,21 @@ export class RequestsService {
 
   private async createAssetRequest(body: CreateRequestDto, userId: string) {
     try {
-      return await this.prisma.borrowRequests.create({
+      const request = await this.prisma.borrowRequests.create({
         data: {
           asset_id: body.assetId,
           requester_id: body.requesterId,
           reason: body.reason,
           priority: body.priority,
+          due_date: new Date(body.dueDate),
         },
+        include: {
+          user: { select: { first_name: true, last_name: true, email: true } },
+          asset: { select: { name: true } },
+        }
       });
+      await this.enqueueNotifications(request, 'request-submitted');
+      return request;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
@@ -51,14 +107,21 @@ export class RequestsService {
 
   private async createKitRequest(body: CreateRequestDto, userId: string) {
     try {
-      return await this.prisma.borrowRequests.create({
+      const request = await this.prisma.borrowRequests.create({
         data: {
           kit_id: body.kitId,
           requester_id: body.requesterId,
           reason: body.reason,
           priority: body.priority,
+          due_date: new Date(body.dueDate),
         },
+        include: {
+          user: { select: { first_name: true, last_name: true, email: true } },
+          kit: { select: { template: { select: { name: true } } } },
+        }
       });
+      await this.enqueueNotifications(request, 'request-submitted');
+      return request;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
@@ -186,6 +249,7 @@ export class RequestsService {
         ...(body.assetId ? { asset_id: body.assetId } : { kit_id: body.kitId }),
         reason: body.reason,
         priority: body.priority,
+        due_date: new Date(body.dueDate),
       },
     });
   }
@@ -239,14 +303,21 @@ export class RequestsService {
       }
 
       try {
-        return await tx.borrowRequests.update({
+        const updated = await tx.borrowRequests.update({
           where: { id: requestId, status: BorrowStatus.PENDING },
           data: {
             status: BorrowStatus.APPROVED,
             approved_at: new Date(),
             approved_by: userId,
           },
+          include: {
+            user: { select: { first_name: true, last_name: true, email: true } },
+            asset: { select: { name: true } },
+            kit: { select: { template: { select: { name: true } } } },
+          }
         });
+        await this.enqueueNotifications(updated, 'request-approved');
+        return updated;
       } catch (error) {
         if (
           error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -263,10 +334,17 @@ export class RequestsService {
 
   async rejectRequest(requestId: string, userId: string) {
     try {
-      return await this.prisma.borrowRequests.update({
+      const updated = await this.prisma.borrowRequests.update({
         where: { id: requestId, status: BorrowStatus.PENDING },
         data: { status: BorrowStatus.REJECTED },
+        include: {
+          user: { select: { first_name: true, last_name: true, email: true } },
+          asset: { select: { name: true } },
+          kit: { select: { template: { select: { name: true } } } },
+        }
       });
+      await this.enqueueNotifications(updated, 'request-rejected');
+      return updated;
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -282,14 +360,21 @@ export class RequestsService {
 
   async provideRequest(userId: string, requestId: string) {
     try {
-      return await this.prisma.borrowRequests.update({
+      const updated = await this.prisma.borrowRequests.update({
         where: { id: requestId, status: BorrowStatus.APPROVED },
         data: {
           status: BorrowStatus.PROVIDED,
           provided_at: new Date(),
           provided_by: userId,
         },
+        include: {
+          user: { select: { first_name: true, last_name: true, email: true } },
+          asset: { select: { name: true } },
+          kit: { select: { template: { select: { name: true } } } },
+        }
       });
+      await this.enqueueNotifications(updated, 'request-provided');
+      return updated;
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -352,7 +437,7 @@ export class RequestsService {
       }
 
       try {
-        return await tx.borrowRequests.update({
+        const updated = await tx.borrowRequests.update({
           where: {
             id: requestId,
             status: { in: [BorrowStatus.PROVIDED, BorrowStatus.OVERDUE] },
@@ -361,7 +446,14 @@ export class RequestsService {
             status: BorrowStatus.RETURNED,
             returned_at: new Date(),
           },
+          include: {
+            user: { select: { first_name: true, last_name: true, email: true } },
+            asset: { select: { name: true } },
+            kit: { select: { template: { select: { name: true } } } },
+          } 
         });
+        await this.enqueueNotifications(updated, 'request-returned');
+        return updated;
       } catch (error) {
         if (
           error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -378,13 +470,20 @@ export class RequestsService {
 
   async cancelRequest(requestId: string, userId: string) {
     try {
-      return await this.prisma.borrowRequests.update({
+      const updated = await this.prisma.borrowRequests.update({
         where: {
           id: requestId,
           status: { in: [BorrowStatus.PENDING, BorrowStatus.APPROVED] },
         },
         data: { status: BorrowStatus.CANCELED },
+        include: {
+          user: { select: { first_name: true, last_name: true, email: true } },
+          asset: { select: { name: true } },
+          kit: { select: { template: { select: { name: true } } } },
+        }
       });
+      await this.enqueueNotifications(updated, 'request-canceled');
+      return updated;
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

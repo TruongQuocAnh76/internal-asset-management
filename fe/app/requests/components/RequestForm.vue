@@ -48,6 +48,13 @@ const priorities: { value: RequestPriority; label: string }[] = [
   { value: 'HIGH', label: 'High' }
 ]
 
+// Minimum date for due date picker (tomorrow)
+const minDueDate = computed(() => {
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  return tomorrow.toISOString().split('T')[0]
+})
+
 // Handle form submission
 const handleSubmit = async () => {
   const result = await submitRequest()
@@ -516,6 +523,24 @@ onMounted(() => {
           </div>
           <p class="text-sm text-secondary-500 mt-2">
             High priority requests may receive faster processing
+          </p>
+        </div>
+
+        <!-- Due Date -->
+        <div class="input-group mt-4">
+          <label for="due-date" class="label">Due Date <span class="text-red-500">*</span></label>
+          <input
+            id="due-date"
+            type="date"
+            v-model="formData.dueDate"
+            :min="minDueDate"
+            class="w-full"
+            required
+            @blur="validateField('dueDate')"
+          />
+          <p v-if="errors.dueDate" class="text-sm text-red-500 mt-1">{{ errors.dueDate }}</p>
+          <p v-else class="text-sm text-secondary-500 mt-1">
+            Expected return date for the borrowed asset.
           </p>
         </div>
       </div>

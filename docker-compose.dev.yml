@@ -70,6 +70,14 @@ services:
     networks:
       - app_network
 
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025"  # SMTP server
+      - "8025:8025"  # Web UI
+    networks:
+      - app_network
+
   nginx:
     image: nginx:latest
     ports:
