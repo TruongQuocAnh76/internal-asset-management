@@ -257,12 +257,15 @@ model BorrowRequests {
   approved_by  String?        @db.Uuid
   provided_at  DateTime?
   provided_by  String?        @db.Uuid
+  due_date     DateTime
   returned_at  DateTime?
   created_at   DateTime       @default(now())
 
   asset Assets?     @relation(fields: [asset_id], references: [id])
   kit   AssetsKits? @relation(fields: [kit_id], references: [id])
   user  Users       @relation(fields: [requester_id], references: [id])
+
+  @@index([status, due_date])
 }
 
 enum Entity {
