@@ -219,7 +219,7 @@ export class KitsService {
         throw error;
       }
 
-      await this.recomputeKitStatusTx(tx, kitId);
+      await this.recomputeKitStatus(kitId, null, null, tx);
     });
 
     return this.getKitById(kitId);
@@ -239,7 +239,7 @@ export class KitsService {
         },
       });
 
-      await this.recomputeKitStatusTx(tx, kitId);
+      await this.recomputeKitStatus(kitId, null, null, tx);
     });
 
     return this.getKitById(kitId);
@@ -281,7 +281,8 @@ export class KitsService {
         throw error;
       }
 
-      await this.recomputeKitStatusTx(tx, kitId);
+      const kitStatus = (await tx.assetsKits.findUnique({ where: { id: kitId }, select: { status: true } }))?.status as AssetStatus;
+      await this.recomputeKitStatus(kitId, kitStatus, kitStatus, tx);
     });
 
     return this.getKitById(kitId);
@@ -301,64 +302,98 @@ export class KitsService {
         },
       });
 
-      await this.recomputeKitStatusTx(tx, kitId);
+      await this.recomputeKitStatus(kitId, null, null, tx);
     });
 
     return this.getKitById(kitId);
   }
 
   /**
-   * Recompute cached status on the AssetsKits row (transaction-aware).
+   * Recompute cached status on the AssetsKits row.
+   * Efficient approach: only query when needed.
    */
-  private async recomputeKitStatusTx(
-    tx: any,
+  async recomputeKitStatus(
     kitId: string,
+    currentStatus: AssetStatus | null = null,
+    updateStatus: AssetStatus | null = null,
+    tx?: any,
   ): Promise<AssetStatus> {
-    const nonReadyCount = await tx.assetItems.count({
-      where: { kit_id: kitId, status: { not: AssetStatus.READY } },
-    });
-    const newStatus =
-      nonReadyCount === 0 ? AssetStatus.READY : AssetStatus.IN_USE;
-    await tx.assetsKits.update({
-      where: { id: kitId },
-      data: { status: newStatus },
-    });
-    const kit = await tx.assetsKits.findUnique({
+    const client = tx ?? this.prisma;
+    let currStatus = currentStatus;
+    if (currStatus === null) {
+      const current = await client.assetsKits.findUnique({
+        where: { id: kitId },
+        select: { status: true },
+      });
+      if (!current) return AssetStatus.READY;
+      currStatus = current.status as AssetStatus;
+    }
+    const priorityOrder: AssetStatus[] = [
+      AssetStatus.LIQUIDATED,
+      AssetStatus.BROKEN,
+      AssetStatus.MAINTAINANCE,
+      AssetStatus.IN_USE,
+      AssetStatus.READY,
+    ];
+
+    let newStatus: AssetStatus;
+
+    // replace or add asset: if the new status is worse than current, update to new status; otherwise, keep current
+    if (updateStatus) {
+      const currIndex = priorityOrder.indexOf(currStatus);
+      const updateIndex = priorityOrder.indexOf(updateStatus);
+      newStatus = updateIndex < currIndex ? updateStatus : currStatus;
+    } else {
+      const items = await client.assetItems.findMany({
+        where: { kit_id: kitId },
+        select: { status: true },
+      });
+      if (items.length === 0) {
+        newStatus = AssetStatus.READY;
+      } else {
+        const highest = items.reduce((best, item) => {
+          const bestIndex = priorityOrder.indexOf(best);
+          const itemIndex = priorityOrder.indexOf(item.status as AssetStatus);
+          return itemIndex < bestIndex ? (item.status as AssetStatus) : best;
+        }, AssetStatus.READY);
+        newStatus = highest;
+      }
+    }
+
+    if (newStatus !== currStatus) {
+      await client.assetsKits.update({
+        where: { id: kitId },
+        data: { status: newStatus },
+      });
+    }
+    const kit = await client.assetsKits.findUnique({
       where: { id: kitId },
       select: { template_id: true },
     });
     if (kit) {
-      await this.recomputeTemplateStatusTx(tx, kit.template_id);
+      await this.recomputeTemplateStatus(kit.template_id, tx);
     }
     return newStatus;
   }
 
   /**
-   * Recompute cached status on the KitTemplates row (transaction-aware).
+   * Recompute cached status on the KitTemplates row.
    */
-  private async recomputeTemplateStatusTx(
-    tx: any,
+  private async recomputeTemplateStatus(
     templateId: string,
+    tx?: any,
   ): Promise<AssetStatus> {
-    const readyKitCount = await tx.assetsKits.count({
+    const client = tx ?? this.prisma;
+    const readyKitCount = await client.assetsKits.count({
       where: { template_id: templateId, status: AssetStatus.READY },
     });
     const newStatus =
       readyKitCount > 0 ? AssetStatus.READY : AssetStatus.IN_USE;
-    await tx.kitTemplates.update({
+    await client.kitTemplates.update({
       where: { id: templateId },
       data: { status: newStatus },
     });
     return newStatus;
-  }
-
-  /**
-   * Recompute cached status (non-transaction, for external use).
-   */
-  async recomputeKitStatus(kitId: string): Promise<AssetStatus> {
-    return this.prisma.$transaction((tx) =>
-      this.recomputeKitStatusTx(tx, kitId),
-    );
   }
 
   protected async checkDuplicateTemplate(asset_ids: string[]): Promise<string | null> {
