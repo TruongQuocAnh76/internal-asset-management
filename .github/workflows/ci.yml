@@ -1,0 +1,75 @@
+stages:
+  - install
+  - test
+  - build
+  - docker-build-frontend
+  - docker-build-backend
+  - prisma
+  - push-fe
+  - push-be
+  - deploy
+
+image: node:22-slim
+
+cache:
+  paths:
+    - node_modules/
+
+install:
+  stage: install
+  script:
+    - pnpm install -r
+
+test:
+  stage: test
+  script:
+    - pnpm test
+
+build:
+  stage: build
+  script:
+    - pnpm build
+
+docker-build-frontend:
+  stage: docker-build-frontend
+  script:
+    - docker build -t asset-management-frontend:latest -f Dockerfile.frontend .
+
+docker-build-backend:
+  stage: docker-build-backend
+  script:
+    - docker build -t asset-management-backend:latest -f Dockerfile.backend .
+
+prisma:
+  stage: prisma
+  script:
+    - pnpm --filter be prisma:migrate
+
+push-fe:
+  stage: push-fe
+  script:
+    - echo "Pushing frontend Docker image to registry..."
+    - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD $DOCKER_REGISTRY
+    - docker tag asset-management-frontend:latest $DOCKER_REGISTRY/asset-management-frontend:latest
+    - docker push $DOCKER_REGISTRY/asset-management-frontend:latest
+  only:
+    - main
+
+push-be:
+  stage: push-be
+  script:
+    - echo "Pushing backend Docker image to registry..."
+    - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD $DOCKER_REGISTRY
+    - docker tag asset-management-backend:latest $DOCKER_REGISTRY/asset-management-backend:latest
+    - docker push $DOCKER_REGISTRY/asset-management-backend:latest
+  only:
+    - main
+
+deploy:
+  stage: deploy
+  script:
+    - echo "Deploying application..."
+    - chmod +x .github/deploy.sh
+    - ./.github/deploy.sh
+  only:
+    - main
