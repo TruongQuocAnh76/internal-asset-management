@@ -48,7 +48,18 @@ const loadDashboardData = async () => {
 
     assetSummary.value = summaryData
     categoryData.value = categoryCountData.data.value || []
-    pendingApprovals.value = approvals
+    
+    // Transform pending approvals to match component shape
+    const approvalsData = approvals.data?.value || approvals.data || approvals || []
+    pendingApprovals.value = Array.isArray(approvalsData) 
+      ? approvalsData.map((req: any) => ({
+          asset_name: req.asset?.name || req.kit?.template?.name || 'Unknown',
+          requester_name: req.user ? `${req.user.first_name} ${req.user.last_name}` : 'Unknown',
+          requested_at: req.requested_at,
+          status: req.status.toLowerCase()
+        }))
+      : []
+    
     recentActivities.value = activities.recentActivities
   } catch (error) {
     console.error('Failed to load dashboard data:', error)

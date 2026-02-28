@@ -3,7 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from 'src/core/database/prisma.service';
-import { BorrowMailContext } from 'src/mail/mail.service';
+import { BorrowMailContext } from 'src/core/mail/mail.service';
 import { BorrowStatus } from '@prisma/client';
 import { NOTIFICATION_QUEUE, NotificationJobName } from './notification.processor';
 

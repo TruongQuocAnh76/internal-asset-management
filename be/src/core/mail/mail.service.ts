@@ -160,6 +160,54 @@ export class MailService {
     );
   }
 
+  async sendMaintenanceNotification(ctx: {
+    recipientName: string;
+    recipientEmail: string;
+    assetName: string;
+    assetItemId: string;
+    maintenanceNotes: string;
+    reportedBy: string;
+  }) {
+    await this.send(
+      ctx.recipientEmail,
+      `🔧 Asset Sent to Maintenance – ${ctx.assetName}`,
+      `
+        <h2 style="color: #d97706;">Maintenance Notice</h2>
+        <p>Hi ${ctx.recipientName},</p>
+        <p>An asset item of <strong>${ctx.assetName}</strong> has been sent to maintenance by <strong>${ctx.reportedBy}</strong>.</p>
+        <p><strong>Asset Item ID:</strong> ${ctx.assetItemId}</p>
+        <p><strong>Notes:</strong> ${ctx.maintenanceNotes}</p>
+        <hr/>
+        <p style="color: #888; font-size: 12px;">Asset Management System</p>
+      `,
+    );
+  }
+
+  async sendMaintenanceResolved(ctx: {
+    recipientName: string;
+    recipientEmail: string;
+    assetName: string;
+    assetItemId: string;
+    resolvedStatus: string;
+    description?: string;
+  }) {
+    const statusColor = ctx.resolvedStatus === 'READY' ? 'green' : 'red';
+    await this.send(
+      ctx.recipientEmail,
+      `Maintenance Resolved – ${ctx.assetName}`,
+      `
+        <h2>Maintenance Resolved</h2>
+        <p>Hi ${ctx.recipientName},</p>
+        <p>An asset item of <strong>${ctx.assetName}</strong> has been resolved from maintenance.</p>
+        <p><strong>Asset Item ID:</strong> ${ctx.assetItemId}</p>
+        <p><strong>New Status:</strong> <span style="color: ${statusColor}; font-weight: bold;">${ctx.resolvedStatus}</span></p>
+        ${ctx.description ? `<p><strong>Details:</strong> ${ctx.description}</p>` : ''}
+        <hr/>
+        <p style="color: #888; font-size: 12px;">Asset Management System</p>
+      `,
+    );
+  }
+
   async sendDueReminder(ctx: BorrowMailContext) {
     const days = ctx.daysRemaining ?? 0;
     const urgency = days <= 1 ? 'color: #dc2626;' : days <= 3 ? 'color: #d97706;' : 'color: #2563eb;';
