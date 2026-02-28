@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 set -e
 
-: "${DOCKER_REGISTRY:?DOCKER_REGISTRY is required}"
-: "${DOCKER_USERNAME:?DOCKER_USERNAME is required}"
-: "${DOCKER_PASSWORD:?DOCKER_PASSWORD is required}"
+: "${CI_REGISTRY:?CI_REGISTRY is required}"
+: "${CI_REGISTRY_IMAGE:?CI_REGISTRY_IMAGE is required}"
+: "${CI_REGISTRY_USER:?CI_REGISTRY_USER is required}"
+: "${CI_REGISTRY_PASSWORD:?CI_REGISTRY_PASSWORD is required}"
 
-FE_IMAGE="$DOCKER_REGISTRY/asset-management-frontend:latest"
-BE_IMAGE="$DOCKER_REGISTRY/asset-management-backend:latest"
+FE_IMAGE="$CI_REGISTRY_IMAGE/frontend:latest"
+BE_IMAGE="$CI_REGISTRY_IMAGE/backend:latest"
 
 echo "Logging into Docker Registry..."
-echo "$DOCKER_PASSWORD" | docker login "$DOCKER_REGISTRY" \
-  -u "$DOCKER_USERNAME" \
+echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" \
+  -u "$CI_REGISTRY_USER" \
   --password-stdin
 
 echo "Pulling latest images..."

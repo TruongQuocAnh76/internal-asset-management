@@ -14,15 +14,20 @@ image: node:22-slim
 before_script:
   - corepack enable
   - corepack prepare pnpm@latest --activate
+  - pnpm config set store-dir .pnpm-store
 
 cache:
+  key:
+    files:
+      - pnpm-lock.yaml
   paths:
+    - .pnpm-store
     - node_modules/
 
 install:
   stage: install
   script:
-    - pnpm install -r
+    - pnpm install -w --frozen-lockfile --reporter=append-only
 
 test:
   stage: test
@@ -56,22 +61,28 @@ prisma:
     - pnpm --filter be prisma:migrate
 
 push-fe:
+  image: docker:latest
   stage: push-fe
+  services:
+    - docker:dind
   script:
     - echo "Pushing frontend Docker image to registry..."
-    - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD $DOCKER_REGISTRY
-    - docker tag asset-management-frontend:latest $DOCKER_REGISTRY/asset-management-frontend:latest
-    - docker push $DOCKER_REGISTRY/asset-management-frontend:latest
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker tag asset-management-frontend:latest $CI_REGISTRY_IMAGE/frontend:latest
+    - docker push $CI_REGISTRY_IMAGE/frontend:latest
   only:
     - main
 
 push-be:
+  image: docker:latest
   stage: push-be
+  services:
+    - docker:dind
   script:
     - echo "Pushing backend Docker image to registry..."
-    - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD $DOCKER_REGISTRY
-    - docker tag asset-management-backend:latest $DOCKER_REGISTRY/asset-management-backend:latest
-    - docker push $DOCKER_REGISTRY/asset-management-backend:latest
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker tag asset-management-backend:latest $CI_REGISTRY_IMAGE/backend:latest
+    - docker push $CI_REGISTRY_IMAGE/backend:latest
   only:
     - main
 
@@ -84,6 +95,6 @@ deploy:
     - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
   script:
-    - ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "bash ~/deploy.sh"
+    - ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "CI_REGISTRY=$CI_REGISTRY CI_REGISTRY_IMAGE=$CI_REGISTRY_IMAGE CI_REGISTRY_USER=$CI_REGISTRY_USER CI_REGISTRY_PASSWORD=$CI_REGISTRY_PASSWORD bash ~/deploy.sh"
   only:
     - main
