@@ -16,7 +16,7 @@ import {
 } from '@prisma/client';
 import { GetRequestsDto } from './dto/get-request.dto';
 import { NOTIFICATION_QUEUE, NotificationJobName } from './cron/notifications/notification.processor';
-import { BorrowMailContext } from 'src/mail/mail.service';
+import { BorrowMailContext } from 'src/core/mail/mail.service';
 import { buildMailContextBase, resolveRecipients } from './cron/notifications/notification.util';
 
 @Injectable()
@@ -273,17 +273,35 @@ export class RequestsService {
     kitId?: string,
   ) {
     return this.prisma.$transaction(async (tx) => {
-      // Fetch request — needed to determine asset vs kit
-      const request = await tx.borrowRequests.findUnique({
-        where: { id: requestId },
-      });
-
-      if (!request) {
-        throw new NotFoundException('Request not found.');
+      let updated;
+      try {
+        updated = await tx.borrowRequests.update({
+          where: { id: requestId, status: BorrowStatus.PENDING },
+          data: {
+            status: BorrowStatus.APPROVED,
+            approved_at: new Date(),
+            approved_by: userId,
+          },
+          include: {
+            user: { select: { first_name: true, last_name: true, email: true } },
+            asset: { select: { name: true } },
+            kit: { select: { template: { select: { name: true } } } },
+          }
+        });
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2025'
+        ) {
+          throw new NotFoundException(
+            'Request not found or not in PENDING status.',
+          );
+        }
+        throw error;
       }
 
-      const actualAssetId = request.asset_id;
-      const actualKitId = request.kit_id;
+      const actualAssetId = updated.asset_id;
+      const actualKitId = updated.kit_id;
 
       // Mark asset_items as IN_USE and recompute cached status
       if (actualAssetId) {
@@ -308,39 +326,15 @@ export class RequestsService {
           });
           await this.recomputeKitStatus(actualKitId, null, AssetStatus.IN_USE, tx);
           const assetIds = [...new Set(kitItems.map((i) => i.asset_id))];
-          for (const id of assetIds) {
-            await this.recomputeAssetStatus(id, null, AssetStatus.IN_USE, tx);
-          }
+          await tx.assets.updateMany({
+            where: { id: { in: assetIds } },
+            data: { status: AssetStatus.IN_USE },
+          });
         }
       }
 
-      try {
-        const updated = await tx.borrowRequests.update({
-          where: { id: requestId, status: BorrowStatus.PENDING },
-          data: {
-            status: BorrowStatus.APPROVED,
-            approved_at: new Date(),
-            approved_by: userId,
-          },
-          include: {
-            user: { select: { first_name: true, last_name: true, email: true } },
-            asset: { select: { name: true } },
-            kit: { select: { template: { select: { name: true } } } },
-          }
-        });
-        await this.enqueueNotifications(updated, 'request-approved');
-        return updated;
-      } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === 'P2025'
-        ) {
-          throw new NotFoundException(
-            'Request not found or not in PENDING status.',
-          );
-        }
-        throw error;
-      }
+      await this.enqueueNotifications(updated, 'request-approved');
+      return updated;
     });
   }
 
@@ -407,17 +401,37 @@ export class RequestsService {
     kitId?: string,
   ) {
     return this.prisma.$transaction(async (tx) => {
-      // Fetch request — needed to determine asset vs kit
-      const request = await tx.borrowRequests.findUnique({
-        where: { id: requestId },
-      });
-
-      if (!request) {
-        throw new NotFoundException('Request not found.');
+      let updated;
+      try {
+        updated = await tx.borrowRequests.update({
+          where: {
+            id: requestId,
+            status: { in: [BorrowStatus.PROVIDED, BorrowStatus.OVERDUE] },
+          },
+          data: {
+            status: BorrowStatus.RETURNED,
+            returned_at: new Date(),
+          },
+          include: {
+            user: { select: { first_name: true, last_name: true, email: true } },
+            asset: { select: { name: true } },
+            kit: { select: { template: { select: { name: true } } } },
+          }
+        });
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2025'
+        ) {
+          throw new NotFoundException(
+            'Request not found or not in PROVIDED/OVERDUE status.',
+          );
+        }
+        throw error;
       }
 
-      const actualAssetId = request.asset_id;
-      const actualKitId = request.kit_id;
+      const actualAssetId = updated.asset_id;
+      const actualKitId = updated.kit_id;
 
       // Mark asset_items as READY and recompute cached status
       if (actualAssetId) {
@@ -442,41 +456,15 @@ export class RequestsService {
           });
           await this.recomputeKitStatus(actualKitId, null, AssetStatus.READY, tx);
           const assetIds = [...new Set(kitItems.map((i) => i.asset_id))];
-          for (const id of assetIds) {
-            await this.recomputeAssetStatus(id, null, AssetStatus.READY, tx);
-          }
+          await tx.assets.updateMany({
+            where: { id: { in: assetIds } },
+            data: { status: AssetStatus.READY },
+          });
         }
       }
 
-      try {
-        const updated = await tx.borrowRequests.update({
-          where: {
-            id: requestId,
-            status: { in: [BorrowStatus.PROVIDED, BorrowStatus.OVERDUE] },
-          },
-          data: {
-            status: BorrowStatus.RETURNED,
-            returned_at: new Date(),
-          },
-          include: {
-            user: { select: { first_name: true, last_name: true, email: true } },
-            asset: { select: { name: true } },
-            kit: { select: { template: { select: { name: true } } } },
-          } 
-        });
-        await this.enqueueNotifications(updated, 'request-returned');
-        return updated;
-      } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === 'P2025'
-        ) {
-          throw new NotFoundException(
-            'Request not found or not in PROVIDED/OVERDUE status.',
-          );
-        }
-        throw error;
-      }
+      await this.enqueueNotifications(updated, 'request-returned');
+      return updated;
     });
   }
 

@@ -4,7 +4,7 @@ import { PrismaService } from 'src/core/database/prisma.service';
 import { AssetStatus, DepreciationMethod, Prisma } from '@prisma/client';
 import { EditAssetDto } from './dto/edit-asset.dto';
 import { StorageService } from 'src/core/storage/storage.service';
-import { MailService } from 'src/mail/mail.service';
+import { MailService } from 'src/core/mail/mail.service';
 import { KitsService } from '../kits/kits.service';
 
 describe('AssetsService', () => {

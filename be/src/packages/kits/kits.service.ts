@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -67,22 +66,25 @@ export class KitsService {
   }
 
   async getKitById(id: string) {
-    const kit = await this.prisma.assetsKits.findUnique({
-      where: { id },
-      include: KIT_INCLUDE,
-    });
+    try {
+      const kit = await this.prisma.assetsKits.findUniqueOrThrow({
+        where: { id },
+        include: KIT_INCLUDE,
+      });
 
-    if (!kit) {
-      throw new BadRequestException('Asset kit not found');
+      return {
+        ...kit,
+        asset_items: kit.asset_items.map(item => ({
+          ...item,
+          costs: item.costs ? Number(item.costs) : null,
+        })),
+      };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new NotFoundException('Asset kit not found');
+      }
+      throw error;
     }
-
-    return {
-      ...kit,
-      asset_items: kit.asset_items.map(item => ({
-        ...item,
-        costs: item.costs ? Number(item.costs) : null,
-      })),
-    };
   }
 
   async createKit(body: CreateKitDto, userId: string) {
@@ -147,26 +149,29 @@ export class KitsService {
 
   async updateKit(id: string, body: UpdateKitDto, userId: string) {
     return this.prisma.$transaction(async (tx) => {
-      const kit = await tx.assetsKits.findUnique({
-        where: { id },
-        include: KIT_INCLUDE,
-      });
-
-      if (!kit) {
-        throw new NotFoundException('Asset kit not found');
-      }
-
-      if (body.name) {
-        await tx.kitTemplates.update({
-          where: { id: kit.template_id },
-          data: { name: body.name },
+      try {
+        const kit = await tx.assetsKits.findUniqueOrThrow({
+          where: { id },
+          include: KIT_INCLUDE,
         });
-      }
 
-      return tx.assetsKits.findUnique({
-        where: { id },
-        include: KIT_INCLUDE,
-      });
+        if (body.name) {
+          await tx.kitTemplates.update({
+            where: { id: kit.template_id },
+            data: { name: body.name },
+          });
+        }
+
+        return await tx.assetsKits.findUniqueOrThrow({
+          where: { id },
+          include: KIT_INCLUDE,
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+          throw new NotFoundException('Asset kit not found');
+        }
+        throw error;
+      }
     });
   }
 
@@ -197,29 +202,24 @@ export class KitsService {
     const assetId = body.assetId;
 
     await this.prisma.$transaction(async (tx) => {
-      const kit = await tx.assetsKits.findUnique({ where: { id: kitId } });
-      if (!kit) {
-        throw new NotFoundException('Asset kit not found');
-      }
-
       try {
+        const kit = await tx.assetsKits.findUniqueOrThrow({ where: { id: kitId } });
+
         await tx.kitTemplateItems.create({
           data: {
             template_id: kit.template_id,
             asset_id: assetId,
           },
         });
+
+        await this.recomputeKitStatus(kitId, null, null, tx);
       } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          (error.code === 'P2003' || error.code === 'P2025')
-        ) {
-          throw new NotFoundException('Asset not found');
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+          if (error.code === 'P2025') throw new NotFoundException('Asset kit not found');
+          if (error.code === 'P2003') throw new NotFoundException('Asset not found');
         }
         throw error;
       }
-
-      await this.recomputeKitStatus(kitId, null, null, tx);
     });
 
     return this.getKitById(kitId);
@@ -227,19 +227,23 @@ export class KitsService {
 
   async removeComponentFromKit(kitId: string, assetId: string, userId: string) {
     await this.prisma.$transaction(async (tx) => {
-      const kit = await tx.assetsKits.findUnique({ where: { id: kitId } });
-      if (!kit) {
-        throw new NotFoundException('Asset kit not found');
+      try {
+        const kit = await tx.assetsKits.findUniqueOrThrow({ where: { id: kitId } });
+
+        await tx.kitTemplateItems.deleteMany({
+          where: {
+            template_id: kit.template_id,
+            asset_id: assetId,
+          },
+        });
+
+        await this.recomputeKitStatus(kitId, null, null, tx);
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+          throw new NotFoundException('Asset kit not found');
+        }
+        throw error;
       }
-
-      await tx.kitTemplateItems.deleteMany({
-        where: {
-          template_id: kit.template_id,
-          asset_id: assetId,
-        },
-      });
-
-      await this.recomputeKitStatus(kitId, null, null, tx);
     });
 
     return this.getKitById(kitId);
@@ -252,37 +256,31 @@ export class KitsService {
     userId: string,
   ) {
     await this.prisma.$transaction(async (tx) => {
-      const kit = await tx.assetsKits.findUnique({ where: { id: kitId } });
-      if (!kit) {
-        throw new NotFoundException('Asset kit not found');
-      }
-
-      await tx.kitTemplateItems.deleteMany({
-        where: {
-          template_id: kit.template_id,
-          asset_id: oldAssetId,
-        },
-      });
-
       try {
+        const kit = await tx.assetsKits.findUniqueOrThrow({ where: { id: kitId } });
+
+        await tx.kitTemplateItems.deleteMany({
+          where: {
+            template_id: kit.template_id,
+            asset_id: oldAssetId,
+          },
+        });
+
         await tx.kitTemplateItems.create({
           data: {
             template_id: kit.template_id,
             asset_id: newAssetId,
           },
         });
+
+        await this.recomputeKitStatus(kitId, kit.status as AssetStatus, kit.status as AssetStatus, tx);
       } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          (error.code === 'P2003' || error.code === 'P2025')
-        ) {
-          throw new NotFoundException('Replacement asset not found');
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+          if (error.code === 'P2025') throw new NotFoundException('Asset kit not found');
+          if (error.code === 'P2003') throw new NotFoundException('Replacement asset not found');
         }
         throw error;
       }
-
-      const kitStatus = (await tx.assetsKits.findUnique({ where: { id: kitId }, select: { status: true } }))?.status as AssetStatus;
-      await this.recomputeKitStatus(kitId, kitStatus, kitStatus, tx);
     });
 
     return this.getKitById(kitId);
@@ -290,19 +288,23 @@ export class KitsService {
 
   async convertComponentToPlaceholder(kitId: string, assetId: string, userId: string) {
     await this.prisma.$transaction(async (tx) => {
-      const kit = await tx.assetsKits.findUnique({ where: { id: kitId } });
-      if (!kit) {
-        throw new NotFoundException('Asset kit not found');
+      try {
+        const kit = await tx.assetsKits.findUniqueOrThrow({ where: { id: kitId } });
+
+        await tx.kitTemplateItems.deleteMany({
+          where: {
+            template_id: kit.template_id,
+            asset_id: assetId,
+          },
+        });
+
+        await this.recomputeKitStatus(kitId, null, null, tx);
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+          throw new NotFoundException('Asset kit not found');
+        }
+        throw error;
       }
-
-      await tx.kitTemplateItems.deleteMany({
-        where: {
-          template_id: kit.template_id,
-          asset_id: assetId,
-        },
-      });
-
-      await this.recomputeKitStatus(kitId, null, null, tx);
     });
 
     return this.getKitById(kitId);

@@ -254,7 +254,7 @@ export const useRequestForm = () => {
       return result
     } catch (err: any) {
       console.error('Failed to submit request:', err)
-      errors.value.general = err.message || 'Failed to submit request. Please try again.'
+      errors.value.general = err.data?.message || err.message || 'Failed to submit request. Please try again.'
       return null
     } finally {
       isSubmitting.value = false

@@ -46,7 +46,6 @@ export class AssetsController {
     return this.assetsService.getSummary();
   }
 
-  // ── Maintenance GET endpoints (before :id to avoid route conflict) ──
 
   @Get('maintenance/items')
   @UseGuards(SessionAuthGuard)
@@ -104,9 +103,7 @@ export class AssetsController {
     return this.assetsService.createAsset(body, userId);
   }
 
-  // ── Maintenance action endpoints ──────────────────────────────
-
-  @Post('maintenance/set')
+  @Post('maintenance/repair')
   @UseGuards(SessionAuthGuard)
   setMaintenance(
     @Body(new ZodValidationPipe(SetMaintenanceDtoSchema))

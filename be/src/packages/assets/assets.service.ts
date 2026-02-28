@@ -10,7 +10,7 @@ import { EditAssetDto, EditAssetDtoSchema } from './dto/edit-asset.dto';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { StorageService } from 'src/core/storage/storage.service';
 import { DepreciationMethod } from '@prisma/client';
-import { MailService } from 'src/mail/mail.service';
+import { MailService } from 'src/core/mail/mail.service';
 import { SetMaintenanceDto } from './dto/maintenance.dto';
 import { ResolveMaintenanceDto } from './dto/maintenance.dto';
 import { KitsService } from '../kits/kits.service';
@@ -81,69 +81,72 @@ export class AssetsService {
   }
 
   async getAssetById(id: string) {
-    const asset = await this.prisma.assets.findUnique({
-      where: { id: id },
-      select: {
-        id: true,
-        code: true,
-        name: true,
-        category: {
-          select: {
-            name: true,
+    try {
+      const asset = await this.prisma.assets.findUniqueOrThrow({
+        where: { id: id },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          category: {
+            select: {
+              name: true,
+            },
+          },
+          asset_specs: {
+            select: {
+              specs: true,
+            },
+          },
+          status: true,
+          image_urls: true,
+          acquired_at: true,
+          created_at: true,
+          updated_at: true,
+          asset_items: {
+            select: {
+              id: true,
+              status: true,
+              location_name: true,
+              costs: true,
+              acquired_at: true,
+              kit_id: true,
+              kit_status: true,
+            },
+          },
+          _count: {
+            select: {
+              asset_items: true,
+            },
+          },
+          borrow_requests: {
+            where: {
+              status: { in: ['APPROVED', 'PROVIDED'] },
+            },
+            select: { requester_id: true },
+            orderBy: { created_at: 'desc' },
+            take: 1,
           },
         },
-        asset_specs: {
-          select: {
-            specs: true,
-          },
-        },
-        status: true,
-        image_urls: true,
-        acquired_at: true,
-        created_at: true,
-        updated_at: true,
-        asset_items: {
-          select: {
-            id: true,
-            status: true,
-            location_name: true,
-            costs: true,
-            acquired_at: true,
-            kit_id: true,
-            kit_status: true,
-          },
-        },
-        _count: {
-          select: {
-            asset_items: true,
-          },
-        },
-        borrow_requests: {
-          where: {
-            status: { in: ['APPROVED', 'PROVIDED'] },
-          },
-          select: { requester_id: true },
-          orderBy: { created_at: 'desc' },
-          take: 1,
-        },
-      },
-    });
+      });
 
-    if (!asset) {
-      throw new BadRequestException('Asset not found');
+      const { _count, borrow_requests, ...rest } = asset;
+
+      return {
+        stock: _count.asset_items,
+        borrower_id: borrow_requests[0]?.requester_id ?? null,
+        ...rest,
+        asset_items: asset.asset_items.map((item) => ({
+          ...item,
+          costs: item.costs ? Number(item.costs) : null,
+        })),
+      };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new BadRequestException('Asset not found');
+      }
+      throw error;
     }
-
-    const { _count, borrow_requests, ...rest } = asset;
-
-    return {
-      stock: _count.asset_items,
-      borrower_id: borrow_requests[0]?.requester_id ?? null,
-      ...rest,
-      asset_items: asset.asset_items.map((item) => ({
-        ...item,
-        costs: item.costs ? Number(item.costs) : null,
-      })),
-    };
   }
 
   async getAssetItems(assetId: string) {
@@ -175,12 +178,16 @@ export class AssetsService {
 
     // Verify asset exists when no items are found
     if (items.length === 0) {
-      const asset = await this.prisma.assets.findUnique({
-        where: { id: assetId },
-        select: { id: true },
-      });
-      if (!asset) {
-        throw new NotFoundException('Asset not found');
+      try {
+        await this.prisma.assets.findUniqueOrThrow({
+          where: { id: assetId },
+          select: { id: true },
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+          throw new NotFoundException('Asset not found');
+        }
+        throw error;
       }
     }
 
@@ -583,8 +590,6 @@ export class AssetsService {
     return processed;
   }
 
-  // ── Maintenance workflow ────────────────────────────────────────
-
   /**
    * Set an asset item to MAINTAINANCE status.
    * Any authenticated user or admin can call this.
@@ -592,35 +597,29 @@ export class AssetsService {
    */
   async setMaintenance(body: SetMaintenanceDto, userId: string) {
     return this.prisma.$transaction(async (tx) => {
-      const item = await tx.assetItems.findUnique({
-        where: { id: body.asset_item_id },
-        include: {
-          asset: { select: { id: true, name: true } },
-          kit: { select: { id: true } },
-        },
-      });
-
-      if (!item) {
-        throw new NotFoundException('Asset item not found');
+      let item: any;
+      try {
+        item = await tx.assetItems.update({
+          where: {
+            id: body.asset_item_id,
+            status: { notIn: [AssetStatus.MAINTAINANCE, AssetStatus.LIQUIDATED] },
+          },
+          data: {
+            status: AssetStatus.MAINTAINANCE,
+            maintenance_notes: body.maintenance_notes,
+            last_maintained_at: new Date(),
+          },
+          include: {
+            asset: { select: { id: true, name: true } },
+            kit: { select: { id: true } },
+          },
+        });
+      } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+          throw new BadRequestException('Asset item not found or cannot be sent to maintenance');
+        }
+        throw err;
       }
-
-      if (item.status === AssetStatus.MAINTAINANCE) {
-        throw new BadRequestException('Asset item is already in maintenance');
-      }
-
-      if (item.status === AssetStatus.LIQUIDATED) {
-        throw new BadRequestException('Cannot send a liquidated asset to maintenance');
-      }
-
-      // Update asset item status
-      await tx.assetItems.update({
-        where: { id: body.asset_item_id },
-        data: {
-          status: AssetStatus.MAINTAINANCE,
-          maintenance_notes: body.maintenance_notes,
-          last_maintained_at: new Date(),
-        },
-      });
 
       // Recompute parent asset status
       await this.recomputeAssetStatus(item.asset_id, null, AssetStatus.MAINTAINANCE, tx);
@@ -674,45 +673,40 @@ export class AssetsService {
    */
   async resolveMaintenance(body: ResolveMaintenanceDto, userId: string) {
     return this.prisma.$transaction(async (tx) => {
-      const item = await tx.assetItems.findUnique({
-        where: { id: body.asset_item_id },
-        include: {
-          asset: { select: { id: true, name: true } },
-          kit: { select: { id: true } },
-        },
-      });
-
-      if (!item) {
-        throw new NotFoundException('Asset item not found');
-      }
-
-      if (item.status !== AssetStatus.MAINTAINANCE) {
-        throw new BadRequestException(
-          'Asset item is not in maintenance status',
-        );
-      }
-
       const newStatus = body.resolved_status as AssetStatus;
 
-      // Create a repair record
-      await tx.assetRepairs.create({
-        data: {
-          asset_item_id: body.asset_item_id,
-          cost: BigInt(body.repair_cost ?? 0),
-          description: body.description ?? null,
-          resolved_status: newStatus,
-        },
-      });
+      let item: any;
+      try {
+        item = await tx.assetItems.update({
+          where: { id: body.asset_item_id, status: AssetStatus.MAINTAINANCE },
+          data: {
+            status: newStatus,
+            maintenance_notes: null,
+            last_maintained_at: new Date(),
+          },
+          include: {
+            asset: { select: { id: true } },
+            kit: { select: { id: true } },
+          },
+        });
 
-      // Update asset item status
-      await tx.assetItems.update({
-        where: { id: body.asset_item_id },
-        data: {
-          status: newStatus,
-          maintenance_notes: null,
-          last_maintained_at: new Date(),
-        },
-      });
+        // Create repair record after confirming item exists and was in maintenance
+        await tx.assetRepairs.create({
+          data: {
+            asset_item_id: body.asset_item_id,
+            cost: BigInt(body.repair_cost ?? 0),
+            description: body.description ?? null,
+            resolved_status: newStatus,
+          },
+        });
+      } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError) {
+          if (err.code === 'P2025' || err.code === 'P2003') {
+            throw new BadRequestException('Asset item not found or is not in maintenance');
+          }
+        }
+        throw err;
+      }
 
       // Recompute parent asset status
       await this.recomputeAssetStatus(item.asset_id, null, newStatus, tx);
