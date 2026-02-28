@@ -27,7 +27,7 @@ cache:
 install:
   stage: install
   script:
-    - pnpm install -w --frozen-lockfile --reporter=append-only
+    - pnpm install --frozen-lockfile --reporter=append-only
 
 test:
   stage: test
