@@ -11,6 +11,10 @@ stages:
 
 image: node:22-slim
 
+before_script:
+  - corepack enable
+  - corepack prepare pnpm@latest --activate
+
 cache:
   paths:
     - node_modules/
@@ -31,12 +35,18 @@ build:
     - pnpm build
 
 docker-build-frontend:
+  image: docker:latest
   stage: docker-build-frontend
+  services:
+    - docker:dind
   script:
     - docker build -t asset-management-frontend:latest -f Dockerfile.frontend .
 
 docker-build-backend:
+  image: docker:latest
   stage: docker-build-backend
+  services:
+    - docker:dind
   script:
     - docker build -t asset-management-backend:latest -f Dockerfile.backend .
 
@@ -67,9 +77,13 @@ push-be:
 
 deploy:
   stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
   script:
-    - echo "Deploying application..."
-    - chmod +x .github/deploy.sh
-    - ./.github/deploy.sh
+    - ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "bash ~/deploy.sh"
   only:
     - main
