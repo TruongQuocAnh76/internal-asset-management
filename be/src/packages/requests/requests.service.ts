@@ -16,7 +16,7 @@ import {
 } from '@prisma/client';
 import { GetRequestsDto } from './dto/get-request.dto';
 import { NOTIFICATION_QUEUE, NotificationJobName } from './cron/notifications/notification.processor';
-import { BorrowMailContext } from 'src/mail/mail.service';
+import { BorrowMailContext } from 'src/core/mail/mail.service';
 import { buildMailContextBase, resolveRecipients } from './cron/notifications/notification.util';
 
 @Injectable()
@@ -91,8 +91,14 @@ export class RequestsService {
       await this.enqueueNotifications(request, 'request-submitted');
       return request;
     } catch (error) {
+      const msg: string = error?.message ?? '';
+      if (msg.includes('asset_not_ready')) {
+        throw new ConflictException(
+          'Cannot create a borrow request: the asset is not in READY status.',
+        );
+      }
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2025') {
+        if (error.code === 'P2025' || error.code === 'P2003') {
           throw new NotFoundException('The requested asset does not exist.');
         }
         if (error.code === 'P2002') {
@@ -123,8 +129,14 @@ export class RequestsService {
       await this.enqueueNotifications(request, 'request-submitted');
       return request;
     } catch (error) {
+      const msg: string = error?.message ?? '';
+      if (msg.includes('kit_not_ready')) {
+        throw new ConflictException(
+          'Cannot create a borrow request: the kit is not in READY status.',
+        );
+      }
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2025') {
+        if (error.code === 'P2025' || error.code === 'P2003') {
           throw new NotFoundException('The requested kit does not exist.');
         }
         if (error.code === 'P2002') {
@@ -261,49 +273,9 @@ export class RequestsService {
     kitId?: string,
   ) {
     return this.prisma.$transaction(async (tx) => {
-      // Fetch request — needed to determine asset vs kit
-      const request = await tx.borrowRequests.findUnique({
-        where: { id: requestId },
-      });
-
-      if (!request) {
-        throw new NotFoundException('Request not found.');
-      }
-
-      const actualAssetId = request.asset_id;
-      const actualKitId = request.kit_id;
-
-      // Mark asset_items as IN_USE and recompute cached status
-      if (actualAssetId) {
-        const readyItem = await tx.assetItems.findFirst({
-          where: { asset_id: actualAssetId, status: AssetStatus.READY },
-        });
-        if (readyItem) {
-          await tx.assetItems.update({
-            where: { id: readyItem.id },
-            data: { status: AssetStatus.IN_USE },
-          });
-          await this.recomputeAssetStatusTx(tx, actualAssetId);
-        }
-      } else if (actualKitId) {
-        const kitItems = await tx.assetItems.findMany({
-          where: { kit_id: actualKitId, status: AssetStatus.READY },
-        });
-        if (kitItems.length > 0) {
-          await tx.assetItems.updateMany({
-            where: { kit_id: actualKitId, status: AssetStatus.READY },
-            data: { status: AssetStatus.IN_USE },
-          });
-          await this.recomputeKitStatusTx(tx, actualKitId);
-          const assetIds = [...new Set(kitItems.map((i) => i.asset_id))];
-          for (const id of assetIds) {
-            await this.recomputeAssetStatusTx(tx, id);
-          }
-        }
-      }
-
+      let updated;
       try {
-        const updated = await tx.borrowRequests.update({
+        updated = await tx.borrowRequests.update({
           where: { id: requestId, status: BorrowStatus.PENDING },
           data: {
             status: BorrowStatus.APPROVED,
@@ -316,8 +288,6 @@ export class RequestsService {
             kit: { select: { template: { select: { name: true } } } },
           }
         });
-        await this.enqueueNotifications(updated, 'request-approved');
-        return updated;
       } catch (error) {
         if (
           error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -329,6 +299,42 @@ export class RequestsService {
         }
         throw error;
       }
+
+      const actualAssetId = updated.asset_id;
+      const actualKitId = updated.kit_id;
+
+      // Mark asset_items as IN_USE and recompute cached status
+      if (actualAssetId) {
+        const readyItem = await tx.assetItems.findFirst({
+          where: { asset_id: actualAssetId, status: AssetStatus.READY },
+        });
+        if (readyItem) {
+          await tx.assetItems.update({
+            where: { id: readyItem.id },
+            data: { status: AssetStatus.IN_USE },
+          });
+          await this.recomputeAssetStatus(actualAssetId, null, AssetStatus.IN_USE, tx);
+        }
+      } else if (actualKitId) {
+        const kitItems = await tx.assetItems.findMany({
+          where: { kit_id: actualKitId, status: AssetStatus.READY },
+        });
+        if (kitItems.length > 0) {
+          await tx.assetItems.updateMany({
+            where: { kit_id: actualKitId, status: AssetStatus.READY },
+            data: { status: AssetStatus.IN_USE },
+          });
+          await this.recomputeKitStatus(actualKitId, null, AssetStatus.IN_USE, tx);
+          const assetIds = [...new Set(kitItems.map((i) => i.asset_id))];
+          await tx.assets.updateMany({
+            where: { id: { in: assetIds } },
+            data: { status: AssetStatus.IN_USE },
+          });
+        }
+      }
+
+      await this.enqueueNotifications(updated, 'request-approved');
+      return updated;
     });
   }
 
@@ -395,49 +401,9 @@ export class RequestsService {
     kitId?: string,
   ) {
     return this.prisma.$transaction(async (tx) => {
-      // Fetch request — needed to determine asset vs kit
-      const request = await tx.borrowRequests.findUnique({
-        where: { id: requestId },
-      });
-
-      if (!request) {
-        throw new NotFoundException('Request not found.');
-      }
-
-      const actualAssetId = request.asset_id;
-      const actualKitId = request.kit_id;
-
-      // Mark asset_items as READY and recompute cached status
-      if (actualAssetId) {
-        const inUseItem = await tx.assetItems.findFirst({
-          where: { asset_id: actualAssetId, status: AssetStatus.IN_USE },
-        });
-        if (inUseItem) {
-          await tx.assetItems.update({
-            where: { id: inUseItem.id },
-            data: { status: AssetStatus.READY },
-          });
-          await this.recomputeAssetStatusTx(tx, actualAssetId);
-        }
-      } else if (actualKitId) {
-        const kitItems = await tx.assetItems.findMany({
-          where: { kit_id: actualKitId, status: AssetStatus.IN_USE },
-        });
-        if (kitItems.length > 0) {
-          await tx.assetItems.updateMany({
-            where: { kit_id: actualKitId, status: AssetStatus.IN_USE },
-            data: { status: AssetStatus.READY },
-          });
-          await this.recomputeKitStatusTx(tx, actualKitId);
-          const assetIds = [...new Set(kitItems.map((i) => i.asset_id))];
-          for (const id of assetIds) {
-            await this.recomputeAssetStatusTx(tx, id);
-          }
-        }
-      }
-
+      let updated;
       try {
-        const updated = await tx.borrowRequests.update({
+        updated = await tx.borrowRequests.update({
           where: {
             id: requestId,
             status: { in: [BorrowStatus.PROVIDED, BorrowStatus.OVERDUE] },
@@ -450,10 +416,8 @@ export class RequestsService {
             user: { select: { first_name: true, last_name: true, email: true } },
             asset: { select: { name: true } },
             kit: { select: { template: { select: { name: true } } } },
-          } 
+          }
         });
-        await this.enqueueNotifications(updated, 'request-returned');
-        return updated;
       } catch (error) {
         if (
           error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -465,6 +429,42 @@ export class RequestsService {
         }
         throw error;
       }
+
+      const actualAssetId = updated.asset_id;
+      const actualKitId = updated.kit_id;
+
+      // Mark asset_items as READY and recompute cached status
+      if (actualAssetId) {
+        const inUseItem = await tx.assetItems.findFirst({
+          where: { asset_id: actualAssetId, status: AssetStatus.IN_USE },
+        });
+        if (inUseItem) {
+          await tx.assetItems.update({
+            where: { id: inUseItem.id },
+            data: { status: AssetStatus.READY },
+          });
+          await this.recomputeAssetStatus(actualAssetId, null, AssetStatus.READY, tx);
+        }
+      } else if (actualKitId) {
+        const kitItems = await tx.assetItems.findMany({
+          where: { kit_id: actualKitId, status: AssetStatus.IN_USE },
+        });
+        if (kitItems.length > 0) {
+          await tx.assetItems.updateMany({
+            where: { kit_id: actualKitId, status: AssetStatus.IN_USE },
+            data: { status: AssetStatus.READY },
+          });
+          await this.recomputeKitStatus(actualKitId, null, AssetStatus.READY, tx);
+          const assetIds = [...new Set(kitItems.map((i) => i.asset_id))];
+          await tx.assets.updateMany({
+            where: { id: { in: assetIds } },
+            data: { status: AssetStatus.READY },
+          });
+        }
+      }
+
+      await this.enqueueNotifications(updated, 'request-returned');
+      return updated;
     });
   }
 
@@ -498,49 +498,125 @@ export class RequestsService {
   }
 
   /**
-   * Recompute cached status on the Assets row (transaction-aware).
+   * Recompute cached status on the Assets row.
    */
-  private async recomputeAssetStatusTx(
-    tx: any,
+  private async recomputeAssetStatus(
     assetId: string,
+    currentStatus: AssetStatus | null,
+    updateStatus: AssetStatus | null,
+    tx?: any,
   ): Promise<void> {
-    const readyCount = await tx.assetItems.count({
+    const client = tx ?? this.prisma;
+    let currStatus = currentStatus;
+    if (currStatus === null) {
+      const current = await client.assets.findUnique({
+        where: { id: assetId },
+        select: { status: true },
+      });
+      if (!current) return;
+      currStatus = current.status as AssetStatus;
+    }
+    const readyCount = await client.assetItems.count({
       where: { asset_id: assetId, status: AssetStatus.READY },
     });
-    const newStatus = readyCount > 0 ? AssetStatus.READY : AssetStatus.IN_USE;
-    await tx.assets.update({
-      where: { id: assetId },
-      data: { status: newStatus },
+
+    // If current is READY and we still have a READY item, stay READY
+    if (currStatus === AssetStatus.READY && readyCount > 0) {
+      return;
+    }
+
+    // If we found a READY item and current is not READY, switch to READY
+    if (currStatus !== AssetStatus.READY && readyCount > 0) {
+      await client.assets.update({
+        where: { id: assetId },
+        data: { status: AssetStatus.READY },
+      });
+      return;
+    }
+
+    // Current is not READY and no READY items found
+    // Check if all items have the current non-READY status
+    const total = await client.assetItems.count({
+      where: { asset_id: assetId },
     });
+    const sameStatusCount = await client.assetItems.count({
+      where: { asset_id: assetId, status: currStatus },
+    });
+
+    const newStatus =
+      sameStatusCount === total ? currStatus : AssetStatus.IN_USE;
+
+    if (newStatus !== currStatus) {
+      await client.assets.update({
+        where: { id: assetId },
+        data: { status: newStatus },
+      });
+    }
   }
 
   /**
-   * Recompute cached status on the AssetsKits row (transaction-aware).
+   * Recompute cached status on the AssetsKits row.
+   * Efficient approach: only query when needed.
    */
-  private async recomputeKitStatusTx(
-    tx: any,
+  private async recomputeKitStatus(
     kitId: string,
+    currentStatus: AssetStatus | null,
+    updateStatus: AssetStatus | null,
+    tx?: any,
   ): Promise<void> {
-    const nonReadyCount = await tx.assetItems.count({
-      where: { kit_id: kitId, status: { not: AssetStatus.READY } },
+    const client = tx ?? this.prisma;
+    let currStatus = currentStatus;
+    if (currStatus === null) {
+      const current = await client.assetsKits.findUnique({
+        where: { id: kitId },
+        select: { status: true },
+      });
+      if (!current) return;
+      currStatus = current.status as AssetStatus;
+    }
+    const total = await client.assetItems.count({
+      where: { kit_id: kitId },
     });
-    const newStatus =
-      nonReadyCount === 0 ? AssetStatus.READY : AssetStatus.IN_USE;
-    await tx.assetsKits.update({
-      where: { id: kitId },
-      data: { status: newStatus },
+    const readyCount = await client.assetItems.count({
+      where: { kit_id: kitId, status: AssetStatus.READY },
     });
-    const kit = await tx.assetsKits.findUnique({
+
+    let newStatus: AssetStatus;
+
+    // READY only if ALL items are READY
+    if (readyCount === total) {
+      newStatus = AssetStatus.READY;
+    } else if (currStatus === AssetStatus.READY) {
+      // Was READY, now has non-READY items → check what status they have
+      const currStatusCount = await client.assetItems.count({
+        where: { kit_id: kitId, status: currStatus },
+      });
+      newStatus = currStatusCount > 0 ? currStatus : AssetStatus.IN_USE;
+    } else {
+      // Check if all items have the current non-READY status
+      const currStatusCount = await client.assetItems.count({
+        where: { kit_id: kitId, status: currStatus },
+      });
+      newStatus = currStatusCount === total ? currStatus : AssetStatus.IN_USE;
+    }
+
+    if (newStatus !== currStatus) {
+      await client.assetsKits.update({
+        where: { id: kitId },
+        data: { status: newStatus },
+      });
+    }
+    const kit = await client.assetsKits.findUnique({
       where: { id: kitId },
       select: { template_id: true },
     });
     if (kit) {
-      const readyKitCount = await tx.assetsKits.count({
+      const readyKitCount = await client.assetsKits.count({
         where: { template_id: kit.template_id, status: AssetStatus.READY },
       });
       const templateStatus =
         readyKitCount > 0 ? AssetStatus.READY : AssetStatus.IN_USE;
-      await tx.kitTemplates.update({
+      await client.kitTemplates.update({
         where: { id: kit.template_id },
         data: { status: templateStatus },
       });
