@@ -20,6 +20,13 @@ import { EditAssetDto, EditAssetDtoSchema } from './dto/edit-asset.dto';
 import { CreateAssetDto, CreateAssetDtoSchema } from './dto/create-asset.dto';
 import { CurrentUser } from 'src/core/auth/decorator/current-user.decorator';
 import { Permission } from 'src/core/auth/decorator/permission.decorator';
+import { PermissionAuthGuard } from 'src/core/auth/guards/permission-auth.guard';
+import {
+  SetMaintenanceDtoSchema,
+  SetMaintenanceDto,
+  ResolveMaintenanceDtoSchema,
+  ResolveMaintenanceDto,
+} from './dto/maintenance.dto';
 
 @Controller('assets')
 export class AssetsController {
@@ -37,6 +44,19 @@ export class AssetsController {
   @UseGuards(SessionAuthGuard)
   getSummary() {
     return this.assetsService.getSummary();
+  }
+
+
+  @Get('maintenance/items')
+  @UseGuards(SessionAuthGuard)
+  getMaintenanceItems() {
+    return this.assetsService.getMaintenanceItems();
+  }
+
+  @Get('maintenance/repairs/:assetItemId')
+  @UseGuards(SessionAuthGuard)
+  getRepairHistory(@Param('assetItemId') assetItemId: string) {
+    return this.assetsService.getRepairHistory(assetItemId);
   }
 
   @Get(':id')
@@ -81,5 +101,27 @@ export class AssetsController {
     @CurrentUser('id') userId: string,
   ) {
     return this.assetsService.createAsset(body, userId);
+  }
+
+  @Post('maintenance/repair')
+  @UseGuards(SessionAuthGuard)
+  setMaintenance(
+    @Body(new ZodValidationPipe(SetMaintenanceDtoSchema))
+    body: SetMaintenanceDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.assetsService.setMaintenance(body, userId);
+  }
+
+  @Post('maintenance/resolve')
+  @UseGuards(SessionAuthGuard)
+  @Permission('asset:maintenance')
+  @UseGuards(PermissionAuthGuard)
+  resolveMaintenance(
+    @Body(new ZodValidationPipe(ResolveMaintenanceDtoSchema))
+    body: ResolveMaintenanceDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.assetsService.resolveMaintenance(body, userId);
   }
 }

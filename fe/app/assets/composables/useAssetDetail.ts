@@ -1,5 +1,6 @@
 import type { Asset, AssetItem, AssetStatus, StateTransition } from '../types/asset.types'
 import { useAssets } from './useAssets'
+import { useMaintenance } from './useMaintenance'
 import { useAuth } from '../../auth/composables/useAuth'
 
 // Define allowed state transitions
@@ -7,7 +8,6 @@ const STATE_TRANSITIONS: Record<AssetStatus, StateTransition[]> = {
   READY: [
     { from: 'READY', to: 'BORROW', label: 'Request Borrow', description: 'Create a borrow request for this asset', requiresReason: false, color: 'primary', isNavigation: true, navigationRoute: '/requests/new' },
     { from: 'READY', to: 'MAINTAINANCE', label: 'Send to Maintenance', description: 'Schedule this asset for maintenance', requiresReason: true, color: 'warning' },
-    { from: 'READY', to: 'LIQUIDATED', label: 'Liquidate', description: 'Permanently remove this asset from inventory', requiresReason: true, color: 'danger' },
   ],
   IN_USE: [
     { from: 'IN_USE', to: 'READY', label: 'Return to Available', description: 'Make this asset available for use', requiresReason: false, color: 'success' },
@@ -21,13 +21,13 @@ const STATE_TRANSITIONS: Record<AssetStatus, StateTransition[]> = {
   ],
   BROKEN: [
     { from: 'BROKEN', to: 'MAINTAINANCE', label: 'Send to Maintenance', description: 'Attempt to repair this asset', requiresReason: false, color: 'warning' },
-    { from: 'BROKEN', to: 'LIQUIDATED', label: 'Liquidate', description: 'Permanently remove this asset from inventory', requiresReason: true, color: 'danger' },
   ],
   LIQUIDATED: [],
 }
 
 export const useAssetDetail = (assetId: string) => {
   const { getAssetById, getAssetItems, updateAssetStatus } = useAssets()
+  const { setMaintenance, resolveMaintenance } = useMaintenance()
   const { user } = useAuth()
 
   // State
@@ -42,6 +42,11 @@ export const useAssetDetail = (assetId: string) => {
   const selectedTransition = ref<StateTransition | null>(null)
   const transitionReason = ref('')
   const transitionError = ref<string | null>(null)
+
+  // Maintenance modal state
+  const showMaintenanceModal = ref(false)
+  const maintenanceTransition = ref<StateTransition | null>(null)
+  const maintenanceError = ref<string | null>(null)
 
   // Computed
   const availableTransitions = computed(() => {
@@ -83,7 +88,18 @@ export const useAssetDetail = (assetId: string) => {
     }
   }
 
+  // Helper: is this a maintenance-related transition?
+  const isMaintenanceTransition = (transition: StateTransition) => {
+    return transition.to === 'MAINTAINANCE' || transition.from === 'MAINTAINANCE'
+  }
+
   const openTransitionModal = (transition: StateTransition) => {
+    if (isMaintenanceTransition(transition)) {
+      maintenanceTransition.value = transition
+      maintenanceError.value = null
+      showMaintenanceModal.value = true
+      return
+    }
     selectedTransition.value = transition
     transitionReason.value = ''
     transitionError.value = null
@@ -95,6 +111,12 @@ export const useAssetDetail = (assetId: string) => {
     selectedTransition.value = null
     transitionReason.value = ''
     transitionError.value = null
+  }
+
+  const closeMaintenanceModal = () => {
+    showMaintenanceModal.value = false
+    maintenanceTransition.value = null
+    maintenanceError.value = null
   }
 
   const confirmTransition = async () => {
@@ -120,6 +142,44 @@ export const useAssetDetail = (assetId: string) => {
       closeTransitionModal()
     } catch (err: any) {
       transitionError.value = err.data?.message || err.message || 'Failed to update status'
+    } finally {
+      isTransitioning.value = false
+    }
+  }
+
+  const confirmSetMaintenance = async (assetItemId: string, maintenanceNotes: string) => {
+    isTransitioning.value = true
+    maintenanceError.value = null
+    try {
+      await setMaintenance({ asset_item_id: assetItemId, maintenance_notes: maintenanceNotes })
+      await loadAsset()
+      closeMaintenanceModal()
+    } catch (err: any) {
+      maintenanceError.value = err.data?.message || err.message || 'Failed to set maintenance'
+    } finally {
+      isTransitioning.value = false
+    }
+  }
+
+  const confirmResolveMaintenance = async (
+    assetItemId: string,
+    resolvedStatus: 'READY' | 'BROKEN' | 'LIQUIDATED',
+    repairCost: number,
+    description: string,
+  ) => {
+    isTransitioning.value = true
+    maintenanceError.value = null
+    try {
+      await resolveMaintenance({
+        asset_item_id: assetItemId,
+        resolved_status: resolvedStatus,
+        repair_cost: repairCost || undefined,
+        description: description || undefined,
+      })
+      await loadAsset()
+      closeMaintenanceModal()
+    } catch (err: any) {
+      maintenanceError.value = err.data?.message || err.message || 'Failed to resolve maintenance'
     } finally {
       isTransitioning.value = false
     }
@@ -167,6 +227,11 @@ export const useAssetDetail = (assetId: string) => {
     transitionReason,
     transitionError,
 
+    // Maintenance modal state
+    maintenanceModalOpen: showMaintenanceModal,
+    maintenanceTransition,
+    maintenanceError,
+
     // Computed
     availableTransitions,
     statusConfig,
@@ -175,7 +240,10 @@ export const useAssetDetail = (assetId: string) => {
     loadAsset,
     openTransitionModal,
     closeTransitionModal,
+    closeMaintenanceModal,
     confirmTransition,
+    confirmSetMaintenance,
+    confirmResolveMaintenance,
     formatCurrency,
     formatDate,
     formatDateTime,

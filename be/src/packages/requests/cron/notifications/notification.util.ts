@@ -1,5 +1,5 @@
 import { PrismaService } from 'src/core/database/prisma.service';
-import { BorrowMailContext } from 'src/mail/mail.service';
+import { BorrowMailContext } from 'src/core/mail/mail.service';
 import { NotificationJobName } from './notification.processor';
 
 export interface MailRecipient {

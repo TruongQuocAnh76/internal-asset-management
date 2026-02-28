@@ -1,7 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
-import { MailService, BorrowMailContext } from 'src/mail/mail.service';
+import { MailService, BorrowMailContext } from 'src/core/mail/mail.service';
 
 export const NOTIFICATION_QUEUE = 'borrow-notifications';
 
