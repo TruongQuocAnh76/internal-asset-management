@@ -17,6 +17,7 @@ describe('AssetsService', () => {
       count: jest.fn(),
       update: jest.fn(),
       findUnique: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
       findFirst: jest.fn(),
       create: jest.fn(),
     },
@@ -275,7 +276,7 @@ describe('AssetsService', () => {
   // --- getAssetById with asset_items ---
 
   it('should return asset with items and stock', async () => {
-    prismaMock.assets.findUnique.mockResolvedValue({
+    prismaMock.assets.findUniqueOrThrow.mockResolvedValue({
       id: 'a1',
       code: 'laptop_001',
       name: 'Laptop',
@@ -320,7 +321,12 @@ describe('AssetsService', () => {
   });
 
   it('should throw if asset not found in getAssetById', async () => {
-    prismaMock.assets.findUnique.mockResolvedValue(null);
+    prismaMock.assets.findUniqueOrThrow.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Record not found', {
+        code: 'P2025',
+        clientVersion: '0',
+      }),
+    );
 
     await expect(service.getAssetById('non-existent')).rejects.toThrow(
       'Asset not found',
