@@ -125,6 +125,8 @@ deploy:
     - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
   script:
+    - scp -o StrictHostKeyChecking=no $FE_ENV_FILE $SERVER_USER@$SERVER_IP:~/asset-management-monorepo/fe/.env
+    - scp -o StrictHostKeyChecking=no $ENV_FILE $SERVER_USER@$SERVER_IP:~/asset-management-monorepo/be/.env
     - ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "CI_REGISTRY=$CI_REGISTRY CI_REGISTRY_IMAGE=$CI_REGISTRY_IMAGE CI_REGISTRY_USER=$CI_REGISTRY_USER CI_REGISTRY_PASSWORD=$CI_REGISTRY_PASSWORD bash ~/deploy.sh"
   only:
     - main
