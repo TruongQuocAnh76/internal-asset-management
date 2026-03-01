@@ -28,6 +28,11 @@ cache:
 
 install:
   stage: install
+  artifacts:
+    paths:
+      - be/node_modules/
+      - fe/node_modules/
+      - .pnpm-store/
   script:
     - pnpm --dir be install --frozen-lockfile --reporter=append-only
     - pnpm --dir fe install --frozen-lockfile --reporter=append-only
