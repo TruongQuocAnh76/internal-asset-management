@@ -12,6 +12,7 @@ stages:
 image: node:22-slim
 
 before_script:
+  - apt-get update -y && apt-get install -y openssl
   - corepack enable
   - corepack prepare pnpm@latest --activate
   - pnpm config set store-dir .pnpm-store
@@ -19,52 +20,80 @@ before_script:
 cache:
   key:
     files:
-      - pnpm-lock.yaml
+      - be/pnpm-lock.yaml
+      - fe/pnpm-lock.yaml
   paths:
     - .pnpm-store
-    - node_modules/
+    - be/node_modules/
+    - fe/node_modules/
 
 install:
   stage: install
+  artifacts:
+    paths:
+      - be/node_modules/
+      - fe/node_modules/
+      - .pnpm-store/
   script:
-    - pnpm install --frozen-lockfile --reporter=append-only
+    - pnpm config set store-dir .pnpm-store
+    - pnpm --dir be install --frozen-lockfile --reporter=append-only
+    - pnpm --dir fe install --frozen-lockfile --reporter=append-only
 
 test:
   stage: test
   script:
-    - pnpm test
+    - pnpm --dir be run prisma:generate
+    - pnpm --dir be run test
 
 build:
   stage: build
   script:
-    - pnpm build
+    - pnpm --dir fe run build
+    - pnpm --dir be run build
 
 docker-build-frontend:
-  image: docker:latest
+  image: docker:24
   stage: docker-build-frontend
+  before_script: []
   services:
-    - docker:dind
+    - name: docker:24-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
   script:
-    - docker build -t asset-management-frontend:latest -f Dockerfile.frontend .
+    - docker info
+    - docker build -t asset-management-frontend:latest ./fe
 
 docker-build-backend:
-  image: docker:latest
+  image: docker:24
   stage: docker-build-backend
+  before_script: []
   services:
-    - docker:dind
+    - name: docker:24-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
   script:
-    - docker build -t asset-management-backend:latest -f Dockerfile.backend .
+    - docker build -t asset-management-backend:latest ./be
 
 prisma:
   stage: prisma
   script:
-    - pnpm --filter be prisma:migrate
+    - pnpm --dir be run prisma:migrate
+  only:
+    - main
 
 push-fe:
   image: docker:latest
   stage: push-fe
+  before_script: []
   services:
     - docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
   script:
     - echo "Pushing frontend Docker image to registry..."
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
@@ -76,8 +105,12 @@ push-fe:
 push-be:
   image: docker:latest
   stage: push-be
+  before_script: []
   services:
     - docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
   script:
     - echo "Pushing backend Docker image to registry..."
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY

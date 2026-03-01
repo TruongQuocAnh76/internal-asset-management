@@ -17,6 +17,6 @@ CMD ["pnpm", "start:dev"]
 
 FROM base AS prod
 WORKDIR /app
-COPY --from=build /app/.output /app
+COPY --from=build /app/dist ./dist
 EXPOSE 3000
-CMD ["pnpm", "start"]
+CMD ["node", "dist/main"]
