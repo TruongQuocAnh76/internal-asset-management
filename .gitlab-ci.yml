@@ -47,32 +47,32 @@ build:
     - pnpm --dir fe run build
     - pnpm --dir be run build
 
-docker-build-frontend:
-  image: docker:24
-  stage: docker-build-frontend
-  before_script: []
-  services:
-    - name: docker:24-dind
-      alias: docker
-  variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
-  script:
-    - docker info
-    - docker build -t asset-management-frontend:latest ./fe
+# docker-build-frontend:
+#   image: docker:24
+#   stage: docker-build-frontend
+#   before_script: []
+#   services:
+#     - name: docker:24-dind
+#       alias: docker
+#   variables:
+#     DOCKER_HOST: tcp://docker:2375
+#     DOCKER_TLS_CERTDIR: ""
+#   script:
+#     - docker info
+#     - docker build -t asset-management-frontend:latest ./fe
 
-docker-build-backend:
-  image: docker:24
-  stage: docker-build-backend
-  before_script: []
-  services:
-    - name: docker:24-dind
-      alias: docker
-  variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
-  script:
-    - docker build -t asset-management-backend:latest ./be
+# docker-build-backend:
+#   image: docker:24
+#   stage: docker-build-backend
+#   before_script: []
+#   services:
+#     - name: docker:24-dind
+#       alias: docker
+#   variables:
+#     DOCKER_HOST: tcp://docker:2375
+#     DOCKER_TLS_CERTDIR: ""
+#   script:
+#     - docker build -t asset-management-backend:latest ./be
 
 prisma:
   stage: prisma
