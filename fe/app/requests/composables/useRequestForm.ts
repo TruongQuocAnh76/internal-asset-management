@@ -14,7 +14,8 @@ export const useRequestForm = () => {
     kitId: undefined,
     requesterId: '',
     reason: '',
-    priority: 'MEDIUM'
+    priority: 'MEDIUM',
+    dueDate: ''
   })
 
   // UI state
@@ -55,6 +56,7 @@ export const useRequestForm = () => {
     return (
       hasSelection &&
       formData.value.reason.trim().length > 0 &&
+      !!formData.value.dueDate &&
       Object.keys(errors.value).length === 0
     )
   })
@@ -164,6 +166,12 @@ export const useRequestForm = () => {
           errors.value.reason = 'Reason is too long (max 500 characters)'
         }
         break
+
+      case 'dueDate':
+        if (!formData.value.dueDate) {
+          errors.value.dueDate = 'Due date is required'
+        }
+        break
     }
 
     return !errors.value[field]
@@ -179,6 +187,7 @@ export const useRequestForm = () => {
       validateField('kitId')
     }
     validateField('reason')
+    validateField('dueDate')
 
     return Object.keys(errors.value).length === 0
   }
@@ -245,7 +254,7 @@ export const useRequestForm = () => {
       return result
     } catch (err: any) {
       console.error('Failed to submit request:', err)
-      errors.value.general = err.message || 'Failed to submit request. Please try again.'
+      errors.value.general = err.data?.message || err.message || 'Failed to submit request. Please try again.'
       return null
     } finally {
       isSubmitting.value = false
@@ -279,7 +288,8 @@ export const useRequestForm = () => {
       assetId: '',
       requesterId: '',
       reason: '',
-      priority: 'MEDIUM'
+      priority: 'MEDIUM',
+      dueDate: ''
     }
     selectedCategoryId.value = ''
     selectedAsset.value = null

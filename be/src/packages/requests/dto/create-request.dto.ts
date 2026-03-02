@@ -10,6 +10,7 @@ const createRequestSchema = z
     requesterId: z.string().uuid(),
     reason: z.string().min(1).max(500),
     priority: z.enum(RequestPriority),
+    dueDate: z.string().date(),
   })
   .refine(
     (data) => (data.assetId || data.kitId) && !(data.assetId && data.kitId),
@@ -59,4 +60,12 @@ export class CreateRequestDto extends createZodDto(createRequestSchema) {
     enum: ['LOW', 'MEDIUM', 'HIGH'],
   })
   priority: RequestPriority;
+
+  @ApiProperty({
+    description: 'Due date for returning the borrowed asset',
+    example: '2025-07-01',
+    required: true,
+    format: 'date',
+  })
+  dueDate: string;
 }

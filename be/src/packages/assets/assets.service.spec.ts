@@ -4,6 +4,8 @@ import { PrismaService } from 'src/core/database/prisma.service';
 import { AssetStatus, DepreciationMethod, Prisma } from '@prisma/client';
 import { EditAssetDto } from './dto/edit-asset.dto';
 import { StorageService } from 'src/core/storage/storage.service';
+import { MailService } from 'src/core/mail/mail.service';
+import { KitsService } from '../kits/kits.service';
 
 describe('AssetsService', () => {
   let service: AssetsService;
@@ -15,6 +17,7 @@ describe('AssetsService', () => {
       count: jest.fn(),
       update: jest.fn(),
       findUnique: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
       findFirst: jest.fn(),
       create: jest.fn(),
     },
@@ -43,6 +46,14 @@ describe('AssetsService', () => {
     getUrl: jest.fn(),
   };
 
+  const mailServiceMock = {
+    sendMaintenanceNotification: jest.fn(),
+  };
+
+  const kitsServiceMock = {
+    recomputeKitStatus: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -54,6 +65,14 @@ describe('AssetsService', () => {
         {
           provide: StorageService,
           useValue: storageServiceMock,
+        },
+        {
+          provide: MailService,
+          useValue: mailServiceMock,
+        },
+        {
+          provide: KitsService,
+          useValue: kitsServiceMock,
         },
       ],
     }).compile();
@@ -257,7 +276,7 @@ describe('AssetsService', () => {
   // --- getAssetById with asset_items ---
 
   it('should return asset with items and stock', async () => {
-    prismaMock.assets.findUnique.mockResolvedValue({
+    prismaMock.assets.findUniqueOrThrow.mockResolvedValue({
       id: 'a1',
       code: 'laptop_001',
       name: 'Laptop',
@@ -302,7 +321,12 @@ describe('AssetsService', () => {
   });
 
   it('should throw if asset not found in getAssetById', async () => {
-    prismaMock.assets.findUnique.mockResolvedValue(null);
+    prismaMock.assets.findUniqueOrThrow.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Record not found', {
+        code: 'P2025',
+        clientVersion: '0',
+      }),
+    );
 
     await expect(service.getAssetById('non-existent')).rejects.toThrow(
       'Asset not found',
@@ -330,80 +354,6 @@ describe('AssetsService', () => {
     expect(result.byItemStatus.countItemsMaintenance).toBe(2);
     expect(result.byItemStatus.countItemsBroken).toBe(2);
     expect(result.byItemStatus.countItemsLiquidated).toBe(1);
-  });
-
-  // --- adjustAssetStock ---
-
-  it('should add asset items when adjusting stock with positive value', async () => {
-    prismaMock.assetItems.createManyAndReturn.mockResolvedValue([
-      { id: 'item-1', asset_id: 'a1' },
-      { id: 'item-2', asset_id: 'a1' },
-    ] as any);
-
-    prismaMock.assets.update.mockResolvedValue({} as any);
-    prismaMock.assetItems.count.mockResolvedValue(2);
-
-    const result = await (service as any).adjustAssetStock('a1', 2);
-
-    expect(prismaMock.assetItems.createManyAndReturn).toHaveBeenCalledWith({
-      data: [{ asset_id: 'a1', costs: BigInt(0) }, { asset_id: 'a1', costs: BigInt(0) }],
-    });
-    expect(result).toHaveLength(2);
-  });
-
-  it('should remove READY asset items when adjusting stock with negative value', async () => {
-    prismaMock.assetItems.findMany.mockResolvedValue([
-      { id: 'item-1' },
-      { id: 'item-2' },
-    ] as any);
-
-    prismaMock.assetItems.deleteMany.mockResolvedValue({ count: 2 });
-    prismaMock.assets.update.mockResolvedValue({} as any);
-    prismaMock.assetItems.count.mockResolvedValue(0);
-
-    const result = await (service as any).adjustAssetStock('a1', -2);
-
-    expect(prismaMock.assetItems.findMany).toHaveBeenCalledWith({
-      where: {
-        asset_id: 'a1',
-        status: 'READY',
-        kit_id: null,
-      },
-      take: 2,
-      orderBy: { created_at: 'asc' },
-    });
-    expect(prismaMock.assetItems.deleteMany).toHaveBeenCalledWith({
-      where: { id: { in: ['item-1', 'item-2'] } },
-    });
-    expect(result).toEqual({ removed: 2 });
-  });
-
-  it('should throw if not enough READY items to remove', async () => {
-    prismaMock.assetItems.findMany.mockResolvedValue([{ id: 'item-1' }] as any);
-
-    await expect((service as any).adjustAssetStock('a1', -3)).rejects.toThrow(
-      'Cannot remove 3 items. Only 1 available READY items found.',
-    );
-  });
-
-  it('should return no adjustment message when value is 0', async () => {
-    const result = await (service as any).adjustAssetStock('a1', 0);
-
-    expect(result).toEqual({ message: 'No stock adjustment needed' });
-  });
-
-  it('should throw if asset not found in adjustAssetStock', async () => {
-    const p2025 = Object.assign(
-      new Prisma.PrismaClientKnownRequestError('Record not found', {
-        code: 'P2025',
-        clientVersion: '0',
-      }),
-    );
-    prismaMock.assetItems.createManyAndReturn.mockRejectedValue(p2025);
-
-    await expect(
-      (service as any).adjustAssetStock('non-existent', 1),
-    ).rejects.toThrow('Asset not found');
   });
 
   // -------------------------
@@ -659,6 +609,117 @@ describe('AssetsService', () => {
       const sql: string = prismaMock.$executeRawUnsafe.mock.calls[0][0];
       // (1000 - 900) / 1 = 100 → 1000 - 100 = 900 == salvage_value
       expect(sql).toContain('900');
+    });
+  });
+
+  // ── recomputeAssetStatus ────────────────────────────────────────────────────
+
+  describe('recomputeAssetStatus', () => {
+    const assetId = 'asset-1';
+
+    const callRecompute = (
+      currentStatus: AssetStatus | null,
+      updateStatus: AssetStatus,
+      client: any = prismaMock,
+    ) => (service as any).recomputeAssetStatus(assetId, currentStatus, updateStatus, client);
+
+    describe('updateStatus === READY', () => {
+      it('updates asset to READY immediately and returns READY', async () => {
+        prismaMock.assets.update.mockResolvedValue({});
+
+        const result = await callRecompute(AssetStatus.IN_USE, AssetStatus.READY);
+
+        expect(prismaMock.assets.update).toHaveBeenCalledWith({
+          where: { id: assetId },
+          data: { status: AssetStatus.READY },
+        });
+        expect(result).toBe(AssetStatus.READY);
+      });
+
+      it('does not query asset items when updateStatus is READY', async () => {
+        prismaMock.assets.update.mockResolvedValue({});
+
+        await callRecompute(null, AssetStatus.READY);
+
+        expect(prismaMock.assetItems.count).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('currentStatus is null (lazy fetch)', () => {
+      it('queries DB for current status when currentStatus is null', async () => {
+        prismaMock.assets.findUnique.mockResolvedValue({ status: AssetStatus.IN_USE });
+        prismaMock.assetItems.count
+          .mockResolvedValueOnce(2) // cnt (IN_USE items)
+          .mockResolvedValueOnce(2); // total
+
+        await callRecompute(null, AssetStatus.IN_USE);
+
+        expect(prismaMock.assets.findUnique).toHaveBeenCalledWith({
+          where: { id: assetId },
+          select: { status: true },
+        });
+      });
+
+      it('returns READY and skips update when asset not found in DB', async () => {
+        prismaMock.assets.findUnique.mockResolvedValue(null);
+
+        const result = await callRecompute(null, AssetStatus.IN_USE);
+
+        expect(prismaMock.assets.update).not.toHaveBeenCalled();
+        expect(result).toBe(AssetStatus.READY);
+      });
+    });
+
+    describe('currStatus !== READY', () => {
+      it('updates to updateStatus when all items match updateStatus', async () => {
+        prismaMock.assets.update.mockResolvedValue({});
+        prismaMock.assetItems.count
+          .mockResolvedValueOnce(3) // cnt (matching updateStatus)
+          .mockResolvedValueOnce(3); // total
+
+        const result = await callRecompute(AssetStatus.IN_USE, AssetStatus.MAINTAINANCE);
+
+        expect(prismaMock.assets.update).toHaveBeenCalledWith({
+          where: { id: assetId },
+          data: { status: AssetStatus.MAINTAINANCE },
+        });
+        expect(result).toBe(AssetStatus.MAINTAINANCE);
+      });
+
+      it('keeps currStatus when not all items match updateStatus', async () => {
+        prismaMock.assetItems.count
+          .mockResolvedValueOnce(1) // cnt
+          .mockResolvedValueOnce(3); // total
+
+        const result = await callRecompute(AssetStatus.IN_USE, AssetStatus.MAINTAINANCE);
+
+        expect(prismaMock.assets.update).not.toHaveBeenCalled();
+        expect(result).toBe(AssetStatus.IN_USE);
+      });
+    });
+
+    describe('currStatus === READY', () => {
+      it('updates to updateStatus when no READY items remain', async () => {
+        prismaMock.assets.update.mockResolvedValue({});
+        prismaMock.assetItems.count.mockResolvedValue(0); // readyCount
+
+        const result = await callRecompute(AssetStatus.READY, AssetStatus.IN_USE);
+
+        expect(prismaMock.assets.update).toHaveBeenCalledWith({
+          where: { id: assetId },
+          data: { status: AssetStatus.IN_USE },
+        });
+        expect(result).toBe(AssetStatus.IN_USE);
+      });
+
+      it('stays READY when READY items still exist', async () => {
+        prismaMock.assetItems.count.mockResolvedValue(2); // readyCount
+
+        const result = await callRecompute(AssetStatus.READY, AssetStatus.IN_USE);
+
+        expect(prismaMock.assets.update).not.toHaveBeenCalled();
+        expect(result).toBe(AssetStatus.READY);
+      });
     });
   });
 });

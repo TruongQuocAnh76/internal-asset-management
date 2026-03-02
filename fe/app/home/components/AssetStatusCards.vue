@@ -12,7 +12,7 @@ const statusCards = [
   { key: 'total', label: 'Total Assets', color: 'primary', icon: 'cube', filter: null },
   { key: 'ready', label: 'Ready', color: 'success', icon: 'check-circle', filter: 'READY' },
   { key: 'inUse', label: 'In Use', color: 'primary', icon: 'user', filter: 'IN_USE' },
-  { key: 'maintenance', label: 'Maintenance', color: 'warning', icon: 'wrench', filter: 'MAINTENANCE' },
+  { key: 'maintenance', label: 'Maintenance', color: 'warning', icon: 'wrench', filter: 'MAINTAINANCE' },
   { key: 'broken', label: 'Broken', color: 'danger', icon: 'exclamation', filter: 'BROKEN' },
   { key: 'liquidated', label: 'Liquidated', color: 'secondary', icon: 'archive', filter: 'LIQUIDATED' },
 ] as const
