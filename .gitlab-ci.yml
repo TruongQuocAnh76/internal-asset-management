@@ -29,6 +29,10 @@ cache:
 install:
   stage: install
   script:
+    - echo $CI_REGISTRY
+    - echo $CI_REGISTRY_IMAGE
+    - echo $CI_REGISTRY_USER
+    - echo $CI_REGISTRY_PASSWORD
     - pnpm --dir be install --frozen-lockfile --reporter=append-only
     - pnpm --dir fe install --frozen-lockfile --reporter=append-only
 
