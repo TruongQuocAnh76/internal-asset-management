@@ -176,6 +176,14 @@ const { formatDateTime } = useRequestHelpers()
                     {{ formatDateTime(request.created_at) }}
                   </dd>
                 </div>
+
+                <!-- Due date -->
+                <div v-if="request.due_date">
+                  <dt class="text-sm font-medium text-secondary-500">Due Date</dt>
+                  <dd class="mt-1 text-secondary-900">
+                    {{ formatDateTime(request.due_date) }}
+                  </dd>
+                </div>
               </dl>
 
               <!-- Reason -->
@@ -275,6 +283,13 @@ const { formatDateTime } = useRequestHelpers()
                 <div v-if="request.provided_at">
                   <p class="text-sm text-secondary-500">Provided</p>
                   <p class="font-medium text-secondary-900">{{ formatDateTime(request.provided_at) }}</p>
+                </div>
+
+                <div v-if="request.due_date">
+                  <p class="text-sm text-secondary-500">Due Date</p>
+                  <p :class="['font-medium', request.status === 'OVERDUE' ? 'text-danger-600' : 'text-secondary-900']">
+                    {{ formatDateTime(request.due_date) }}
+                  </p>
                 </div>
 
                 <div v-if="request.returned_at">

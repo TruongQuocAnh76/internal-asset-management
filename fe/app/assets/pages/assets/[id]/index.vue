@@ -4,6 +4,7 @@ import AssetDetailHeader from '../../../components/AssetDetailHeader.vue'
 import AssetInfoCards from '../../../components/AssetInfoCards.vue'
 import StatusActions from '../../../components/StatusActions.vue'
 import StateTransitionModal from '../../../components/StateTransitionModal.vue'
+import MaintenanceTransitionModal from '../../../components/MaintenanceTransitionModal.vue'
 import ImageCarousel from '../../../components/ImageCarousel.vue'
 
 definePageMeta({
@@ -24,10 +25,16 @@ const {
   modalOpen,
   selectedTransition,
   transitionLoading,
+  maintenanceModalOpen,
+  maintenanceTransition,
+  maintenanceError,
   loadAsset,
   openTransitionModal,
   closeTransitionModal,
+  closeMaintenanceModal,
   confirmTransition,
+  confirmSetMaintenance,
+  confirmResolveMaintenance,
   formatCurrency,
   formatDate
 } = useAssetDetail(id.value)
@@ -249,6 +256,18 @@ const handleTransitionConfirm = async (status: string, reason: string) => {
       :loading="transitionLoading"
       @close="closeTransitionModal"
       @confirm="handleTransitionConfirm"
+    />
+
+    <!-- Maintenance Transition Modal -->
+    <MaintenanceTransitionModal
+      :is-open="maintenanceModalOpen"
+      :transition="maintenanceTransition"
+      :asset-items="assetItems"
+      :loading="transitionLoading"
+      :error="maintenanceError"
+      @close="closeMaintenanceModal"
+      @set-maintenance="confirmSetMaintenance"
+      @resolve-maintenance="confirmResolveMaintenance"
     />
   </div>
 </template>

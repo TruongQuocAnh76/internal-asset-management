@@ -4,7 +4,6 @@
   "description": "Asset Management System - Full Stack Monorepo",
   "private": true,
   "scripts": {
-    "install": "pnpm install -r",
     "dev": "concurrently \"pnpm --filter fe dev\" \"pnpm --filter be start:dev\"",
     "dev:fe": "pnpm --filter fe dev",
     "dev:be": "pnpm --filter be start:dev",
@@ -15,6 +14,10 @@
     "docker:prod": "docker compose -p asset-management-prod up --build -d",
     "docker:dev:down": "docker compose -p asset-management-dev down",
     "docker:prod:down": "docker compose -p asset-management-prod down",
+    "prisma:generate": "pnpm --filter be run prisma:generate",
+    "prisma:migrate": "pnpm --filter be run prisma:migrate",
+    "prisma:deploy": "pnpm --filter be run prisma:deploy",
+    "prisma:reset": "pnpm --filter be run prisma:reset",
     "start": "pnpm --filter be start:prod",
     "test": "pnpm --filter be test",
     "test:e2e": "pnpm --filter be test:e2e",

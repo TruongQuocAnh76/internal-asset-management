@@ -109,3 +109,48 @@ export interface AssetsResponse {
     hasPrev: boolean
   }
 }
+
+// ── Maintenance types ────────────────────────────────────────────
+
+export interface MaintenanceItem {
+  id: string
+  status: AssetStatus
+  location_name: string | null
+  costs: number | null
+  acquired_at: string
+  kit_id: string | null
+  kit_status: boolean
+  maintenance_notes: string | null
+  last_maintained_at: string | null
+  asset: {
+    id: string
+    code: string
+    name: string
+  }
+  kit: {
+    id: string
+    template: { name: string }
+  } | null
+  repairs: RepairRecord[]
+}
+
+export interface RepairRecord {
+  id: string
+  asset_item_id: string
+  cost: number
+  description: string | null
+  resolved_status: AssetStatus
+  created_at: string
+}
+
+export interface SetMaintenancePayload {
+  asset_item_id: string
+  maintenance_notes: string
+}
+
+export interface ResolveMaintenancePayload {
+  asset_item_id: string
+  resolved_status: 'READY' | 'BROKEN' | 'LIQUIDATED'
+  repair_cost?: number
+  description?: string
+}
