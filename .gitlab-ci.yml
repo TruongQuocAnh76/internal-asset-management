@@ -75,14 +75,6 @@ build:
 #   script:
 #     - docker build -t asset-management-backend:latest ./be
 
-prisma:
-  stage: prisma
-  script:
-    - pnpm --dir be install --frozen-lockfile --prefer-offline --reporter=append-only
-    - pnpm --dir be run prisma:migrate
-  only:
-    - main
-
 push-fe:
   image: docker:latest
   stage: push-fe
