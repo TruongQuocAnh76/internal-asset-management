@@ -22,12 +22,13 @@ echo "Retagging images for docker compose..."
 docker tag "$FE_IMAGE" asset-management-frontend:latest
 docker tag "$BE_IMAGE" asset-management-backend:latest
 
-echo "Running Prisma migrations..."
+echo "Running Prisma migrations and seeder..."
 docker run --rm \
   --env-file ./be/.env \
   --network host \
   "$BE_IMAGE" \
-  pnpm prisma migrate deploy
+  sh -c "
+  pnpm prisma migrate deploy --schema src/core/database/schema.prisma && pnpm prisma db seed --schema src/core/database/schema.prisma"
 
 echo "Starting services..."
 docker compose -f docker-compose.yml up -d --no-build
