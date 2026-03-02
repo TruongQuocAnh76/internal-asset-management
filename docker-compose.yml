@@ -1,5 +1,6 @@
 services:
   frontend:
+    image: asset-management-frontend:latest
     build:
       context: ./fe
       dockerfile: Dockerfile
@@ -22,6 +23,7 @@ services:
       - app_network
 
   backend:
+    image: asset-management-backend:latest
     build:
       context: ./be
       dockerfile: Dockerfile    
