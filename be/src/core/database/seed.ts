@@ -360,9 +360,8 @@ async function main() {
     },
   });
 
-  // Create kit template first
-  const kitTemplate = await prisma.kitTemplates.upsert({
-    where: { id: ids.kitTemplateId },
+  const kit = await prisma.assetsKits.upsert({
+    where: { id: ids.kitId },
     update: {},
     create: {
       id: ids.kitId,
@@ -539,19 +538,6 @@ async function main() {
       specs: { cpu: 'Intel i7-1260P', ram_gb: 32, storage_gb: 512, os: 'Windows 11 Pro' },
     },
   });
-
-  for (const item of assetItemsData) {
-    await prisma.assetItems.create({
-      data: {
-        asset_id: item.asset_id,
-        status: item.status,
-        location_name: item.location_name,
-        costs: item.costs,
-        kit_id: item.kit_id ?? null,
-        kit_status: item.kit_status ?? false,
-      },
-    });
-  }
 
   // AssetItems with kit_id are already linked via the kit_id field in assetItemsData
   // No need for separate AssetsKitsItems table (it's commented out in schema)

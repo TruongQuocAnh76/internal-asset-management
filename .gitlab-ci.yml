@@ -44,6 +44,7 @@ build:
   script:
     - pnpm --dir fe install --frozen-lockfile --prefer-offline --reporter=append-only
     - pnpm --dir be install --frozen-lockfile --prefer-offline --reporter=append-only
+    - pnpm --dir be run prisma:generate
     - pnpm --dir fe run build
     - pnpm --dir be run build
 
