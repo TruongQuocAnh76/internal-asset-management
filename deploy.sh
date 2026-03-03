@@ -28,7 +28,7 @@ docker run --rm \
   --network host \
   --workdir /app \
   "$BE_IMAGE" \
-  sh -c "pnpm prisma migrate deploy --schema prisma/schema.prisma && pnpm prisma db seed --schema prisma/schema.prisma"
+  sh -c "pnpm prisma migrate deploy --schema prisma/schema.prisma && node dist/core/database/seed.js"
 
 echo "Starting services..."
 docker compose -f docker-compose.yml up -d --no-build
