@@ -17,6 +17,9 @@ CMD ["pnpm", "start:dev"]
 
 FROM base AS prod
 WORKDIR /app
+COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/src/core/database ./prisma
+COPY --from=build /app/src/core/database ./src/core/database
 EXPOSE 3000
 CMD ["node", "dist/main"]
