@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 set -e
 
-: "${CI_REGISTRY:?CI_REGISTRY is required}"
-: "${CI_REGISTRY_IMAGE:?CI_REGISTRY_IMAGE is required}"
-: "${CI_REGISTRY_USER:?CI_REGISTRY_USER is required}"
-: "${CI_REGISTRY_PASSWORD:?CI_REGISTRY_PASSWORD is required}"
+: "${GHCR_USERNAME:?GHCR_USERNAME is required}"
+: "${GHCR_TOKEN:?GHCR_TOKEN is required}"
+: "${GHCR_FE_IMAGE:?GHCR_FE_IMAGE is required}"
+: "${GHCR_BE_IMAGE:?GHCR_BE_IMAGE is required}"
 
-FE_IMAGE="$CI_REGISTRY_IMAGE/frontend:latest"
-BE_IMAGE="$CI_REGISTRY_IMAGE/backend:latest"
+FE_IMAGE="$GHCR_FE_IMAGE"
+BE_IMAGE="$GHCR_BE_IMAGE"
 
 echo "Logging into Docker Registry..."
-echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" \
-  -u "$CI_REGISTRY_USER" \
+echo "$GHCR_TOKEN" | docker login ghcr.io \
+  -u "$GHCR_USERNAME" \
   --password-stdin
 
 echo "Pulling latest images..."
@@ -26,9 +26,9 @@ echo "Running Prisma migrations and seeder..."
 docker run --rm \
   --env-file ./be/.env \
   --network host \
+  --workdir /app \
   "$BE_IMAGE" \
-  sh -c "
-  pnpm prisma migrate deploy --schema src/core/database/schema.prisma && pnpm prisma db seed --schema src/core/database/schema.prisma"
+  sh -c "pnpm prisma migrate deploy --schema prisma/schema.prisma && pnpm prisma db seed --schema prisma/schema.prisma"
 
 echo "Starting services..."
 docker compose -f docker-compose.yml up -d --no-build

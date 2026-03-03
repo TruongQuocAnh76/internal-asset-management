@@ -15,6 +15,7 @@
     "docker:dev:down": "docker compose -p asset-management-dev down",
     "docker:prod:down": "docker compose -p asset-management-prod down",
     "prisma:generate": "pnpm --filter be run prisma:generate",
+    "prisma:seed": "pnpm --filter be run prisma:seed",
     "prisma:migrate": "pnpm --filter be run prisma:migrate",
     "prisma:deploy": "pnpm --filter be run prisma:deploy",
     "prisma:reset": "pnpm --filter be run prisma:reset",
