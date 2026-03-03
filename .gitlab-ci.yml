@@ -48,14 +48,12 @@ build:
 docker-fe:
   stage: docker-fe
   image:
-    name: moby/buildkit:rootless
+    name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
-  variables:
-    BUILDKITD_FLAGS: --oci-worker-no-process-sandbox
   before_script:
-    - mkdir -p ~/.docker
+    - mkdir -p /kaniko/.docker
     - |
-      cat > ~/.docker/config.json <<EOF
+      cat > /kaniko/.docker/config.json <<EOF
       {
         "auths": {
           "ghcr.io": {
@@ -66,26 +64,21 @@ docker-fe:
       }
       EOF
   script:
+    - echo $GHCR_FE_IMAGE
     - |
-      buildctl-daemonless.sh build \
-        --frontend dockerfile.v0 \
-        --local context=./fe \
-        --local dockerfile=./fe \
-        --output type=image,name=$GHCR_FE_IMAGE,push=true
+      /kaniko/executor --context ./fe --dockerfile ./fe/Dockerfile --destination $GHCR_FE_IMAGE
   only:
     - main
 
 docker-be:
   stage: docker-be
   image:
-    name: moby/buildkit:rootless
+    name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
-  variables:
-    BUILDKITD_FLAGS: --oci-worker-no-process-sandbox
   before_script:
-    - mkdir -p ~/.docker
+    - mkdir -p /kaniko/.docker
     - |
-      cat > ~/.docker/config.json <<EOF
+      cat > /kaniko/.docker/config.json <<EOF
       {
         "auths": {
           "ghcr.io": {
@@ -97,11 +90,9 @@ docker-be:
       EOF
   script:
     - |
-      buildctl-daemonless.sh build \
-        --frontend dockerfile.v0 \
-        --local context=./be \
-        --local dockerfile=./be \
-        --output type=image,name=$GHCR_BE_IMAGE,push=true
+      /kaniko/executor --context ./be --dockerfile ./be/Dockerfile --destination $GHCR_BE_IMAGE
+  only:
+    - main=$GHCR_FE_IMAGE,push=true
   only:
     - main
 
