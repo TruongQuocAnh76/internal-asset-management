@@ -2,11 +2,8 @@ stages:
   - install
   - test
   - build
-  - docker-build-frontend
-  - docker-build-backend
-  - prisma
-  - push-fe
-  - push-be
+  - docker-fe
+  - docker-be
   - deploy
 
 image: node:22-slim
@@ -48,64 +45,63 @@ build:
     - pnpm --dir fe run build
     - pnpm --dir be run build
 
-# docker-build-frontend:
-#   image: docker:24
-#   stage: docker-build-frontend
-#   before_script: []
-#   services:
-#     - name: docker:24-dind
-#       alias: docker
-#   variables:
-#     DOCKER_HOST: tcp://docker:2375
-#     DOCKER_TLS_CERTDIR: ""
-#   script:
-#     - docker info
-#     - docker build -t asset-management-frontend:latest ./fe
-
-# docker-build-backend:
-#   image: docker:24
-#   stage: docker-build-backend
-#   before_script: []
-#   services:
-#     - name: docker:24-dind
-#       alias: docker
-#   variables:
-#     DOCKER_HOST: tcp://docker:2375
-#     DOCKER_TLS_CERTDIR: ""
-#   script:
-#     - docker build -t asset-management-backend:latest ./be
-
-push-fe:
-  image: docker:latest
-  stage: push-fe
-  before_script: []
-  services:
-    - docker:dind
+docker-fe:
+  stage: docker-fe
+  image:
+    name: moby/buildkit:rootless
+    entrypoint: [""]
   variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
+    BUILDKITD_FLAGS: --oci-worker-no-process-sandbox
+  before_script:
+    - mkdir -p ~/.docker
+    - |
+      cat > ~/.docker/config.json <<EOF
+      {
+        "auths": {
+          "ghcr.io": {
+            "username": "$GHCR_USERNAME",
+            "password": "$GHCR_TOKEN"
+          }
+        }
+      }
+      EOF
   script:
-    - echo "Pushing frontend Docker image to registry..."
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker tag asset-management-frontend:latest $CI_REGISTRY_IMAGE/frontend:latest
-    - docker push $CI_REGISTRY_IMAGE/frontend:latest
+    - |
+      buildctl-daemonless.sh build \
+        --frontend dockerfile.v0 \
+        --local context=./fe \
+        --local dockerfile=./fe \
+        --output type=image,name=$GHCR_FE_IMAGE,push=true
   only:
     - main
 
-push-be:
-  image: docker:latest
-  stage: push-be
-  before_script: []
-  services:
-    - docker:dind
+docker-be:
+  stage: docker-be
+  image:
+    name: moby/buildkit:rootless
+    entrypoint: [""]
   variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
+    BUILDKITD_FLAGS: --oci-worker-no-process-sandbox
+  before_script:
+    - mkdir -p ~/.docker
+    - |
+      cat > ~/.docker/config.json <<EOF
+      {
+        "auths": {
+          "ghcr.io": {
+            "username": "$GHCR_USERNAME",
+            "password": "$GHCR_TOKEN"
+          }
+        }
+      }
+      EOF
   script:
-    - echo "Pushing backend Docker image to registry..."
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker tag asset-management-backend:latest $CI_REGISTRY_IMAGE/backend:latest
-    - docker push $CI_REGISTRY_IMAGE/backend:latest
+    - |
+      buildctl-daemonless.sh build \
+        --frontend dockerfile.v0 \
+        --local context=./be \
+        --local dockerfile=./be \
+        --output type=image,name=$GHCR_BE_IMAGE,push=true
   only:
     - main
 
@@ -120,6 +116,6 @@ deploy:
   script:
     - scp -o StrictHostKeyChecking=no $FE_ENV_FILE $SERVER_USER@$SERVER_IP:~/asset-management-monorepo/fe/.env
     - scp -o StrictHostKeyChecking=no $ENV_FILE $SERVER_USER@$SERVER_IP:~/asset-management-monorepo/be/.env
-    - ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "CI_REGISTRY=$CI_REGISTRY CI_REGISTRY_IMAGE=$CI_REGISTRY_IMAGE CI_REGISTRY_USER=$CI_REGISTRY_USER CI_REGISTRY_PASSWORD=$CI_REGISTRY_PASSWORD bash ~/deploy.sh"
+    - ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "GHCR_USERNAME=$GHCR_USERNAME GHCR_TOKEN=$GHCR_TOKEN GHCR_FE_IMAGE=$GHCR_FE_IMAGE GHCR_BE_IMAGE=$GHCR_BE_IMAGE bash ~/deploy.sh"
   only:
     - main
