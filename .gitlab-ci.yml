@@ -45,6 +45,7 @@ build:
     - pnpm --dir fe run build
     - pnpm --dir be run build
 
+docker-fe:
   stage: docker-fe
   image:
     name: gcr.io/kaniko-project/executor:debug
