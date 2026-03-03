@@ -1,11 +1,11 @@
 services:
   frontend:
-    image: asset-management-frontend:latest
+    image: ghcr.io/truongquocanh76/asset-management-fe:latest
     build:
       context: ./fe
       dockerfile: Dockerfile
     ports: 
-      - "5173:5173"
+      - "5173:3000"
     env_file:
       - ./fe/.env
     depends_on:
@@ -23,7 +23,7 @@ services:
       - app_network
 
   backend:
-    image: asset-management-backend:latest
+    image: ghcr.io/truongquocanh76/asset-management-be:latest
     build:
       context: ./be
       dockerfile: Dockerfile    
