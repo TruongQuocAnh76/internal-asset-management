@@ -25,6 +25,18 @@ function getDelegate(client: PrismaClient, model: string) {
   return (client as any)[model[0].toLowerCase() + model.slice(1)];
 }
 
+function normalizeBigInt<T>(value: T): T {
+  if (value === undefined) {
+    return value;
+  }
+
+  return JSON.parse(
+    JSON.stringify(value, (_, nestedValue) =>
+      typeof nestedValue === 'bigint' ? nestedValue.toString() : nestedValue,
+    ),
+  ) as T;
+}
+
 function createExtendedClient() {
   const baseClient = new PrismaClient();
   const logger = new Logger('PrismaAudit');
@@ -37,12 +49,14 @@ function createExtendedClient() {
             !AUDITED_OPERATIONS.has(operation) ||
             !(model! in MODEL_ENTITY_MAP)
           ) {
-            return query(args);
+            const result = await query(args);
+            return normalizeBigInt(result);
           }
 
           const ctx = auditContext.getStore();
           if (!ctx?.actorId) {
-            return query(args);
+            const result = await query(args);
+            return normalizeBigInt(result);
           }
 
           const entityType = MODEL_ENTITY_MAP[model!];
@@ -166,7 +180,7 @@ function createExtendedClient() {
             logger.warn(`Failed to create audit log: ${error.message}`);
           }
 
-          return result;
+          return normalizeBigInt(result);
         },
       },
     },
