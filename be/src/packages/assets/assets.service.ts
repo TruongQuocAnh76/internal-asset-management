@@ -14,6 +14,18 @@ import { MailService } from 'src/core/mail/mail.service';
 import { SetMaintenanceDto } from './dto/maintenance.dto';
 import { ResolveMaintenanceDto } from './dto/maintenance.dto';
 import { KitsService } from '../kits/kits.service';
+import PDFDocument = require('pdfkit');
+import * as XLSX from 'xlsx';
+import type {
+  SummaryData,
+  InventoryRow,
+  FinancialRow,
+  AllocationRow,
+  RepairRow,
+  KitRow,
+  AuditRow,
+} from './dto/report.type';
+
 @Injectable()
 export class AssetsService {
   constructor(
@@ -22,6 +34,11 @@ export class AssetsService {
     private mailService: MailService,
     private kitsService: KitsService,
   ) { }
+
+  private normalizeDate(value: Date | string | null | undefined): Date | null {
+    if (!value) return null;
+    return value instanceof Date ? value : new Date(value);
+  }
 
   async getAssets(query: GetAssetsParams) {
     const where = this.buildWhere(query);
@@ -197,8 +214,9 @@ export class AssetsService {
     }));
   }
 
-  async createAsset(body: CreateAssetDto, userId: string) {
-    const category = await this.checkCategory(body.category_name);
+  async createAsset(body: CreateAssetDto, tx?: Prisma.TransactionClient) {
+    const db = tx ?? this.prisma;
+    const category = await this.checkCategory(body.category_name, db);
     if (!category) {
       throw new BadRequestException('Category not found');
     }
@@ -235,7 +253,7 @@ export class AssetsService {
     //   this.storageService.getUrl(fileName),
     // );
 
-    const createdAsset = await this.prisma.assets.create({
+    const createdAsset = await db.assets.create({
       data: {
         ...rest,
         code: asset_code,
@@ -266,7 +284,7 @@ export class AssetsService {
     });
 
     // Recompute cached asset status
-    await this.recomputeAssetStatus(createdAsset.id, null, AssetStatus.READY);
+    await this.recomputeAssetStatus(createdAsset.id, null, AssetStatus.READY, db);
 
     return { createdAsset, tempImageUrls };
   }
@@ -304,8 +322,9 @@ export class AssetsService {
     return asset;
   }
 
-  protected async checkCategory(category_name: string) {
-    return await this.prisma.assetsCategories.findFirst({
+  protected async checkCategory(category_name: string, db?: Prisma.TransactionClient | PrismaService) {
+    const client = db ?? this.prisma;
+    return await client.assetsCategories.findFirst({
       where: { name: category_name },
     });
   }
@@ -768,5 +787,746 @@ export class AssetsService {
       ...r,
       cost: Number(r.cost),
     }));
+  }
+
+  private async loadExportSummary(): Promise<SummaryData> {
+    const [
+      totalAssetModels,
+      totalPhysicalUnits,
+      totalKits,
+      totalValueAgg,
+      totalRepairAgg,
+      itemsByStatus,
+      assetsByStatus,
+      kitsByStatus,
+    ] = await Promise.all([
+      this.prisma.assets.count(),
+      this.prisma.assetItems.count(),
+      this.prisma.assetsKits.count(),
+      this.prisma.assetItems.aggregate({ _sum: { costs: true } }),
+      this.prisma.assetRepairs.aggregate({ _sum: { cost: true } }),
+      this.prisma.assetItems.groupBy({ by: ['status'], _count: true }),
+      this.prisma.assets.groupBy({ by: ['status'], _count: true }),
+      this.prisma.assetsKits.groupBy({ by: ['status'], _count: true }),
+    ]);
+
+    const mapStatus = (
+      groups: { status: AssetStatus; _count: number }[],
+    ): Record<string, number> => {
+      const m: Record<string, number> = {
+        READY: 0,
+        IN_USE: 0,
+        MAINTAINANCE: 0,
+        BROKEN: 0,
+        LIQUIDATED: 0,
+      };
+      for (const g of groups) m[g.status] = g._count;
+      return m;
+    };
+
+    return {
+      totalAssetModels,
+      totalPhysicalUnits,
+      totalKits,
+      totalValue: Number(totalValueAgg._sum.costs ?? 0),
+      totalRepairCost: Number(totalRepairAgg._sum.cost ?? 0),
+      itemsByStatus: mapStatus(itemsByStatus as any),
+      assetsByStatus: mapStatus(assetsByStatus as any),
+      kitsByStatus: mapStatus(kitsByStatus as any),
+    };
+  }
+
+  private async loadExportInventory(): Promise<InventoryRow[]> {
+    const items = await this.prisma.assetItems.findMany({
+      include: {
+        asset: {
+          include: {
+            category: true,
+            asset_allocation: {
+              include: { user: { select: { first_name: true, last_name: true } } },
+            },
+          },
+        },
+        kit: { include: { template: true } },
+      },
+      orderBy: { created_at: 'asc' },
+    });
+
+    return items.map((i) => {
+      const alloc = i.asset.asset_allocation?.[0];
+      const allocName = alloc?.user
+        ? `${alloc.user.first_name} ${alloc.user.last_name}`
+        : alloc?.kit_id
+          ? `Kit ${alloc.kit_id}`
+          : null;
+
+      const depMethod =
+        i.asset.depreciation_method ??
+        i.asset.category?.default_depreciation_method ??
+        null;
+
+      return {
+        assetCode: i.asset.code,
+        assetName: i.asset.name,
+        category: i.asset.category?.name ?? '',
+        itemId: i.id,
+        status: i.status,
+        location: i.location_name ?? '',
+        inKit: i.kit_status,
+        kitId: i.kit_id,
+        cost: Number(i.costs),
+        acquiredAt: this.normalizeDate(i.acquired_at) ?? new Date(),
+        lastMaintained: this.normalizeDate(i.last_maintained_at),
+        allocatedTo: allocName,
+        depreciationMethod: depMethod,
+      };
+    });
+  }
+
+  private async loadExportFinancial(): Promise<FinancialRow[]> {
+    const items = await this.prisma.assetItems.findMany({
+      include: {
+        asset: { include: { category: true } },
+        repairs: true,
+      },
+      orderBy: { created_at: 'asc' },
+    });
+
+    const now = new Date();
+
+    return items.map((i) => {
+      const acquiredAt = this.normalizeDate(i.acquired_at) ?? new Date();
+      const asset = i.asset;
+      const cat = asset.category;
+      const originalCost = Number(i.costs);
+
+      const salvage = Number(asset.salvage_value ?? cat?.salvage_value ?? 0);
+      const lifeMonths = asset.life_months ?? cat?.default_life_months ?? null;
+      const method: DepreciationMethod | null =
+        asset.depreciation_method ?? cat?.default_depreciation_method ?? null;
+      const declineRate = asset.decline_balance_rate ?? cat?.decline_balance_rate ?? null;
+
+      let accDep = 0;
+      if (method && lifeMonths && lifeMonths > 0) {
+        const monthsElapsed = Math.max(
+          0,
+          (now.getFullYear() - acquiredAt.getFullYear()) * 12 +
+            (now.getMonth() - acquiredAt.getMonth()),
+        );
+
+        if (method === DepreciationMethod.STRAIGHT_LINE) {
+          const monthlyDep = (originalCost - salvage) / lifeMonths;
+          accDep = Math.min(monthlyDep * monthsElapsed, originalCost - salvage);
+        } else if (method === DepreciationMethod.DECLINING_BALANCE && declineRate) {
+          let remaining = originalCost;
+          const rate = declineRate / 100;
+          for (let m = 0; m < monthsElapsed; m++) {
+            const dep = remaining * rate / 12;
+            remaining -= dep;
+            if (remaining <= salvage) {
+              remaining = salvage;
+              break;
+            }
+          }
+          accDep = originalCost - remaining;
+        }
+      }
+
+      const totalRepairCost = i.repairs.reduce(
+        (sum, r) => sum + Number(r.cost),
+        0,
+      );
+
+      const bookValue = Math.max(0, originalCost - accDep);
+
+      return {
+        assetCode: asset.code,
+        assetName: asset.name,
+        itemId: i.id,
+        originalCost,
+        salvageValue: salvage,
+        lifeMonths,
+        depreciationMethod: method,
+        declineBalanceRate: declineRate,
+        accumulatedDepreciation: Math.round(accDep),
+        currentBookValue: Math.round(bookValue),
+        totalRepairCost,
+        netAssetValue: Math.round(bookValue - totalRepairCost),
+      };
+    });
+  }
+
+  private async loadExportAllocations(): Promise<AllocationRow[]> {
+    const items = await this.prisma.assetItems.findMany({
+      include: {
+        asset: {
+          include: {
+            asset_allocation: {
+              include: {
+                user: {
+                  select: { first_name: true, last_name: true, department: true },
+                },
+              },
+            },
+            borrow_requests: {
+              where: { status: { in: ['APPROVED', 'PROVIDED', 'OVERDUE'] } },
+              orderBy: { created_at: 'desc' },
+              take: 1,
+            },
+          },
+        },
+      },
+      orderBy: { created_at: 'asc' },
+    });
+
+    const now = new Date();
+
+    return items.map((i) => {
+      const alloc = i.asset.asset_allocation?.[0];
+      const borrow = i.asset.borrow_requests?.[0];
+      const user = alloc?.user;
+
+      return {
+        assetCode: i.asset.code,
+        assetName: i.asset.name,
+        itemId: i.id,
+        status: i.status,
+        allocatedToUser: user
+          ? `${user.first_name} ${user.last_name}`
+          : null,
+        department: user?.department ?? null,
+        allocatedAt: this.normalizeDate(alloc?.allocated_at),
+        borrowDueDate: this.normalizeDate(borrow?.due_date),
+        overdue: this.normalizeDate(borrow?.due_date)
+          ? (this.normalizeDate(borrow?.due_date) as Date) < now
+          : false,
+      };
+    });
+  }
+
+  private async loadExportRepairs(): Promise<RepairRow[]> {
+    const items = await this.prisma.assetItems.findMany({
+      include: {
+        asset: { select: { code: true, name: true } },
+        repairs: { orderBy: { created_at: 'desc' } },
+      },
+      orderBy: { created_at: 'asc' },
+    });
+
+    return items.map((i) => ({
+      assetCode: i.asset.code,
+      assetName: i.asset.name,
+      itemId: i.id,
+      repairCount: i.repairs.length,
+      totalRepairCost: i.repairs.reduce((s, r) => s + Number(r.cost), 0),
+      lastRepairDate: this.normalizeDate(i.repairs[0]?.created_at),
+      lastResolvedStatus: i.repairs[0]?.resolved_status ?? null,
+      maintenanceNotes: i.maintenance_notes,
+    }));
+  }
+
+  private async loadExportKits(): Promise<KitRow[]> {
+    const kits = await this.prisma.assetsKits.findMany({
+      include: {
+        template: true,
+        asset_items: { include: { asset: { select: { code: true, name: true } } } },
+        asset_allocations: {
+          include: {
+            user: { select: { first_name: true, last_name: true } },
+          },
+        },
+      },
+      orderBy: { created_at: 'asc' },
+    });
+
+    return kits.map((k) => {
+      const statuses = new Set(k.asset_items.map((ai) => ai.status));
+      const consistency =
+        statuses.size === 0
+          ? 'Empty'
+          : statuses.size === 1
+            ? `All ${[...statuses][0]}`
+            : 'Mixed';
+
+      const alloc = k.asset_allocations?.[0];
+      const allocTo = alloc?.user
+        ? `${alloc.user.first_name} ${alloc.user.last_name}`
+        : null;
+
+      return {
+        kitId: k.id,
+        templateName: k.template.name,
+        kitStatus: k.status,
+        itemCount: k.asset_items.length,
+        items: k.asset_items.map((ai) => `${ai.asset.code} (${ai.asset.name})`).join(', '),
+        allocatedTo: allocTo,
+        statusConsistency: consistency,
+      };
+    });
+  }
+
+  private async loadExportAudit(): Promise<AuditRow[]> {
+    const logs = await this.prisma.auditLogs.findMany({
+      include: { user: { select: { first_name: true, last_name: true } } },
+      orderBy: { created_at: 'desc' },
+      take: 500,
+    });
+
+    return logs.map((l) => ({
+      timestamp: this.normalizeDate(l.created_at) ?? new Date(),
+      actor: `${l.user.first_name} ${l.user.last_name}`,
+      action: l.action,
+      entityType: l.entity_type,
+      entityId: l.entity_id,
+      before: JSON.stringify(l.before),
+      after: JSON.stringify(l.after),
+    }));
+  }
+
+  async generateExcelReport(): Promise<Buffer> {
+    const [summary, inventory, financial, allocations, repairs, kits, audit] =
+      await Promise.all([
+        this.loadExportSummary(),
+        this.loadExportInventory(),
+        this.loadExportFinancial(),
+        this.loadExportAllocations(),
+        this.loadExportRepairs(),
+        this.loadExportKits(),
+        this.loadExportAudit(),
+      ]);
+
+    const wb = XLSX.utils.book_new();
+
+    // sheet 1 — Summary
+    const summaryRows = [
+      ['Asset Storage Report'],
+      ['Generated', new Date().toISOString()],
+      [],
+      ['Metric', 'Count'],
+      ['Total Asset Models', summary.totalAssetModels],
+      ['Total Physical Units', summary.totalPhysicalUnits],
+      ['Total Asset Kits', summary.totalKits],
+      ['Total Value', summary.totalValue],
+      ['Total Repair Cost', summary.totalRepairCost],
+      [],
+      ['Items by Status'],
+      ...Object.entries(summary.itemsByStatus).map(([k, v]) => [`  ${k}`, v]),
+      [],
+      ['Assets by Status'],
+      ...Object.entries(summary.assetsByStatus).map(([k, v]) => [`  ${k}`, v]),
+      [],
+      ['Kits by Status'],
+      ...Object.entries(summary.kitsByStatus).map(([k, v]) => [`  ${k}`, v]),
+    ];
+    const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+
+    // sheet 2 — Inventory
+    const wsInventory = XLSX.utils.json_to_sheet(
+      inventory.map((r) => ({
+        'Asset Code': r.assetCode,
+        'Asset Name': r.assetName,
+        Category: r.category,
+        'Item ID': r.itemId,
+        Status: r.status,
+        Location: r.location,
+        'In Kit': r.inKit ? 'Yes' : 'No',
+        'Kit ID': r.kitId ?? '',
+        Cost: r.cost,
+        'Acquired Date': r.acquiredAt?.toISOString().split('T')[0] ?? '',
+        'Last Maintained': r.lastMaintained?.toISOString().split('T')[0] ?? '',
+        'Allocated To': r.allocatedTo ?? '',
+        'Depreciation Method': r.depreciationMethod ?? '',
+      })),
+    );
+    XLSX.utils.book_append_sheet(wb, wsInventory, 'Inventory');
+
+    // sheet 3 — Financial
+    const wsFinancial = XLSX.utils.json_to_sheet(
+      financial.map((r) => ({
+        'Asset Code': r.assetCode,
+        'Asset Name': r.assetName,
+        'Item ID': r.itemId,
+        'Original Cost': r.originalCost,
+        'Salvage Value': r.salvageValue,
+        'Life (months)': r.lifeMonths ?? '',
+        'Depreciation Method': r.depreciationMethod ?? '',
+        'Decline Rate (%)': r.declineBalanceRate ?? '',
+        'Accumulated Depreciation': r.accumulatedDepreciation,
+        'Current Book Value': r.currentBookValue,
+        'Total Repair Cost': r.totalRepairCost,
+        'Net Asset Value': r.netAssetValue,
+      })),
+    );
+    XLSX.utils.book_append_sheet(wb, wsFinancial, 'Financial');
+
+    // sheet 4 — Allocations
+    const wsAlloc = XLSX.utils.json_to_sheet(
+      allocations.map((r) => ({
+        'Asset Code': r.assetCode,
+        'Asset Name': r.assetName,
+        'Item ID': r.itemId,
+        Status: r.status,
+        'Allocated To': r.allocatedToUser ?? '',
+        Department: r.department ?? '',
+        'Allocated At': r.allocatedAt?.toISOString().split('T')[0] ?? '',
+        'Borrow Due Date': r.borrowDueDate?.toISOString().split('T')[0] ?? '',
+        Overdue: r.overdue ? 'YES' : '',
+      })),
+    );
+    XLSX.utils.book_append_sheet(wb, wsAlloc, 'Allocations');
+
+    // sheet 5 — Repairs
+    const wsRepairs = XLSX.utils.json_to_sheet(
+      repairs.map((r) => ({
+        'Asset Code': r.assetCode,
+        'Asset Name': r.assetName,
+        'Item ID': r.itemId,
+        'Repair Count': r.repairCount,
+        'Total Repair Cost': r.totalRepairCost,
+        'Last Repair Date': r.lastRepairDate?.toISOString().split('T')[0] ?? '',
+        'Last Resolved Status': r.lastResolvedStatus ?? '',
+        'Maintenance Notes': r.maintenanceNotes ?? '',
+      })),
+    );
+    XLSX.utils.book_append_sheet(wb, wsRepairs, 'Repairs');
+
+    // sheet 6 — Kits
+    const wsKits = XLSX.utils.json_to_sheet(
+      kits.map((r) => ({
+        'Kit ID': r.kitId,
+        'Template Name': r.templateName,
+        Status: r.kitStatus,
+        'Item Count': r.itemCount,
+        Items: r.items,
+        'Allocated To': r.allocatedTo ?? '',
+        'Status Consistency': r.statusConsistency,
+      })),
+    );
+    XLSX.utils.book_append_sheet(wb, wsKits, 'Kits');
+
+    // sheet 7 — Audit Logs
+    const wsAudit = XLSX.utils.json_to_sheet(
+      audit.map((r) => ({
+        Timestamp: r.timestamp.toISOString(),
+        Actor: r.actor,
+        Action: r.action,
+        'Entity Type': r.entityType,
+        'Entity ID': r.entityId,
+        Before: r.before,
+        After: r.after,
+      })),
+    );
+    XLSX.utils.book_append_sheet(wb, wsAudit, 'Audit Logs');
+
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    return buf as Buffer;
+  }
+
+  async generatePdfReport(): Promise<Buffer> {
+    const [summary, inventory, financial, allocations, repairs, kits, audit] =
+      await Promise.all([
+        this.loadExportSummary(),
+        this.loadExportInventory(),
+        this.loadExportFinancial(),
+        this.loadExportAllocations(),
+        this.loadExportRepairs(),
+        this.loadExportKits(),
+        this.loadExportAudit(),
+      ]);
+
+    return new Promise<Buffer>((resolve, reject) => {
+      const doc = new PDFDocument({
+        size: 'A4',
+        layout: 'landscape',
+        margin: 40,
+        bufferPages: true,
+        info: {
+          Title: 'Asset Storage Report',
+          Author: 'Asset Management System',
+        },
+      });
+
+      const chunks: Buffer[] = [];
+      doc.on('data', (c: Buffer) => chunks.push(c));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const PAGE_W = doc.page.width - 80;
+      const headerColor = '#1e40af';
+      const lightBg = '#f0f4ff';
+
+      const addSectionTitle = (title: string) => {
+        doc
+          .moveDown(1)
+          .font('Helvetica-Bold')
+          .fontSize(16)
+          .fillColor(headerColor)
+          .text(title, { underline: true })
+          .moveDown(0.5);
+      };
+
+      const addKV = (label: string, value: string | number) => {
+        doc
+          .font('Helvetica-Bold')
+          .fontSize(10)
+          .fillColor('#374151')
+          .text(`${label}: `, { continued: true })
+          .font('Helvetica')
+          .text(String(value));
+      };
+
+      const drawTable = (
+        headers: string[],
+        rows: string[][],
+        colWidths?: number[],
+      ) => {
+        const cols = headers.length;
+        const widths = colWidths ?? headers.map(() => Math.floor(PAGE_W / cols));
+        const rowH = 18;
+        let y = doc.y;
+
+        doc.font('Helvetica-Bold').fontSize(8).fillColor('#ffffff');
+        let x = 40;
+        for (let c = 0; c < cols; c++) {
+          doc
+            .save()
+            .rect(x, y, widths[c], rowH)
+            .fill(headerColor)
+            .restore()
+            .fillColor('#ffffff')
+            .text(headers[c], x + 3, y + 4, {
+              width: widths[c] - 6,
+              height: rowH,
+              ellipsis: true,
+            });
+          x += widths[c];
+        }
+        y += rowH;
+
+        // body
+        doc.font('Helvetica').fontSize(7).fillColor('#1f2937');
+        for (let r = 0; r < rows.length; r++) {
+          if (y + rowH > doc.page.height - 40) {
+            doc.addPage();
+            y = 40;
+          }
+          x = 40;
+          const bg = r % 2 === 0 ? lightBg : '#ffffff';
+          for (let c = 0; c < cols; c++) {
+            doc
+              .save()
+              .rect(x, y, widths[c], rowH)
+              .fill(bg)
+              .restore()
+              .fillColor('#1f2937')
+              .text(rows[r]?.[c] ?? '', x + 3, y + 4, {
+                width: widths[c] - 6,
+                height: rowH,
+                ellipsis: true,
+              });
+            x += widths[c];
+          }
+          y += rowH;
+        }
+
+        doc.y = y + 4;
+      };
+
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(28)
+        .fillColor(headerColor)
+        .text('Asset Storage Report', { align: 'center' })
+        .moveDown(0.5)
+        .fontSize(12)
+        .font('Helvetica')
+        .fillColor('#6b7280')
+        .text(`Generated: ${new Date().toISOString().split('T')[0]}`, {
+          align: 'center',
+        })
+        .text('Asset Management System', { align: 'center' });
+
+      doc.addPage();
+      addSectionTitle('1. Executive Summary');
+
+      addKV('Total Asset Models', summary.totalAssetModels);
+      addKV('Total Physical Units', summary.totalPhysicalUnits);
+      addKV('Total Asset Kits', summary.totalKits);
+      addKV('Total Value', summary.totalValue.toLocaleString());
+      addKV('Total Repair Cost', summary.totalRepairCost.toLocaleString());
+
+      doc.moveDown(0.5);
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('#374151').text('Items by Status:');
+      for (const [s, c] of Object.entries(summary.itemsByStatus)) addKV(`  ${s}`, c);
+
+      doc.moveDown(0.3);
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('#374151').text('Assets by Status:');
+      for (const [s, c] of Object.entries(summary.assetsByStatus)) addKV(`  ${s}`, c);
+
+      doc.moveDown(0.3);
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('#374151').text('Kits by Status:');
+      for (const [s, c] of Object.entries(summary.kitsByStatus)) addKV(`  ${s}`, c);
+
+      doc.addPage();
+      addSectionTitle('2. Inventory Overview');
+      {
+        const headers = [
+          'Code', 'Name', 'Category', 'Item ID', 'Status',
+          'Location', 'Kit?', 'Cost', 'Acquired', 'Allocated To', 'Dep. Method',
+        ];
+        const colW = [55, 80, 65, 70, 55, 80, 30, 55, 60, 80, 70];
+        const rows = inventory.map((r) => [
+          r.assetCode,
+          r.assetName,
+          r.category,
+          r.itemId.substring(0, 8),
+          r.status,
+          r.location,
+          r.inKit ? 'Y' : 'N',
+          r.cost.toLocaleString(),
+          r.acquiredAt?.toISOString().split('T')[0] ?? '',
+          r.allocatedTo ?? '',
+          r.depreciationMethod ?? '',
+        ]);
+        drawTable(headers, rows, colW);
+      }
+
+      doc.addPage();
+      addSectionTitle('3. Financial Data');
+      {
+        const headers = [
+          'Code', 'Name', 'Item ID', 'Orig. Cost', 'Salvage',
+          'Life (mo)', 'Method', 'Acc. Dep.', 'Book Value', 'Repair $', 'Net Value',
+        ];
+        const colW = [55, 80, 65, 60, 50, 45, 65, 60, 60, 55, 55];
+        const rows = financial.map((r) => [
+          r.assetCode,
+          r.assetName,
+          r.itemId.substring(0, 8),
+          r.originalCost.toLocaleString(),
+          r.salvageValue.toLocaleString(),
+          r.lifeMonths?.toString() ?? '',
+          r.depreciationMethod ?? '',
+          r.accumulatedDepreciation.toLocaleString(),
+          r.currentBookValue.toLocaleString(),
+          r.totalRepairCost.toLocaleString(),
+          r.netAssetValue.toLocaleString(),
+        ]);
+        drawTable(headers, rows, colW);
+      }
+
+      doc.addPage();
+      addSectionTitle('4. Allocation / Usage');
+      {
+        const headers = [
+          'Code', 'Name', 'Item ID', 'Status', 'Allocated To',
+          'Department', 'Allocated At', 'Due Date', 'Overdue',
+        ];
+        const colW = [60, 90, 70, 60, 90, 75, 75, 75, 50];
+        const rows = allocations.map((r) => [
+          r.assetCode,
+          r.assetName,
+          r.itemId.substring(0, 8),
+          r.status,
+          r.allocatedToUser ?? '',
+          r.department ?? '',
+          r.allocatedAt?.toISOString().split('T')[0] ?? '',
+          r.borrowDueDate?.toISOString().split('T')[0] ?? '',
+          r.overdue ? 'YES' : '',
+        ]);
+        drawTable(headers, rows, colW);
+      }
+
+      doc.addPage();
+      addSectionTitle('5. Maintenance & Repairs');
+      {
+        const headers = [
+          'Code', 'Name', 'Item ID', 'Repairs', 'Total Cost',
+          'Last Repair', 'Resolved Status', 'Notes',
+        ];
+        const colW = [60, 90, 70, 50, 65, 75, 80, 160];
+        const rows = repairs.map((r) => [
+          r.assetCode,
+          r.assetName,
+          r.itemId.substring(0, 8),
+          r.repairCount.toString(),
+          r.totalRepairCost.toLocaleString(),
+          r.lastRepairDate?.toISOString().split('T')[0] ?? '',
+          r.lastResolvedStatus ?? '',
+          r.maintenanceNotes ?? '',
+        ]);
+        drawTable(headers, rows, colW);
+      }
+
+      doc.addPage();
+      addSectionTitle('6. Kit Overview');
+      {
+        const headers = [
+          'Kit ID', 'Template', 'Status', 'Items', 'Included Items',
+          'Allocated To', 'Consistency',
+        ];
+        const colW = [70, 90, 60, 40, 210, 90, 80];
+        const rows = kits.map((r) => [
+          r.kitId.substring(0, 8),
+          r.templateName,
+          r.kitStatus,
+          r.itemCount.toString(),
+          r.items,
+          r.allocatedTo ?? '',
+          r.statusConsistency,
+        ]);
+        drawTable(headers, rows, colW);
+      }
+
+      /* ── 7. Audit Logs ── */
+      doc.addPage();
+      addSectionTitle('7. Audit Logs (Recent)');
+      {
+        const headers = ['Timestamp', 'Actor', 'Action', 'Entity', 'Entity ID'];
+        const colW = [110, 100, 120, 90, 220];
+        const rows = audit.slice(0, 200).map((r) => [
+          r.timestamp.toISOString(),
+          r.actor,
+          r.action,
+          r.entityType,
+          r.entityId,
+        ]);
+        drawTable(headers, rows, colW);
+      }
+
+      doc.end();
+    });
+  }
+
+  async exportStorageReport(
+    format: string,
+  ): Promise<{ buffer: Buffer; contentType: string; filename: string }> {
+    const generators: Record<
+      string,
+      () => Promise<{ buffer: Buffer; contentType: string; filename: string }>
+    > = {
+      pdf: async () => ({
+        buffer: await this.generatePdfReport(),
+        contentType: 'application/pdf',
+        filename: `asset-report-${Date.now()}.pdf`,
+      }),
+      excel: async () => ({
+        buffer: await this.generateExcelReport(),
+        contentType:
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        filename: `asset-report-${Date.now()}.xlsx`,
+      }),
+    };
+
+    const generator = generators[format?.toLowerCase()];
+
+    if (!generator) {
+      throw new BadRequestException(
+        'Unsupported format. Use "pdf" or "excel".',
+      );
+    }
+
+    return generator();
   }
 }

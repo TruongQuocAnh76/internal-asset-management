@@ -13,6 +13,9 @@ import { KitsModule } from './packages/kits/kits.module';
 import { DepreciationModule } from './packages/assets/cron/depreciation/depreciation.module';
 import { MailModule } from './core/mail/mail.module';
 import { NotificationsModule } from './packages/requests/cron/notifications/notifications.module';
+import { PurchaseRequestsController } from './packages/purchase-requests/purchase-requests.controller';
+import { PurchaseRequestsService } from './packages/purchase-requests/purchase-requests.service';
+import { PurchaseRequestsModule } from './packages/purchase-requests/purchase-requests.module';
 
 @Module({
   imports: [
@@ -33,8 +36,9 @@ import { NotificationsModule } from './packages/requests/cron/notifications/noti
     DepreciationModule,
     MailModule,
     NotificationsModule,
+    PurchaseRequestsModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, PurchaseRequestsController],
+  providers: [AppService, PurchaseRequestsService],
 })
 export class AppModule {}

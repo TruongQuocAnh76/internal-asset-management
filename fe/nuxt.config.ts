@@ -1,5 +1,5 @@
 export default defineNuxtConfig({
-  extends: ['./app/auth', './app/home', './app/assets', './app/requests', './app/kits'],  
+  extends: ['./app/auth', './app/home', './app/assets', './app/requests', './app/kits', './app/purchase-requests'],  
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
   modules: ['@nuxtjs/tailwindcss'],
@@ -15,7 +15,8 @@ export default defineNuxtConfig({
       '~/app/home/components',
       '~/app/assets/components',
       '~/app/requests/components',
-      '~/app/kits/components'
+      '~/app/kits/components',
+      '~/app/purchase-requests/components'
     ]
   },
   devServer: {
