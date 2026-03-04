@@ -6,9 +6,10 @@ import {
   Put,
   Query,
   Post,
+  Res,
   UseGuards,
-  Delete,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { AssetsService } from './assets.service';
 import { SessionAuthGuard } from 'src/core/auth/guards/session-auth.guard';
 import {
@@ -30,7 +31,9 @@ import {
 
 @Controller('assets')
 export class AssetsController {
-  constructor(private readonly assetsService: AssetsService) {}
+  constructor(
+    private readonly assetsService: AssetsService,
+  ) {}
 
   @Get()
   @UseGuards(SessionAuthGuard)
@@ -38,6 +41,23 @@ export class AssetsController {
     @Query(new ZodValidationPipe(getAssetsParamsSchema)) query: GetAssetsParams,
   ) {
     return this.assetsService.getAssets(query);
+  }
+
+  @Get('export')
+  @UseGuards(SessionAuthGuard)
+  async exportAssets(
+    @Query('format') format: string,
+    @Res() res: Response,
+  ) {
+    const { buffer, contentType, filename } =
+      await this.assetsService.exportStorageReport(format);
+
+    res.set({
+      'Content-Type': contentType,
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': buffer.length,
+    });
+    res.end(buffer);
   }
 
   @Get('summary')

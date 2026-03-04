@@ -102,6 +102,24 @@ export const useAssets = () => {
     return data
   }
 
+  const exportAssets = async (format: 'pdf' | 'excel') => {
+    const url = `${config.public.backendUrl}/assets/export?format=${format}`
+    const res = await $fetch.raw(url, {
+      method: 'GET',
+      credentials: 'include',
+      responseType: 'blob',
+    })
+    const blob = res._data as Blob
+    const ext = format === 'pdf' ? 'pdf' : 'xlsx'
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `asset-report-${Date.now()}.${ext}`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(link.href)
+  }
+
   return {
     getAllAssets,
     getAssetById,
@@ -110,5 +128,6 @@ export const useAssets = () => {
     updateAsset,
     updateAssetStatus,
     getCategories,
+    exportAssets,
   }
 }
