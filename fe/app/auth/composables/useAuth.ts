@@ -60,9 +60,9 @@ export const useAuth = () => {
             credentials: 'include'
         })
     } catch (error) {
-        // temporarily invalidate user cache
         user.value = null
     } finally {
+        user.value = null
         checked.value = false
     }
     }
