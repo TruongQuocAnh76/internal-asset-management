@@ -23,24 +23,24 @@ enum AssetStatus {
 }
 
 model Assets {
-  id          String   @id @default(uuid()) @db.Uuid
-  code        String   @unique
-  name        String
-  category_id String   @db.Uuid
-  image_urls  String[]
-  salvage_value BigInt?
-  life_months Int?
+  id                   String              @id @default(uuid()) @db.Uuid
+  code                 String              @unique
+  name                 String
+  category_id          String              @db.Uuid
+  image_urls           String[]
+  salvage_value        BigInt?
+  life_months          Int?
   decline_balance_rate Int?
-  depreciation_method DepreciationMethod?
-  acquired_at DateTime @default(now())
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  depreciation_method  DepreciationMethod?
+  acquired_at          DateTime            @default(now())
+  created_at           DateTime            @default(now())
+  updated_at           DateTime            @updatedAt
 
   asset_specs        AssetsSpecs?
   asset_events       AssetsEvents[]     @relation("AssetToEvents")
   category           AssetsCategories   @relation(fields: [category_id], references: [id])
   asset_allocation   AssetsAllocation[]
-  status             AssetStatus      @default(READY)
+  status             AssetStatus        @default(READY)
   borrow_requests    BorrowRequests[]
   kit_template_items KitTemplateItems[]
   // assets_kits_items AssetsKitsItems[]
@@ -80,12 +80,13 @@ model AssetsCategories {
   code String @unique
   name String
 
-  salvage_value BigInt?
-  default_life_months Int?
-  decline_balance_rate Int?
+  salvage_value               BigInt?
+  default_life_months         Int?
+  decline_balance_rate        Int?
   default_depreciation_method DepreciationMethod?
 
-  assets Assets[]
+  assets          Assets[]
+  PurchaseRequest PurchaseRequest[]
 }
 
 model AssetsSpecs {
@@ -112,13 +113,13 @@ model AssetsEvents {
 }
 
 model AssetRepairs {
-  id             String   @id @default(uuid()) @db.Uuid
-  asset_item_id  String   @db.Uuid
-  cost           BigInt
-  description    String?
+  id              String      @id @default(uuid()) @db.Uuid
+  asset_item_id   String      @db.Uuid
+  cost            BigInt
+  description     String?
   resolved_status AssetStatus @default(READY)
-  created_at     DateTime @default(now())
-  asset_item AssetItems @relation(fields: [asset_item_id], references: [id])
+  created_at      DateTime    @default(now())
+  asset_item      AssetItems  @relation(fields: [asset_item_id], references: [id])
 }
 
 model AssetsKits {
@@ -164,9 +165,9 @@ model KitTemplateItems {
 
 model AssetsAllocation {
   id       String @id @default(uuid()) @db.Uuid
-  asset_id String @db.Uuid @unique
+  asset_id String @unique @db.Uuid
 
-  kit_id  String? @db.Uuid @unique
+  kit_id  String? @unique @db.Uuid
   user_id String? @db.Uuid
 
   allocated_at DateTime  @default(now())
@@ -201,6 +202,7 @@ model Users {
   audit_logs        AuditLogs[]
   asset_allocations AssetsAllocation[]
   borrow_requests   BorrowRequests[]
+  PurchaseRequest   PurchaseRequest[]
 }
 
 model Roles {
@@ -281,6 +283,29 @@ model BorrowRequests {
   @@index([status, due_date])
 }
 
+enum PurchaseRequestStatus {
+  SUBMITTED
+  TL_APPROVED
+  BOD_APPROVED
+  REJECTED
+  RECEIVED
+}
+
+model PurchaseRequest {
+  id                String   @id @default(uuid()) @db.Uuid
+  reason            String?
+  asset_category_id String   @db.Uuid
+  specs             Json
+  requested_by      String   @db.Uuid
+  requested_at      DateTime @default(now())
+  estimated_cost    BigInt
+  quantity          Int     @default(1)
+  status            PurchaseRequestStatus @default(SUBMITTED)
+
+  category AssetsCategories @relation(fields: [asset_category_id], references: [id])
+  user     Users            @relation(fields: [requested_by], references: [id])
+}
+
 enum Entity {
   ASSET
   ASSET_KIT
@@ -309,4 +334,6 @@ model Session {
   sid       String   @unique
   data      String
   expiresAt DateTime
+  // createdAt DateTime @default(now())
+  // updatedAt DateTime @updatedAt
 }

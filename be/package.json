@@ -26,7 +26,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "prisma": {
-    "seed": "ts-node --transpile-only src/core/database/seed.ts",
+    "seed": "ts-node --project tsconfig.json --transpile-only src/core/database/seed.ts",
     "generate": "prisma generate --schema src/core/database/schema.prisma"
   },
   "dependencies": {
@@ -43,6 +43,7 @@
     "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "6.15.0",
     "@quixo3/prisma-session-store": "^3.1.19",
+    "@types/pdfkit": "^0.17.5",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.70.1",
     "express-session": "^1.19.0",
@@ -51,10 +52,12 @@
     "nodemailer": "^8.0.1",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
+    "pdfkit": "^0.17.2",
     "pg": "^8.17.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1",
+    "xlsx": "^0.18.5",
     "zod": "^4.3.6"
   },
   "devDependencies": {
