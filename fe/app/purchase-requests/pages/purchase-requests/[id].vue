@@ -24,6 +24,7 @@ const showReceiveForm = ref(false)
 
 // Permissions
 const canTlApprove = computed(() => {
+  console.log(user.value.permissions); 
   return (
     purchaseRequest.value?.status === 'SUBMITTED' &&
     user.value?.permissions?.includes('purchase-requests:tl-approve')
