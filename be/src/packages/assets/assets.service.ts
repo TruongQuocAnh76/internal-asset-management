@@ -197,8 +197,9 @@ export class AssetsService {
     }));
   }
 
-  async createAsset(body: CreateAssetDto, userId: string) {
-    const category = await this.checkCategory(body.category_name);
+  async createAsset(body: CreateAssetDto, tx?: Prisma.TransactionClient) {
+    const db = tx ?? this.prisma;
+    const category = await this.checkCategory(body.category_name, db);
     if (!category) {
       throw new BadRequestException('Category not found');
     }
@@ -235,7 +236,7 @@ export class AssetsService {
     //   this.storageService.getUrl(fileName),
     // );
 
-    const createdAsset = await this.prisma.assets.create({
+    const createdAsset = await db.assets.create({
       data: {
         ...rest,
         code: asset_code,
@@ -266,7 +267,7 @@ export class AssetsService {
     });
 
     // Recompute cached asset status
-    await this.recomputeAssetStatus(createdAsset.id, null, AssetStatus.READY);
+    await this.recomputeAssetStatus(createdAsset.id, null, AssetStatus.READY, db);
 
     return { createdAsset, tempImageUrls };
   }
@@ -304,8 +305,9 @@ export class AssetsService {
     return asset;
   }
 
-  protected async checkCategory(category_name: string) {
-    return await this.prisma.assetsCategories.findFirst({
+  protected async checkCategory(category_name: string, db?: Prisma.TransactionClient | PrismaService) {
+    const client = db ?? this.prisma;
+    return await client.assetsCategories.findFirst({
       where: { name: category_name },
     });
   }

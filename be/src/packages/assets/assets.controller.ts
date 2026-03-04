@@ -100,7 +100,7 @@ export class AssetsController {
     @Body(new ZodValidationPipe(CreateAssetDtoSchema)) body: CreateAssetDto,
     @CurrentUser('id') userId: string,
   ) {
-    return this.assetsService.createAsset(body, userId);
+    return this.assetsService.createAsset(body);
   }
 
   @Post('maintenance/repair')

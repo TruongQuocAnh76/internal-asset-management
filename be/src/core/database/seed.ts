@@ -27,6 +27,10 @@ const ids = {
   permRequestProvidedId: randomUUID(),
   permAssetCreateId: randomUUID(),
   permAssetMaintenanceId: randomUUID(),
+  permPurchaseRequestTlApproveId: randomUUID(),
+  permPurchaseRequestBodApproveId: randomUUID(),
+  permPurchaseRequestRejectId: randomUUID(),
+  permPurchaseRequestReceiveId: randomUUID(),
 
   // Categories
   categoryLaptopId: randomUUID(),
@@ -165,6 +169,50 @@ async function main() {
     },
   });
 
+  const permissionPurchaseRequestTlApprove = await prisma.permissions.upsert({
+    where: { name: 'purchase-requests:tl-approve' },
+    update: {},
+    create: {
+      id: ids.permPurchaseRequestTlApproveId,
+      name: 'purchase-requests:tl-approve',
+      resource: 'purchase_requests_tl_approve',
+      action: 'purchase_request_tl_approve',
+    },
+  });
+
+  const permissionPurchaseRequestBodApprove = await prisma.permissions.upsert({
+    where: { name: 'purchase-requests:bod-approve' },
+    update: {},
+    create: {
+      id: ids.permPurchaseRequestBodApproveId,
+      name: 'purchase-requests:bod-approve',
+      resource: 'purchase_requests_bod_approve',
+      action: 'purchase_request_bod_approve',
+    },
+  });
+
+  const permissionPurchaseRequestReject = await prisma.permissions.upsert({
+    where: { name: 'purchase-requests:reject' },
+    update: {},
+    create: {
+      id: ids.permPurchaseRequestRejectId,
+      name: 'purchase-requests:reject',
+      resource: 'purchase_requests_reject',
+      action: 'purchase_request_reject',
+    },
+  });
+
+  const permissionPurchaseRequestReceive = await prisma.permissions.upsert({
+    where: { name: 'purchase-requests:receive' },
+    update: {},
+    create: {
+      id: ids.permPurchaseRequestReceiveId,
+      name: 'purchase-requests:receive',
+      resource: 'purchase_requests_receive',
+      action: 'purchase_request_receive',
+    },
+  });
+
   // ── Users ─────────────────────────────────────────────────────────
   const adminUser = await prisma.users.upsert({
     where: { email: 'admin@asset.local' },
@@ -230,6 +278,9 @@ async function main() {
     permissionRequestApprove.id,
     permissionAssetCreate.id,
     permissionAssetMaintenance.id,
+    permissionPurchaseRequestBodApprove.id,
+    permissionPurchaseRequestReject.id,
+    permissionPurchaseRequestReceive.id,
   ];
   for (const permission_id of adminPermissions) {
     await prisma.rolePermissions.upsert({
@@ -239,16 +290,22 @@ async function main() {
     });
   }
 
-  await prisma.rolePermissions.upsert({
-    where: {
-      role_id_permission_id: {
-        role_id: teamLeadRole.id,
-        permission_id: permissionRequestApprove.id,
+  for (const permission_id of [
+    permissionRequestApprove.id,
+    permissionPurchaseRequestTlApprove.id,
+    permissionPurchaseRequestReject.id,
+  ]) {
+    await prisma.rolePermissions.upsert({
+      where: {
+        role_id_permission_id: {
+          role_id: teamLeadRole.id,
+          permission_id,
+        },
       },
-    },
-    update: {},
-    create: { role_id: teamLeadRole.id, permission_id: permissionRequestApprove.id },
-  });
+      update: {},
+      create: { role_id: teamLeadRole.id, permission_id },
+    });
+  }
 
   // ── Asset Categories ──────────────────────────────────────────────
   const laptopCategory = await prisma.assetsCategories.upsert({
