@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import KitsHeader from '../../components/KitsHeader.vue'
-import KitKPICards from '../../components/KitKPICards.vue'
 import KitFilters from '../../components/KitFilters.vue'
 import KitTable from '../../components/KitTable.vue'
 import KitCards from '../../components/KitCards.vue'
@@ -13,11 +12,11 @@ definePageMeta({
   layout: 'default',
 })
 import ViewToggle from '../../components/ViewToggle.vue'
-import type { Kit, GetKitsParams, KitKPIs } from '../../types/kit.types'
+import type { Kit, GetKitsParams } from '../../types/kit.types'
 import { useKits } from '../../composables/useKits'
 import { useBulkOperations } from '../../composables/useBulkOperations'
 
-const { getKits, getKitKPIs, getCategories, exportKits } = useKits()
+const { getKits, getCategories } = useKits()
 const {
   selectedKitIds,
   isProcessing,
@@ -50,18 +49,13 @@ const filters = ref<GetKitsParams>({
 
 // Data state
 const kits = ref<Kit[]>([])
-const kpis = ref<KitKPIs | null>(null)
 const categories = ref<{ name: string }[]>([])
 const totalKits = ref(0)
 const totalPages = ref(1)
 const isLoading = ref(false)
-const isLoadingKPIs = ref(false)
 
 // UI state
 const showKitBuilder = ref(false)
-const activeKPIFilter = ref<'low_stock' | 'recently_modified' | null>(
-  (route.query.filter as 'low_stock' | 'recently_modified') || null
-)
 const viewMode = ref<'table' | 'card'>('table')
 
 // Detect mobile and set default view
@@ -96,21 +90,6 @@ const fetchKits = async () => {
     console.error('Error fetching kits:', err)
   } finally {
     isLoading.value = false
-  }
-}
-
-const fetchKPIs = async () => {
-  isLoadingKPIs.value = true
-  try {
-    const { data, error } = await getKitKPIs()
-    
-    if (!error.value && data.value) {
-      kpis.value = data.value
-    }
-  } catch (err) {
-    console.error('Error fetching KPIs:', err)
-  } finally {
-    isLoadingKPIs.value = false
   }
 }
 
@@ -172,14 +151,6 @@ const handleKitClick = (kit: Kit) => {
   router.push(`/kits/${kit.id}`)
 }
 
-const handleKPIFilter = (filter: 'low_stock' | 'recently_modified' | null) => {
-  activeKPIFilter.value = filter
-  filters.value.filter = filter || undefined
-  filters.value.page = 1
-  updateUrlParams()
-  fetchKits()
-}
-
 const handleCreateKit = () => {
   showKitBuilder.value = true
 }
@@ -187,22 +158,11 @@ const handleCreateKit = () => {
 const handleKitCreated = () => {
   showKitBuilder.value = false
   fetchKits()
-  fetchKPIs()
-}
-
-const handleExport = async () => {
-  if (hasSelection.value) {
-    await exportSelected()
-  } else {
-    // Export all - would need to get all kit IDs
-    console.log('Export all kits')
-  }
 }
 
 const handleBulkArchive = async () => {
   await archive()
   fetchKits()
-  fetchKPIs()
 }
 
 const handleBulkUpdateCategory = async (category: string) => {
@@ -223,7 +183,6 @@ const handleCloseResults = () => {
 // Initialize
 onMounted(() => {
   fetchKits()
-  fetchKPIs()
   fetchCategories()
 })
 
@@ -238,7 +197,6 @@ watch(() => route.query, () => {
     page: Number(route.query.page) || 1,
     limit: Number(route.query.limit) || 10,
   }
-  activeKPIFilter.value = (route.query.filter as 'low_stock' | 'recently_modified') || null
   fetchKits()
 })
 </script>
@@ -253,15 +211,6 @@ watch(() => route.query, () => {
           :loading="isLoading"
           :selected-count="selectedCount"
           @create-kit="handleCreateKit"
-          @export="handleExport"
-        />
-
-        <!-- KPIs -->
-        <KitKPICards
-          :kpis="kpis"
-          :loading="isLoadingKPIs"
-          :active-filter="activeKPIFilter"
-          @filter="handleKPIFilter"
         />
 
         <!-- Filters with View Toggle -->

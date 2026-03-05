@@ -3,6 +3,7 @@ import * as bcrypt from 'bcrypt';
 import { UsersService } from 'src/packages/users/users.service';
 import { SignupDto } from './dto/signup.dto';
 import { PrismaService } from '../database/prisma.service';
+import { DeploymentStatus } from '@prisma/client';
 @Injectable()
 export class AuthService {
   constructor(
@@ -14,6 +15,16 @@ export class AuthService {
       req.body.credential,
       req.body.password,
     );
+
+    if (user.status !== DeploymentStatus.ACTIVE) {
+      throw new HttpException(
+        {
+          status: 403,
+          error: 'User account is not active',
+        },
+        403,
+      );
+    }
 
     await new Promise((resolve, reject) => {
       req.login(user, (err) => {

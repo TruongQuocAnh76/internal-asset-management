@@ -166,7 +166,7 @@ const onCancel = () => {
           </div>
 
           <!-- Location -->
-          <div class="input-group">
+          <div v-if="mode === 'create'" class="input-group">
             <label for="location_name" class="label">
               Location <span v-if="mode === 'create'" class="text-danger-500">*</span>
             </label>
@@ -182,7 +182,7 @@ const onCancel = () => {
           </div>
 
           <!-- Cost -->
-          <div class="input-group">
+          <div v-if="mode === 'create'" class="input-group">
             <label for="costs" class="label">
               Cost (USD)
             </label>
