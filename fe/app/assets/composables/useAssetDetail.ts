@@ -1,7 +1,6 @@
 import type { Asset, AssetItem, AssetStatus, StateTransition } from '../types/asset.types'
 import { useAssets } from './useAssets'
 import { useMaintenance } from './useMaintenance'
-import { useAuth } from '../../auth/composables/useAuth'
 
 // Define allowed state transitions
 const STATE_TRANSITIONS: Record<AssetStatus, StateTransition[]> = {
@@ -10,7 +9,6 @@ const STATE_TRANSITIONS: Record<AssetStatus, StateTransition[]> = {
     { from: 'READY', to: 'MAINTAINANCE', label: 'Send to Maintenance', description: 'Schedule this asset for maintenance', requiresReason: true, color: 'warning' },
   ],
   IN_USE: [
-    { from: 'IN_USE', to: 'READY', label: 'Return to Available', description: 'Make this asset available for use', requiresReason: false, color: 'success' },
     { from: 'IN_USE', to: 'MAINTAINANCE', label: 'Send to Maintenance', description: 'Schedule this asset for maintenance', requiresReason: true, color: 'warning' },
     { from: 'IN_USE', to: 'BROKEN', label: 'Mark as Broken', description: 'Report this asset as broken or damaged', requiresReason: true, color: 'danger' },
   ],
@@ -28,7 +26,6 @@ const STATE_TRANSITIONS: Record<AssetStatus, StateTransition[]> = {
 export const useAssetDetail = (assetId: string) => {
   const { getAssetById, getAssetItems, updateAssetStatus } = useAssets()
   const { setMaintenance, resolveMaintenance } = useMaintenance()
-  const { user } = useAuth()
 
   // State
   const asset = ref<Asset | null>(null)
@@ -51,15 +48,7 @@ export const useAssetDetail = (assetId: string) => {
   // Computed
   const availableTransitions = computed(() => {
     if (!asset.value) return []
-    const transitions = STATE_TRANSITIONS[asset.value.status] || []
-
-    // Only show "Return to Available" when the current user is the borrower
-    return transitions.filter((t) => {
-      if (t.from === 'IN_USE' && t.to === 'READY') {
-        return asset.value?.borrower_id === user.value?.id
-      }
-      return true
-    })
+    return STATE_TRANSITIONS[asset.value.status] || []
   })
 
   const statusConfig = computed(() => {

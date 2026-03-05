@@ -131,25 +131,18 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
   }
 
   const validateAll = (): boolean => {
-    // For edit mode, require at least one field to have a value
+    // For edit mode, validate only asset-level fields.
     if (mode === 'edit') {
-      const hasAtLeastOneField = 
-        formData.value.name.trim() !== '' ||
-        formData.value.category_name.trim() !== '' ||
-        formData.value.location_name.trim() !== '' ||
-        formData.value.costs > 0
+      if (!formData.value.name.trim()) {
+        errors.value.name = 'Name is required'
+        return false
+      }
 
-      if (!hasAtLeastOneField) {
-        errors.value.general = 'At least one field must be filled'
+      if (!formData.value.category_name.trim()) {
+        errors.value.category_name = 'Category is required'
         return false
       }
-      
-      // Only validate costs if provided
-      if (formData.value.costs < 0) {
-        errors.value.costs = 'Cost cannot be negative'
-        return false
-      }
-      
+
       return true
     }
 
@@ -186,7 +179,17 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
         // Return result so form can upload images
         return result
       } else if (mode === 'edit' && assetId) {
-        await updateAsset(assetId, formData.value)
+        const payload: Partial<AssetFormData> = {
+          name: formData.value.name,
+          category_name: formData.value.category_name,
+          specs: formData.value.specs,
+          salvage_value: formData.value.salvage_value,
+          life_months: formData.value.life_months,
+          decline_balance_rate: formData.value.decline_balance_rate,
+          depreciation_method: formData.value.depreciation_method,
+        }
+
+        await updateAsset(assetId, payload)
         successMessage.value = 'Asset updated successfully'
         return true
       }
@@ -222,25 +225,30 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
   // Computed: check if form has changes (for edit mode)
   const hasChanges = computed(() => {
     if (mode !== 'edit' || !originalAsset.value) return true
+    const originalSpecs = JSON.stringify(originalAsset.value.asset_specs?.specs || {})
+    const currentSpecs = JSON.stringify(formData.value.specs || {})
     
     return (
       formData.value.name !== originalAsset.value.name ||
       formData.value.category_name !== (originalAsset.value.category?.name || '') ||
-      formData.value.status !== originalAsset.value.status
+      formData.value.status !== originalAsset.value.status ||
+      formData.value.salvage_value !== (originalAsset.value.salvage_value ?? null) ||
+      formData.value.life_months !== (originalAsset.value.life_months ?? null) ||
+      formData.value.decline_balance_rate !== (originalAsset.value.decline_balance_rate ?? null) ||
+      formData.value.depreciation_method !== (originalAsset.value.depreciation_method ?? null) ||
+      currentSpecs !== originalSpecs
     )
   })
 
   // Computed: check if form is valid for submit
   const canSubmit = computed(() => {
     if (mode === 'edit') {
-      // For edit mode, require at least one field
-      const hasAtLeastOneField = 
-        formData.value.name.trim() !== '' ||
-        formData.value.category_name.trim() !== '' ||
-        formData.value.location_name.trim() !== '' ||
-        formData.value.costs > 0
-      
-      return hasAtLeastOneField && formData.value.costs >= 0 && !isSaving.value
+      return (
+        formData.value.name.trim() !== '' &&
+        formData.value.category_name.trim() !== '' &&
+        hasChanges.value &&
+        !isSaving.value
+      )
     }
     
     // For create mode, all required fields must be filled

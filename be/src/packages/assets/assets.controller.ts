@@ -28,6 +28,10 @@ import {
   ResolveMaintenanceDtoSchema,
   ResolveMaintenanceDto,
 } from './dto/maintenance.dto';
+import {
+  EditAssetItemDto,
+  EditAssetItemDtoSchema,
+} from './dto/edit-asset-item.dto';
 
 @Controller('assets')
 export class AssetsController {
@@ -111,6 +115,16 @@ export class AssetsController {
     @CurrentUser('id') userId: string,
   ) {
     return this.assetsService.updateAsset(id, body, userId);
+  }
+
+  @Put('items/:itemId')
+  @UseGuards(SessionAuthGuard)
+  updateAssetItem(
+    @Param('itemId') itemId: string,
+    @Body(new ZodValidationPipe(EditAssetItemDtoSchema)) body: EditAssetItemDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.assetsService.updateAssetItem(itemId, body, userId);
   }
 
   @Post()
