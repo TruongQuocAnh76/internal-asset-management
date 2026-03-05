@@ -25,7 +25,6 @@ export class AuthController {
   }
 
   @Post('signup')
-  @UseGuards(AuthGuard('local-signup'))
   async signup(
     @Body(new ZodValidationPipe(SignupDto)) dto: SignupDto,
     @Request() req: Request,
