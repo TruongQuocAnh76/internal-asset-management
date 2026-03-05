@@ -101,10 +101,6 @@ const handleAssetClick = (asset: Asset) => {
   router.push(`/assets/${asset.id}`)
 }
 
-const handleAddAsset = () => {
-  navigateTo('/assets/new')
-}
-
 const showExportModal = ref(false)
 const isExporting = ref(false)
 
@@ -172,7 +168,6 @@ watch(() => route.query, () => {
         <AssetsHeader
           :total-assets="totalAssets"
           :loading="isLoading"
-          @add-asset="handleAddAsset"
           @export="handleExport"
         />
 

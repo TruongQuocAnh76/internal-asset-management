@@ -7,6 +7,7 @@ import { PrismaService } from 'src/core/database/prisma.service';
 import { GetAssetsParams } from './dto/get-assets-params.dto';
 import { AssetStatus, Prisma } from '@prisma/client';
 import { EditAssetDto, EditAssetDtoSchema } from './dto/edit-asset.dto';
+import { EditAssetItemDto, EditAssetItemDtoSchema } from './dto/edit-asset-item.dto';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { StorageService } from 'src/core/storage/storage.service';
 import { DepreciationMethod } from '@prisma/client';
@@ -311,15 +312,67 @@ export class AssetsService {
         ...(life_months !== undefined && { life_months: life_months ?? null }),
         ...(decline_balance_rate !== undefined && { decline_balance_rate: decline_balance_rate ?? null }),
         ...(depreciation_method !== undefined && { depreciation_method: depreciation_method ?? null }),
-        asset_specs: {
-          update: {
-            specs: JSON.parse(JSON.stringify(data.specs ?? {})),
+        ...(specs !== undefined && {
+          asset_specs: {
+            upsert: {
+              update: {
+                specs: JSON.parse(JSON.stringify(specs ?? {})),
+              },
+              create: {
+                specs: JSON.parse(JSON.stringify(specs ?? {})),
+              },
+            },
           },
-        },
+        }),
       },
     });
 
     return asset;
+  }
+
+  async updateAssetItem(itemId: string, body: EditAssetItemDto, userId: string) {
+    const data = EditAssetItemDtoSchema.parse(body);
+
+    try {
+      const updated = await this.prisma.assetItems.update({
+        where: { id: itemId },
+        data: {
+          ...(data.location_name !== undefined && { location_name: data.location_name }),
+          ...(data.costs !== undefined && { costs: BigInt(Math.round(data.costs)) }),
+        },
+        select: {
+          id: true,
+          status: true,
+          location_name: true,
+          costs: true,
+          acquired_at: true,
+          kit_id: true,
+          kit_status: true,
+          created_at: true,
+          updated_at: true,
+          kit: {
+            select: {
+              id: true,
+              template: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return {
+        ...updated,
+        costs: updated.costs ? Number(updated.costs) : null,
+      };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new NotFoundException('Asset item not found');
+      }
+      throw error;
+    }
   }
 
   protected async checkCategory(category_name: string, db?: Prisma.TransactionClient | PrismaService) {
