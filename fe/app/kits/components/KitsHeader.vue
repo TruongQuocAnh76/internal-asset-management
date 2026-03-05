@@ -9,7 +9,6 @@ defineProps<Props>()
 
 const emit = defineEmits<{
   'create-kit': []
-  'export': []
 }>()
 </script>
 
@@ -27,16 +26,6 @@ const emit = defineEmits<{
     </div>
 
     <div class="flex items-center gap-3">
-      <button
-        @click="emit('export')"
-        class="px-4 py-2.5 text-sm font-medium text-secondary-700 bg-white border border-secondary-300 rounded-lg hover:bg-secondary-50 transition-colors flex items-center gap-2"
-      >
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-        </svg>
-        Export
-      </button>
-
       <button
         @click="emit('create-kit')"
         class="px-4 py-2.5 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2 shadow-soft"
