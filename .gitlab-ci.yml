@@ -102,11 +102,11 @@ deploy:
   before_script:
     - apk add --no-cache openssh
     - mkdir -p ~/.ssh
-    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - cp "$SSH_PRIVATE_KEY" ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
   script:
     - scp -o StrictHostKeyChecking=no $FE_ENV_FILE $SERVER_USER@$SERVER_IP:~/asset-management-monorepo/fe/.env
     - scp -o StrictHostKeyChecking=no $ENV_FILE $SERVER_USER@$SERVER_IP:~/asset-management-monorepo/be/.env
-    - ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "GHCR_USERNAME=$GHCR_USERNAME GHCR_TOKEN=$GHCR_TOKEN GHCR_FE_IMAGE=$GHCR_FE_IMAGE GHCR_BE_IMAGE=$GHCR_BE_IMAGE bash ~/deploy.sh"
+    - ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "GHCR_USERNAME=$GHCR_USERNAME GHCR_TOKEN=$GHCR_TOKEN GHCR_FE_IMAGE=$GHCR_FE_IMAGE GHCR_BE_IMAGE=$GHCR_BE_IMAGE bash ./deploy.sh"
   only:
     - main
