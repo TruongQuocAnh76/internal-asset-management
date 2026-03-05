@@ -308,7 +308,7 @@ export class RequestsService {
   async rejectRequest(requestId: string, userId: string) {
     try {
       const updated = await this.prisma.borrowRequests.update({
-        where: { id: requestId, status: BorrowStatus.PENDING },
+        where: { id: requestId, status: { in: [BorrowStatus.PENDING, BorrowStatus.APPROVED] } },
         data: { status: BorrowStatus.REJECTED },
         include: {
           user: { select: { first_name: true, last_name: true, email: true } },
