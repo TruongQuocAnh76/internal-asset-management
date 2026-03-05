@@ -1,4 +1,12 @@
-import type { GetAssetsParams, AssetsResponse, Asset, AssetItem, AssetFormData, AssetStatus } from '../types/asset.types'
+import type {
+  GetAssetsParams,
+  AssetsResponse,
+  Asset,
+  AssetItem,
+  AssetFormData,
+  AssetStatus,
+  AssetItemUpdatePayload,
+} from '../types/asset.types'
 
 export const useAssets = () => {
   const config = useRuntimeConfig()
@@ -92,6 +100,15 @@ export const useAssets = () => {
     })
   }
 
+  const updateAssetItem = async (itemId: string, payload: AssetItemUpdatePayload) => {
+    return await $fetch<AssetItem>(`/assets/items/${itemId}`, {
+      method: 'PUT',
+      baseURL: config.public.backendUrl,
+      credentials: 'include',
+      body: payload,
+    })
+  }
+
   const getCategories = async () => {
     const data = await useFetch<{ id: string; name: string; code: string }[]>('/assets/category/count', {
       method: 'GET',
@@ -102,6 +119,24 @@ export const useAssets = () => {
     return data
   }
 
+  const exportAssets = async (format: 'pdf' | 'excel') => {
+    const url = `${config.public.backendUrl}/assets/export?format=${format}`
+    const res = await $fetch.raw(url, {
+      method: 'GET',
+      credentials: 'include',
+      responseType: 'blob',
+    })
+    const blob = res._data as Blob
+    const ext = format === 'pdf' ? 'pdf' : 'xlsx'
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `asset-report-${Date.now()}.${ext}`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(link.href)
+  }
+
   return {
     getAllAssets,
     getAssetById,
@@ -109,6 +144,8 @@ export const useAssets = () => {
     createAsset,
     updateAsset,
     updateAssetStatus,
+    updateAssetItem,
     getCategories,
+    exportAssets,
   }
 }

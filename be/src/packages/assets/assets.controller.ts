@@ -6,9 +6,10 @@ import {
   Put,
   Query,
   Post,
+  Res,
   UseGuards,
-  Delete,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { AssetsService } from './assets.service';
 import { SessionAuthGuard } from 'src/core/auth/guards/session-auth.guard';
 import {
@@ -27,10 +28,16 @@ import {
   ResolveMaintenanceDtoSchema,
   ResolveMaintenanceDto,
 } from './dto/maintenance.dto';
+import {
+  EditAssetItemDto,
+  EditAssetItemDtoSchema,
+} from './dto/edit-asset-item.dto';
 
 @Controller('assets')
 export class AssetsController {
-  constructor(private readonly assetsService: AssetsService) {}
+  constructor(
+    private readonly assetsService: AssetsService,
+  ) {}
 
   @Get()
   @UseGuards(SessionAuthGuard)
@@ -38,6 +45,23 @@ export class AssetsController {
     @Query(new ZodValidationPipe(getAssetsParamsSchema)) query: GetAssetsParams,
   ) {
     return this.assetsService.getAssets(query);
+  }
+
+  @Get('export')
+  @UseGuards(SessionAuthGuard)
+  async exportAssets(
+    @Query('format') format: string,
+    @Res() res: Response,
+  ) {
+    const { buffer, contentType, filename } =
+      await this.assetsService.exportStorageReport(format);
+
+    res.set({
+      'Content-Type': contentType,
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': buffer.length,
+    });
+    res.end(buffer);
   }
 
   @Get('summary')
@@ -93,6 +117,16 @@ export class AssetsController {
     return this.assetsService.updateAsset(id, body, userId);
   }
 
+  @Put('items/:itemId')
+  @UseGuards(SessionAuthGuard)
+  updateAssetItem(
+    @Param('itemId') itemId: string,
+    @Body(new ZodValidationPipe(EditAssetItemDtoSchema)) body: EditAssetItemDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.assetsService.updateAssetItem(itemId, body, userId);
+  }
+
   @Post()
   @UseGuards(SessionAuthGuard)
   @Permission('asset:create')
@@ -100,7 +134,7 @@ export class AssetsController {
     @Body(new ZodValidationPipe(CreateAssetDtoSchema)) body: CreateAssetDto,
     @CurrentUser('id') userId: string,
   ) {
-    return this.assetsService.createAsset(body, userId);
+    return this.assetsService.createAsset(body);
   }
 
   @Post('maintenance/repair')

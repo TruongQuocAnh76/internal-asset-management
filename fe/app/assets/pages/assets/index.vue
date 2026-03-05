@@ -9,7 +9,7 @@ definePageMeta({
   layout: 'default',
 })
 
-const { getAllAssets } = useAssets()
+const { getAllAssets, exportAssets } = useAssets()
 const route = useRoute()
 const router = useRouter()
 
@@ -101,13 +101,23 @@ const handleAssetClick = (asset: Asset) => {
   router.push(`/assets/${asset.id}`)
 }
 
-const handleAddAsset = () => {
-  navigateTo('/assets/new')
-}
+const showExportModal = ref(false)
+const isExporting = ref(false)
 
 const handleExport = () => {
-  // TODO: Implement export functionality
-  console.log('Export clicked')
+  showExportModal.value = true
+}
+
+const handleExportFormat = async (format: 'pdf' | 'excel') => {
+  isExporting.value = true
+  try {
+    await exportAssets(format)
+  } catch (err) {
+    console.error('Export failed:', err)
+  } finally {
+    isExporting.value = false
+    showExportModal.value = false
+  }
 }
 
 // Fetch assets on mount
@@ -158,7 +168,6 @@ watch(() => route.query, () => {
         <AssetsHeader
           :total-assets="totalAssets"
           :loading="isLoading"
-          @add-asset="handleAddAsset"
           @export="handleExport"
         />
 
@@ -177,6 +186,50 @@ watch(() => route.query, () => {
           @page-change="handlePageChange"
           @asset-click="handleAssetClick"
         />
+
+        <!-- Export Format Modal -->
+        <Teleport to="body">
+          <div
+            v-if="showExportModal"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+            @click.self="showExportModal = false"
+          >
+            <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4">
+              <h2 class="text-lg font-semibold text-secondary-900">Export Asset Report</h2>
+              <p class="text-sm text-secondary-600">Choose a format to download the full storage report.</p>
+              <div class="flex gap-3">
+                <button
+                  :disabled="isExporting"
+                  @click="handleExportFormat('pdf')"
+                  class="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded-lg border border-red-200 text-red-700 bg-red-50 hover:bg-red-100 transition-colors disabled:opacity-50"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                  <span v-if="!isExporting">PDF</span>
+                  <span v-else>Exporting…</span>
+                </button>
+                <button
+                  :disabled="isExporting"
+                  @click="handleExportFormat('excel')"
+                  class="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 transition-colors disabled:opacity-50"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span v-if="!isExporting">Excel</span>
+                  <span v-else>Exporting…</span>
+                </button>
+              </div>
+              <button
+                @click="showExportModal = false"
+                class="w-full text-sm text-secondary-500 hover:text-secondary-700 pt-1"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </Teleport>
       </div>
     </div>
   </div>

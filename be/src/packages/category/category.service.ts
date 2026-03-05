@@ -56,9 +56,9 @@ export class CategoryService {
     });
   }
 
-  update(id: number, updateCategoryDto: UpdateCategoryDto, userId: string) {
+  update(id: string, updateCategoryDto: UpdateCategoryDto, userId: string) {
     return this.prisma.assetsCategories.update({
-      where: { id: id.toString() },
+      where: { id },
       data: {
         name: updateCategoryDto.name,
         ...(updateCategoryDto.salvage_value !== undefined && {

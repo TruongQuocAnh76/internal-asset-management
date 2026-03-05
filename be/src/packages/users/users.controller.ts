@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Delete,
+  ForbiddenException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -22,7 +23,8 @@ export class UsersController {
   @Get('@me')
   @UseGuards(SessionAuthGuard)
   getProfile(@CurrentUser() user: any) {
-    return user;
+    const { password, ...userWithoutPassword } = user;
+    return userWithoutPassword;
   }
 
   @Post()
@@ -40,7 +42,7 @@ export class UsersController {
   @Get(':id')
   @UseGuards(SessionAuthGuard)
   findOne(@Param('id') id: string) {
-    return this.usersService.findOne(+id);
+    return this.usersService.findOne(id);
   }
 
   @Patch(':id')
@@ -48,14 +50,22 @@ export class UsersController {
   update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
-    @CurrentUser('id') userId: string,
+    @CurrentUser() user: any,
   ) {
-    return this.usersService.update(+id, updateUserDto, userId);
+    const isAdmin =
+      user?.user_roles?.some((userRole) => userRole?.role?.name === 'Admin') ||
+      false;
+
+    if (!isAdmin) {
+      throw new ForbiddenException('Only admins can update users');
+    }
+
+    return this.usersService.update(id, updateUserDto, user.id);
   }
 
   @Delete(':id')
   @UseGuards(SessionAuthGuard)
   remove(@Param('id') id: string, @CurrentUser('id') userId: string) {
-    return this.usersService.remove(+id, userId);
+    return this.usersService.remove(id, userId);
   }
 }

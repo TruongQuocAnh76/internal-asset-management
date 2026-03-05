@@ -6,6 +6,8 @@ import StatusActions from '../../../components/StatusActions.vue'
 import StateTransitionModal from '../../../components/StateTransitionModal.vue'
 import MaintenanceTransitionModal from '../../../components/MaintenanceTransitionModal.vue'
 import ImageCarousel from '../../../components/ImageCarousel.vue'
+import { useAssets } from '../../../composables/useAssets'
+import type { AssetItem } from '../../../types/asset.types'
 
 definePageMeta({
   layout: 'default'
@@ -39,6 +41,16 @@ const {
   formatDate
 } = useAssetDetail(id.value)
 
+const { updateAssetItem } = useAssets()
+const itemEditOpen = ref(false)
+const itemEditLoading = ref(false)
+const itemEditError = ref('')
+const selectedItem = ref<AssetItem | null>(null)
+const itemEditForm = ref({
+  location_name: '',
+  costs: 0,
+})
+
 // Load asset on mount
 onMounted(() => {
   loadAsset()
@@ -67,6 +79,50 @@ const handleTransitionSelect = (transition: typeof selectedTransition.value) => 
 
 const handleTransitionConfirm = async (status: string, reason: string) => {
   await confirmTransition()
+}
+
+const openItemEditModal = (item: AssetItem) => {
+  selectedItem.value = item
+  itemEditForm.value = {
+    location_name: item.location_name || '',
+    costs: item.costs || 0,
+  }
+  itemEditError.value = ''
+  itemEditOpen.value = true
+}
+
+const closeItemEditModal = () => {
+  itemEditOpen.value = false
+  itemEditLoading.value = false
+  itemEditError.value = ''
+  selectedItem.value = null
+}
+
+const saveItemEdit = async () => {
+  if (!selectedItem.value) return
+  if (!itemEditForm.value.location_name.trim()) {
+    itemEditError.value = 'Location is required'
+    return
+  }
+  if (itemEditForm.value.costs < 0) {
+    itemEditError.value = 'Cost cannot be negative'
+    return
+  }
+
+  itemEditLoading.value = true
+  itemEditError.value = ''
+  try {
+    await updateAssetItem(selectedItem.value.id, {
+      location_name: itemEditForm.value.location_name.trim(),
+      costs: itemEditForm.value.costs,
+    })
+    await loadAsset()
+    closeItemEditModal()
+  } catch (err: any) {
+    itemEditError.value = err?.data?.message || err?.message || 'Failed to update asset item'
+  } finally {
+    itemEditLoading.value = false
+  }
 }
 </script>
 
@@ -154,6 +210,7 @@ const handleTransitionConfirm = async (status: string, reason: string) => {
                       <th class="px-6 py-3 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">Cost</th>
                       <th class="px-6 py-3 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">Kit</th>
                       <th class="px-6 py-3 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">Acquired</th>
+                      <th class="px-6 py-3 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-secondary-100">
@@ -192,6 +249,15 @@ const handleTransitionConfirm = async (status: string, reason: string) => {
                       </td>
                       <td class="px-6 py-4 whitespace-nowrap">
                         <span class="text-sm text-secondary-600">{{ formatDate(item.acquired_at) }}</span>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <button
+                          type="button"
+                          class="btn-secondary !px-3 !py-1.5 text-xs"
+                          @click="openItemEditModal(item)"
+                        >
+                          Edit
+                        </button>
                       </td>
                     </tr>
                   </tbody>
@@ -269,5 +335,45 @@ const handleTransitionConfirm = async (status: string, reason: string) => {
       @set-maintenance="confirmSetMaintenance"
       @resolve-maintenance="confirmResolveMaintenance"
     />
+
+    <div v-if="itemEditOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/40" @click="closeItemEditModal" />
+      <div class="relative w-full max-w-lg rounded-xl bg-white shadow-lg">
+        <div class="px-6 py-4 border-b border-secondary-200 flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-secondary-900">Edit Asset Item</h3>
+          <button type="button" class="text-secondary-500 hover:text-secondary-700" @click="closeItemEditModal">X</button>
+        </div>
+
+        <form class="p-6 space-y-4" @submit.prevent="saveItemEdit">
+          <p class="text-sm text-secondary-500" v-if="selectedItem">
+            Item ID: <span class="font-mono">{{ selectedItem.id.slice(0, 8) }}…</span>
+          </p>
+
+          <div class="input-group">
+            <label class="label" for="item-location">Location</label>
+            <input id="item-location" v-model="itemEditForm.location_name" type="text" placeholder="Enter location" />
+          </div>
+
+          <div class="input-group">
+            <label class="label" for="item-cost">Cost (USD)</label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">$</span>
+              <input id="item-cost" v-model.number="itemEditForm.costs" type="number" min="0" step="0.01" class="!pl-8" />
+            </div>
+          </div>
+
+          <p v-if="itemEditError" class="text-sm text-danger-600">{{ itemEditError }}</p>
+
+          <div class="pt-2 flex items-center justify-end gap-3">
+            <button type="button" class="btn-secondary" :disabled="itemEditLoading" @click="closeItemEditModal">
+              Cancel
+            </button>
+            <button type="submit" class="btn-primary" :disabled="itemEditLoading">
+              {{ itemEditLoading ? 'Saving...' : 'Save' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>

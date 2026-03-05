@@ -53,7 +53,7 @@ export class CategoryController {
     @Body() updateCategoryDto: UpdateCategoryDto,
     @CurrentUser('id') userId: string,
   ) {
-    return this.categoryService.update(+id, updateCategoryDto, userId);
+    return this.categoryService.update(id, updateCategoryDto, userId);
   }
 
   @Delete(':id')

@@ -88,63 +88,76 @@ export class KitsService {
   }
 
   async createKit(body: CreateKitDto, userId: string) {
-    // check for duplicate template
-    const duplicateTemplateId = await this.checkDuplicateTemplate(body.asset_ids);
+    return this.prisma.$transaction(async (tx) => {
+      // check for duplicate template
+      const duplicateTemplateId = await this.checkDuplicateTemplate(body.asset_ids, tx);
 
-    if (duplicateTemplateId) {
-      // Create another kit instance for the existing template
-      const newKit = await this.prisma.assetsKits.create({
+      if (duplicateTemplateId) {
+        // Create another kit instance for the existing template
+        const newKit = await tx.assetsKits.create({
+          data: {
+            template_id: duplicateTemplateId,
+            status: AssetStatus.READY,
+          },
+          include: KIT_INCLUDE,
+        });
+
+        return newKit;
+      }
+
+      // check asset item status
+      const assets_status = await tx.assets.findMany({
+        where: {
+          id: {
+            in: body.asset_ids,
+          },
+        },
+        select: {
+          id: true,
+          status: true,
+        },
+      });
+
+      // kit status: READY if all assets are READY, otherwise IN_USE
+      const allReady = assets_status.every(
+        (asset) => asset.status === AssetStatus.READY,
+      );
+      const kitStatus = allReady ? AssetStatus.READY : AssetStatus.IN_USE;
+
+      // create template + kit instance
+      const template = await tx.kitTemplates.create({
         data: {
-          template_id: duplicateTemplateId,
-          status: AssetStatus.READY,
+          name: body.name,
+          status: kitStatus,
+          template_items: {
+            createMany: {
+              data: body.asset_ids.map((asset_id) => ({ asset_id })),
+            },
+          },
+        },
+      });
+
+      const newKit = await tx.assetsKits.create({
+        data: {
+          template_id: template.id,
+          status: kitStatus,
         },
         include: KIT_INCLUDE,
       });
 
+      await tx.assetItems.updateMany({
+        where: {
+          asset_id: { in: body.asset_ids },
+          kit_id: null,
+        },
+        data: {
+          kit_id: newKit.id,
+          kit_status: true,
+        },
+      });
+
       return newKit;
-    }
-
-    // check asset item status
-    const assets_status = await this.prisma.assets.findMany({
-      where: {
-        id: {
-          in: body.asset_ids,
-        },
-      },
-      select: {
-        id: true,
-        status: true,
-      },
     });
-
-    // kit status: READY if all assets are READY, otherwise IN_USE
-    const allReady = assets_status.every(
-      (asset) => asset.status === AssetStatus.READY,
-    );
-    const kitStatus = allReady ? AssetStatus.READY : AssetStatus.IN_USE;
-
-    // create template + kit instance
-    const template = await this.prisma.kitTemplates.create({
-      data: {
-        name: body.name,
-        status: kitStatus,
-        template_items: {
-          createMany: {
-            data: body.asset_ids.map((asset_id) => ({ asset_id })),
-          },
-        },
-      },
-    });
-
-    const newKit = await this.prisma.assetsKits.create({
-      data: {
-        template_id: template.id,
-        status: kitStatus,
-      },
-      include: KIT_INCLUDE,
-    });
-
-    return newKit;
   }
 
   async updateKit(id: string, body: UpdateKitDto, userId: string) {
@@ -398,8 +411,12 @@ export class KitsService {
     return newStatus;
   }
 
-  protected async checkDuplicateTemplate(asset_ids: string[]): Promise<string | null> {
-    const templates = await this.prisma.kitTemplates.findMany({
+  protected async checkDuplicateTemplate(
+    asset_ids: string[],
+    tx?: any,
+  ): Promise<string | null> {
+    const client = tx ?? this.prisma;
+    const templates = await client.kitTemplates.findMany({
       include: {
         template_items: {
           select: { asset_id: true },

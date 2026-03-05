@@ -107,9 +107,6 @@ const isPartiallySelected = computed(() => {
               Components
             </th>
             <th class="px-6 py-4 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">
-              Available Kits
-            </th>
-            <th class="px-6 py-4 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">
               Status
             </th>
             <th class="px-6 py-4 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">
@@ -123,7 +120,7 @@ const isPartiallySelected = computed(() => {
             <td v-if="showSelection" class="px-4 py-4">
               <div class="h-4 w-4 bg-secondary-200 animate-pulse rounded"></div>
             </td>
-            <td v-for="j in 5" :key="j" class="px-6 py-4">
+            <td v-for="j in 4" :key="j" class="px-6 py-4">
               <div class="h-5 bg-secondary-200 animate-pulse rounded"></div>
             </td>
           </tr>
@@ -162,14 +159,6 @@ const isPartiallySelected = computed(() => {
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
               <span 
-                class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium border"
-                :class="kit.asset_items?.length > 0 ? 'bg-success-50 border-success-300 text-success-700' : 'bg-secondary-50 border-secondary-300 text-secondary-600'"
-              >
-                {{ kit.asset_items?.length || 0 }} items
-              </span>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <span 
                 class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border"
                 :class="getStatusColor(kit.status)"
               >
@@ -187,7 +176,7 @@ const isPartiallySelected = computed(() => {
 
           <!-- Empty State -->
           <tr v-if="!loading && kits.length === 0">
-            <td :colspan="showSelection ? 6 : 5" class="px-6 py-12 text-center">
+            <td :colspan="showSelection ? 5 : 4" class="px-6 py-12 text-center">
               <div class="flex flex-col items-center justify-center text-secondary-500">
                 <svg class="w-12 h-12 mb-3 text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />

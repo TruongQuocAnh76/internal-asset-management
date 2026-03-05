@@ -62,6 +62,11 @@ export interface AssetFormData {
   depreciation_method?: DepreciationMethod | null
 }
 
+export interface AssetItemUpdatePayload {
+  location_name?: string
+  costs?: number
+}
+
 // State transition types
 export interface StateTransition {
   from: AssetStatus | 'READY'
