@@ -3,6 +3,7 @@ import * as bcrypt from 'bcrypt';
 import { UsersService } from 'src/packages/users/users.service';
 import { SignupDto } from './dto/signup.dto';
 import { PrismaService } from '../database/prisma.service';
+import { DeploymentStatus } from '@prisma/client';
 @Injectable()
 export class AuthService {
   constructor(
@@ -14,6 +15,16 @@ export class AuthService {
       req.body.credential,
       req.body.password,
     );
+
+    if (user.status !== DeploymentStatus.ACTIVE) {
+      throw new HttpException(
+        {
+          status: 403,
+          error: 'User account is not active',
+        },
+        403,
+      );
+    }
 
     await new Promise((resolve, reject) => {
       req.login(user, (err) => {
@@ -106,7 +117,7 @@ export class AuthService {
     return new Promise((resolve, reject) => {
       req.logout((err) => {
         if (err) {
-          reject(
+          return reject(
             new HttpException(
               {
                 status: 500,
@@ -115,13 +126,24 @@ export class AuthService {
               500,
             ),
           );
-
-          req.session.destroy(() => {
-            res.clearCookie('asset.sid');
-          });
-        } else {
-          resolve({ message: 'Signout successful' });
         }
+
+        req.session?.destroy((sessionError) => {
+          if (sessionError) {
+            return reject(
+              new HttpException(
+                {
+                  status: 500,
+                  error: 'Could not clear session',
+                },
+                500,
+              ),
+            );
+          }
+
+          res.clearCookie('asset.sid');
+          resolve({ message: 'Signout successful' });
+        });
       });
     });
   }
