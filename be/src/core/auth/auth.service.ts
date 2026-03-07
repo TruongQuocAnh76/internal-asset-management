@@ -92,24 +92,6 @@ export class AuthService {
       ...dto,
       password: hashedPassword,
     });
-
-    // attach user to session
-    await new Promise((resolve, reject) => {
-      req.login(newUser, (err) => {
-        if (err) {
-          throw new HttpException(
-            {
-              status: 500,
-              error: 'Could not log in user after signup',
-            },
-            500,
-          );
-        } else {
-          resolve(null);
-        }
-      });
-    });
-
     return { id: newUser.id, message: 'Signup successful' };
   }
 

@@ -28,7 +28,7 @@ export interface Asset {
   }
   status: AssetStatus
   stock?: number
-  borrower_id?: string | null
+  borrowerId?: string | null
   acquired_at: string
   image_urls?: string[]
   salvage_value?: number | null
@@ -50,16 +50,16 @@ export interface AssetSpec {
 
 export interface AssetFormData {
   name: string
-  category_name: string
-  location_name: string
+  categoryName: string
+  locationName: string
   status: AssetStatus
   costs: number
-  initial_quantity: number
+  initialQuantity: number
   specs: Record<string, string>
-  salvage_value?: number | null
-  life_months?: number | null
-  decline_balance_rate?: number | null
-  depreciation_method?: DepreciationMethod | null
+  salvageValue?: number | null
+  lifeMonths?: number | null
+  declineBalanceRate?: number | null
+  depreciationMethod?: DepreciationMethod | null
 }
 
 export interface AssetItemUpdatePayload {

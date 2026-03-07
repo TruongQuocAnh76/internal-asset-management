@@ -16,6 +16,7 @@ import { NotificationsModule } from './packages/requests/cron/notifications/noti
 import { PurchaseRequestsController } from './packages/purchase-requests/purchase-requests.controller';
 import { PurchaseRequestsService } from './packages/purchase-requests/purchase-requests.service';
 import { PurchaseRequestsModule } from './packages/purchase-requests/purchase-requests.module';
+import { AuditModule } from './core/audit/audit.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { PurchaseRequestsModule } from './packages/purchase-requests/purchase-re
     MailModule,
     NotificationsModule,
     PurchaseRequestsModule,
+    AuditModule,
   ],
   controllers: [AppController, PurchaseRequestsController],
   providers: [AppService, PurchaseRequestsService],
