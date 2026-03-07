@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useUsers } from '../../composables/useUsers'
+
 definePageMeta({
   layout: 'default',
 })
@@ -15,8 +17,8 @@ type UserSummary = {
   user_roles?: Array<{ role?: { name?: string } }>
 }
 
-const config = useRuntimeConfig()
 const { user } = useAuth()
+const { getUsers, updateUser, createUser } = useUsers()
 const users = ref<UserSummary[]>([])
 const isLoading = ref(true)
 const errorMessage = ref('')
@@ -58,11 +60,7 @@ const loadUsers = async () => {
   errorMessage.value = ''
 
   try {
-    const data = await $fetch<UserSummary[]>('/users', {
-      method: 'GET',
-      baseURL: config.public.backendUrl,
-      credentials: 'include',
-    })
+    const data = await getUsers()
 
     users.value = Array.isArray(data) ? data : []
   } catch (error: any) {
@@ -117,16 +115,10 @@ const saveEdit = async () => {
   errorMessage.value = ''
 
   try {
-    const updatedUser = await $fetch<UserSummary>(`/users/${editingUser.value.id}`, {
-      method: 'PATCH',
-      baseURL: config.public.backendUrl,
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: {
-        role: editForm.value.role,
-        department: editForm.value.department,
-        status: editForm.value.status,
-      },
+    const updatedUser = await updateUser(editingUser.value.id, {
+      role: editForm.value.role,
+      department: editForm.value.department,
+      status: editForm.value.status,
     })
 
     users.value = users.value.map((item) =>
@@ -184,19 +176,13 @@ const submitCreateUser = async () => {
   isCreating.value = true
 
   try {
-    await $fetch('/auth/signup', {
-      method: 'POST',
-      baseURL: config.public.backendUrl,
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: {
-        username,
-        email,
-        first_name: firstName,
-        last_name: lastName,
-        password,
-        department,
-      },
+    await createUser({
+      username,
+      email,
+      first_name: firstName,
+      last_name: lastName,
+      password,
+      department,
     })
 
     createSuccess.value = 'User created successfully!'

@@ -1,5 +1,5 @@
 export default defineNuxtConfig({
-  extends: ['./app/auth', './app/home', './app/assets', './app/requests', './app/kits', './app/purchase-requests', './app/users'],  
+  extends: ['./app/auth', './app/home', './app/assets', './app/requests', './app/kits', './app/purchase-requests', './app/users', './app/audit-logs'],  
   pages: true,
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
@@ -18,7 +18,8 @@ export default defineNuxtConfig({
       '~/app/requests/components',
       '~/app/kits/components',
       '~/app/purchase-requests/components',
-      '~/app/users/components'
+      '~/app/users/components',
+      '~/app/audit-logs/components'
     ]
   },
   devServer: {
