@@ -3,10 +3,10 @@ import { useAssets } from './useAssets'
 
 export interface FormErrors {
   name?: string
-  category_name?: string
-  location_name?: string
+  categoryName?: string
+  locationName?: string
   costs?: string
-  initial_quantity?: string
+  initialQuantity?: string
   general?: string
 }
 
@@ -17,16 +17,16 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
   // Form state
   const formData = ref<AssetFormData>({
     name: '',
-    category_name: '',
-    location_name: '',
+    categoryName: '',
+    locationName: '',
     status: 'READY' as AssetStatus,
     costs: 0,
-    initial_quantity: 1,
+    initialQuantity: 1,
     specs: {},
-    salvage_value: null,
-    life_months: null,
-    decline_balance_rate: null,
-    depreciation_method: null,
+    salvageValue: null,
+    lifeMonths: null,
+    declineBalanceRate: null,
+    depreciationMethod: null,
   })
 
   // UI state
@@ -56,16 +56,16 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
         originalAsset.value = asset
         formData.value = {
           name: asset.name || '',
-          category_name: asset.category?.name || '',
-          location_name: '',
+          categoryName: asset.category?.name || '',
+          locationName: '',
           status: asset.status || 'READY',
           costs: 0,
-          initial_quantity: asset.stock || 1,
+          initialQuantity: asset.stock || 1,
           specs: asset.asset_specs?.specs || {},
-          salvage_value: asset.salvage_value ?? null,
-          life_months: asset.life_months ?? null,
-          decline_balance_rate: asset.decline_balance_rate ?? null,
-          depreciation_method: asset.depreciation_method ?? null,
+          salvageValue: asset.salvage_value ?? null,
+          lifeMonths: asset.life_months ?? null,
+          declineBalanceRate: asset.decline_balance_rate ?? null,
+          depreciationMethod: asset.depreciation_method ?? null,
         }
       }
     } catch (err: any) {
@@ -98,16 +98,16 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
         }
         break
 
-      case 'category_name':
-        if (!formData.value.category_name.trim()) {
-          errors.value.category_name = 'Category is required'
+      case 'categoryName':
+        if (!formData.value.categoryName.trim()) {
+          errors.value.categoryName = 'Category is required'
           return false
         }
         break
 
-      case 'location_name':
-        if (!formData.value.location_name.trim()) {
-          errors.value.location_name = 'Location is required'
+      case 'locationName':
+        if (!formData.value.locationName.trim()) {
+          errors.value.locationName = 'Location is required'
           return false
         }
         break
@@ -119,9 +119,9 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
         }
         break
 
-      case 'initial_quantity':
-        if (formData.value.initial_quantity < 1) {
-          errors.value.initial_quantity = 'Initial quantity must be at least 1'
+      case 'initialQuantity':
+        if (formData.value.initialQuantity < 1) {
+          errors.value.initialQuantity = 'Initial quantity must be at least 1'
           return false
         }
         break
@@ -138,8 +138,8 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
         return false
       }
 
-      if (!formData.value.category_name.trim()) {
-        errors.value.category_name = 'Category is required'
+      if (!formData.value.categoryName.trim()) {
+        errors.value.categoryName = 'Category is required'
         return false
       }
 
@@ -147,7 +147,7 @@ export const useAssetForm = (mode: 'create' | 'edit' = 'create', assetId?: strin
     }
 
     // For create mode, all required fields must be filled
-    const fields: (keyof FormErrors)[] = ['name', 'category_name', 'location_name', 'costs']
+    const fields: (keyof FormErrors)[] = ['name', 'categoryName', 'locationName', 'costs']
     let isValid = true
 
     for (const field of fields) {

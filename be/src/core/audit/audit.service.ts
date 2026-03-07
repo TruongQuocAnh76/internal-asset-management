@@ -8,19 +8,19 @@ export class AuditService {
   constructor(private prisma: PrismaService) {}
 
   async addRecord(
-    actor_id: string,
+    actorId: string,
     action: string,
-    entity_type: Entity,
-    entity_id: string,
+    entityType: Entity,
+    entityId: string,
     before: Prisma.InputJsonValue,
     after: Prisma.InputJsonValue,
   ) {
     await this.prisma.auditLogs.create({
       data: {
-        actor_id,
+        actor_id: actorId,
         action: action as AuditAction,
-        entity_type,
-        entity_id,
+        entity_type: entityType,
+        entity_id: entityId,
         before,
         after,
       },
@@ -28,19 +28,19 @@ export class AuditService {
   }
 
   async findAll(filters: {
-    entity_type?: Entity;
-    actor_id?: string;
-    entity_id?: string;
+    entityType?: Entity;
+    actorId?: string;
+    entityId?: string;
     action?: AuditAction;
     page?: number;
     limit?: number;
   }) {
-    const { entity_type, actor_id, entity_id, action, page = 1, limit = 25 } = filters;
+    const { entityType, actorId, entityId, action, page = 1, limit = 25 } = filters;
 
     const where: Prisma.AuditLogsWhereInput = {};
-    if (entity_type) where.entity_type = entity_type;
-    if (actor_id) where.actor_id = actor_id;
-    if (entity_id) where.entity_id = entity_id;
+    if (entityType) where.entity_type = entityType;
+    if (actorId) where.actor_id = actorId;
+    if (entityId) where.entity_id = entityId;
     if (action) where.action = action;
 
     const [data, total] = await Promise.all([

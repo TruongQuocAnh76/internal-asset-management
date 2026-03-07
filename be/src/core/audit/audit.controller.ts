@@ -12,17 +12,17 @@ export class AuditController {
 
   @Get()
   findAll(
-    @Query('entity_type') entity_type?: Entity,
-    @Query('actor_id') actor_id?: string,
-    @Query('entity_id') entity_id?: string,
+    @Query('entity_type') entityType?: Entity,
+    @Query('actor_id') actorId?: string,
+    @Query('entity_id') entityId?: string,
     @Query('action') action?: AuditAction,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
     return this.auditService.findAll({
-      entity_type,
-      actor_id,
-      entity_id,
+      entityType,
+      actorId,
+      entityId,
       action,
       page: page ? parseInt(page, 10) : 1,
       limit: limit ? parseInt(limit, 10) : 25,
