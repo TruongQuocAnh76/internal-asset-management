@@ -4,10 +4,11 @@ import {
   BorrowStatus,
   BorrowPriority,
   DeploymentStatus,
+  AuditAction,
+  Entity,
 } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import bcrypt from 'bcrypt';
-import { Entity } from '../enums/entity.enum';
 
 const prisma = new PrismaClient();
 
@@ -683,7 +684,7 @@ async function main() {
     data: {
       id: ids.audit1Id,
       actor_id: adminUser.id,
-      action: 'asset.created',
+      action: AuditAction.CREATE,
       entity_type: Entity.ASSET,
       entity_id: aid('LT-1001'),
       before: {},

@@ -148,11 +148,11 @@ export class AssetsService {
         },
       });
 
-      const { _count, borrow_requests, ...rest } = asset;
+      const { _count, borrow_requests: borrowRequests, ...rest } = asset;
 
       return {
         stock: _count.asset_items,
-        borrower_id: borrow_requests[0]?.requester_id ?? null,
+        borrowerId: borrowRequests[0]?.requester_id ?? null,
         ...rest,
         asset_items: asset.asset_items.map((item) => ({
           ...item,
