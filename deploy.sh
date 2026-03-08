@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+cd asset-management-monorepo
 set -e
 
 : "${GHCR_USERNAME:?GHCR_USERNAME is required}"
