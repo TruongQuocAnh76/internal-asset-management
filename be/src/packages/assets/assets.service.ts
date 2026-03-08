@@ -234,7 +234,7 @@ export class AssetsService {
     const resolvedMethod = depreciation_method ?? category.default_depreciation_method ?? null;
     const resolvedSalvageValue = salvage_value != null
       ? BigInt(salvage_value)
-      : (category.salvage_value ?? null);
+      : (category.salvage_value ?? BigInt(0));
     const resolvedLifeMonths = life_months ?? category.default_life_months ?? null;
     const resolvedDeclineRate = decline_balance_rate ?? category.decline_balance_rate ?? null;
 

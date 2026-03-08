@@ -27,9 +27,11 @@ const formatDate = (dateString: string) => {
 }
 
 const formatCost = (cost: number) => {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'VND',
+    currencyDisplay: 'code',
+    minimumFractionDigits: 0,
   }).format(cost)
 }
 </script>
