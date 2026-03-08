@@ -355,10 +355,10 @@ const saveItemEdit = async () => {
           </div>
 
           <div class="input-group">
-            <label class="label" for="item-cost">Cost (USD)</label>
+            <label class="label" for="item-cost">Cost (VND)</label>
             <div class="relative">
-              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">$</span>
-              <input id="item-cost" v-model.number="itemEditForm.costs" type="number" min="0" step="0.01" class="!pl-8" />
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">VND</span>
+              <input id="item-cost" v-model.number="itemEditForm.costs" type="number" min="0" step="0.01" class="!pl-14" />
             </div>
           </div>
 

@@ -145,7 +145,7 @@ const onCancel = () => {
               Estimated Cost <span class="text-danger-500">*</span>
             </label>
             <div class="relative">
-              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">$</span>
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">VND</span>
               <input
                 id="estimatedCost"
                 v-model.number="formData.estimatedCost"
@@ -153,7 +153,7 @@ const onCancel = () => {
                 min="0"
                 step="0.01"
                 placeholder="0.00"
-                class="!pl-8"
+                class="!pl-14"
                 @blur="validateField('estimatedCost')"
                 :class="{ '!border-danger-500': errors.estimatedCost }"
               />

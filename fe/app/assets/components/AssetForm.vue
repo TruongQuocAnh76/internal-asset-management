@@ -184,10 +184,10 @@ const onCancel = () => {
           <!-- Cost -->
           <div v-if="mode === 'create'" class="input-group">
             <label for="costs" class="label">
-              Cost (USD)
+              Cost (VND)
             </label>
             <div class="relative">
-              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">$</span>
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">VND</span>
               <input
                 id="costs"
                 v-model.number="formData.costs"
@@ -195,7 +195,7 @@ const onCancel = () => {
                 min="0"
                 step="0.01"
                 placeholder="0.00"
-                class="!pl-8"
+                class="!pl-14"
                 @blur="validateField('costs')"
                 :class="{ '!border-danger-500': errors.costs }"
               />
@@ -293,14 +293,14 @@ const onCancel = () => {
           <div v-if="formData.depreciationMethod === 'STRAIGHT_LINE'" class="input-group">
             <label for="salvage_value" class="label">Salvage Value</label>
             <div class="relative">
-              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">$</span>
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">VND</span>
               <input
                 id="salvage_value"
                 v-model.number="formData.salvageValue"
                 type="number"
                 min="0"
                 placeholder="0"
-                class="!pl-8"
+                class="!pl-14"
               />
             </div>
           </div>
