@@ -7,7 +7,7 @@ import { useHome } from '../composables/useHome'
 import AssetStatusCards from '../components/AssetStatusCards.vue'
 import CategoryChart from '../components/CategoryChart.vue'
 import PendingApprovals from '../components/PendingApprovals.vue'
-import RecentActivity from '../components/RecentActivity.vue'
+import MyAssets from '../components/MyAssets.vue'
 import QuickActions from '../components/QuickActions.vue'
 
 definePageMeta({
@@ -15,7 +15,7 @@ definePageMeta({
 })
 
 const { user } = useAuth()
-const { getAssetsSummary, getAssetsByCategory, getPendingApprovals, getRecentActivities, getAssetsCountByCategory } = useHome()
+const { getAssetsSummary, getAssetsByCategory, getPendingApprovals, getAssetsCountByCategory, getUserOwnedAssets } = useHome()
 
 // Dashboard state
 const isLoading = ref(true)
@@ -29,7 +29,7 @@ const assetSummary = ref({
 })
 const categoryData = ref<{ category: string; count: number }[]>([])
 const pendingApprovals = ref<any[]>([])
-const recentActivities = ref<any[]>([])
+const myAssets = ref<any[]>([])
 
 // Simulated user role - in production this would come from user data
 const userRole = ref<'admin' | 'team_lead' | 'employee'>('admin')
@@ -39,11 +39,11 @@ const loadDashboardData = async () => {
   isLoading.value = true
   try {
     // Fetch all data in parallel for optimal performance
-    const [summaryData, categoryCountData, approvals, activities] = await Promise.all([
+    const [summaryData, categoryCountData, approvals, ownedAssets] = await Promise.all([
       getAssetsSummary(),
       getAssetsCountByCategory(),
       getPendingApprovals(),
-      getRecentActivities(),
+      user.value?.id ? getUserOwnedAssets(user.value.id) : Promise.resolve([]),
     ])
 
     assetSummary.value = {
@@ -67,7 +67,7 @@ const loadDashboardData = async () => {
         }))
       : []
     
-    recentActivities.value = activities.recentActivities
+    myAssets.value = ownedAssets
   } catch (error) {
     console.error('Failed to load dashboard data:', error)
   } finally {
@@ -117,8 +117,8 @@ onMounted(() => {
 
       <!-- Section 4 & 5: Recent Activity + Quick Actions -->
       <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <!-- Recent Activity Feed -->
-        <RecentActivity :activities="recentActivities" :loading="isLoading" />
+        <!-- My Assets -->
+        <MyAssets :assets="myAssets" :loading="isLoading" />
 
         <!-- Quick Actions -->
         <QuickActions :user-role="userRole" />
