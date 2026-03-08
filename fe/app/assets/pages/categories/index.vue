@@ -43,6 +43,15 @@ const getMethodLabel = (method: string | null | undefined) => {
   return method === 'STRAIGHT_LINE' ? 'Straight Line' : 'Declining Balance'
 }
 
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    currencyDisplay: 'code',
+    minimumFractionDigits: 0,
+  }).format(amount)
+}
+
 onMounted(() => {
   fetchCategories()
 })
@@ -131,7 +140,7 @@ watch(search, () => {
                 </td>
                 <td class="py-3 px-4 text-secondary-600">{{ getMethodLabel(cat.default_depreciation_method) }}</td>
                 <td class="py-3 px-4 text-secondary-600">
-                  {{ cat.salvage_value != null ? `$${cat.salvage_value}` : '-' }}
+                  {{ cat.salvage_value != null ? formatCurrency(cat.salvage_value) : '-' }}
                 </td>
                 <td class="py-3 px-4 text-secondary-600">{{ cat.default_life_months ?? '-' }}</td>
                 <td class="py-3 px-4 text-right">

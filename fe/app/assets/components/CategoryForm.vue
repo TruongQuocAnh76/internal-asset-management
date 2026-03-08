@@ -129,14 +129,14 @@ const onCancel = () => {
           <div v-if="formData.default_depreciation_method === 'STRAIGHT_LINE'" class="input-group">
             <label for="salvage_value" class="label">Default Salvage Value</label>
             <div class="relative">
-              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">$</span>
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">VND</span>
               <input
                 id="salvage_value"
                 v-model.number="formData.salvage_value"
                 type="number"
                 min="0"
                 placeholder="0"
-                class="!pl-8"
+                class="!pl-14"
               />
             </div>
           </div>

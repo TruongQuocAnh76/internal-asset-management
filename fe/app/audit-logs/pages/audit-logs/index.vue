@@ -161,7 +161,25 @@ const goToPage = (page: number) => {
   fetchLogs()
 }
 
+const selectedLog = ref<AuditLog | null>(null)
+
+const openDetail = (log: AuditLog) => {
+  selectedLog.value = log
+}
+
+const closeDetail = () => {
+  selectedLog.value = null
+}
+
 const formatDate = (v: string) => new Date(v).toLocaleString()
+
+const formatJson = (val: any): string => {
+  if (val === null || val === undefined) return '—'
+  if (typeof val === 'string') {
+    try { return JSON.stringify(JSON.parse(val), null, 2) } catch { return val }
+  }
+  return JSON.stringify(val, null, 2)
+}
 
 const actionClass = (action: string) => {
   if (action === 'CREATE') return 'bg-success-100 text-success-700'
@@ -331,7 +349,7 @@ onMounted(fetchLogs)
               </tr>
             </thead>
             <tbody class="divide-y divide-secondary-100">
-              <tr v-for="log in logs" :key="log.id" class="hover:bg-secondary-50">
+              <tr v-for="log in logs" :key="log.id" class="hover:bg-secondary-50 cursor-pointer" @click="openDetail(log)">
                 <td class="px-4 py-3">
                   <span
                     class="inline-flex rounded-full px-2 py-1 text-xs font-semibold"
@@ -375,4 +393,86 @@ onMounted(fetchLogs)
       </div>
     </div>
   </div>
+
+  <!-- Detail panel overlay -->
+  <Transition name="panel">
+    <div v-if="selectedLog" class="fixed inset-0 z-50 flex justify-end">
+      <!-- Backdrop -->
+      <div class="absolute inset-0 bg-black/30" @click="closeDetail" />
+
+      <!-- Panel -->
+      <div class="panel-drawer relative z-10 w-full max-w-xl bg-white shadow-xl flex flex-col h-full overflow-hidden">
+        <!-- Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-secondary-200 bg-secondary-50">
+          <div class="flex items-center gap-3">
+            <span
+              class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
+              :class="actionClass(selectedLog.action)"
+            >
+              {{ selectedLog.action }}
+            </span>
+            <span class="text-sm font-medium text-secondary-700">{{ selectedLog.entity_type.replace(/_/g, ' ') }}</span>
+          </div>
+          <button type="button" class="text-secondary-400 hover:text-secondary-700" @click="closeDetail">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Body -->
+        <div class="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+          <!-- Meta -->
+          <div class="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p class="text-xs font-medium text-secondary-500 uppercase tracking-wide mb-1">Actor</p>
+              <p class="text-secondary-900 font-medium">
+                {{ selectedLog.user ? `${selectedLog.user.first_name} ${selectedLog.user.last_name}` : selectedLog.actor_id }}
+              </p>
+              <p v-if="selectedLog.user" class="text-xs text-secondary-500">@{{ selectedLog.user.username }}</p>
+            </div>
+            <div>
+              <p class="text-xs font-medium text-secondary-500 uppercase tracking-wide mb-1">Date</p>
+              <p class="text-secondary-900">{{ formatDate(selectedLog.created_at) }}</p>
+            </div>
+            <div class="col-span-2">
+              <p class="text-xs font-medium text-secondary-500 uppercase tracking-wide mb-1">Entity ID</p>
+              <p class="font-mono text-xs text-secondary-600 break-all">{{ selectedLog.entity_id }}</p>
+            </div>
+          </div>
+
+          <!-- Before / After -->
+          <div class="grid grid-cols-1 gap-4">
+            <div>
+              <p class="text-xs font-medium text-secondary-500 uppercase tracking-wide mb-2">Before</p>
+              <pre class="rounded-lg bg-secondary-50 border border-secondary-200 p-3 text-xs text-secondary-700 overflow-x-auto whitespace-pre-wrap break-all">{{ formatJson(selectedLog.before) }}</pre>
+            </div>
+            <div>
+              <p class="text-xs font-medium text-secondary-500 uppercase tracking-wide mb-2">After</p>
+              <pre class="rounded-lg bg-secondary-50 border border-secondary-200 p-3 text-xs text-secondary-700 overflow-x-auto whitespace-pre-wrap break-all">{{ formatJson(selectedLog.after) }}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Transition>
 </template>
+
+<style scoped>
+.panel-enter-active,
+.panel-leave-active {
+  transition: opacity 0.2s ease;
+}
+.panel-enter-active .panel-drawer,
+.panel-leave-active .panel-drawer {
+  transition: transform 0.25s ease;
+}
+.panel-enter-from,
+.panel-leave-to {
+  opacity: 0;
+}
+.panel-enter-from .panel-drawer,
+.panel-leave-to .panel-drawer {
+  transform: translateX(100%);
+}
+</style>

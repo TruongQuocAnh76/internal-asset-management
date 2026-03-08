@@ -83,12 +83,34 @@ export const useHome = () => {
         }
         return data
     }
+    const getUserOwnedAssets = async (userId: string) => {
+        const data = await $fetch<any[]>(`/requests?filter=requesterId&filterValue=${userId}&limit=50`, {
+            baseURL: config.public.backendUrl,
+            credentials: 'include',
+        })
+        // Filter to only currently held assets (PROVIDED or OVERDUE)
+        const held = (Array.isArray(data) ? data : []).filter(
+            (r: any) => r.status === 'PROVIDED' || r.status === 'OVERDUE'
+        )
+        return held.map((r: any) => ({
+            id: r.id,
+            name: r.asset?.name || r.kit?.template?.name || 'Unknown',
+            type: r.kit_id ? 'kit' : 'asset',
+            assetId: r.asset?.id,
+            kitId: r.kit_id,
+            dueDate: r.due_date,
+            providedAt: r.provided_at,
+            status: r.status as 'PROVIDED' | 'OVERDUE',
+        }))
+    }
+
     return {
         getAssetsSummary,
         getAssetsByCategory,
         getPendingApprovals,
         getRecentActivities,
         getAssetsCountByCategory,
-        getAuditLogs
+        getAuditLogs,
+        getUserOwnedAssets,
     }
 }
