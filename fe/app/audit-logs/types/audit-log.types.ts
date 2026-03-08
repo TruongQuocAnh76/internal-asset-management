@@ -5,6 +5,8 @@ export type AuditLog = {
   entity_id: string
   actor_id: string
   created_at: string
+  before?: any
+  after?: any
   user?: { id: string; username: string; first_name: string; last_name: string }
 }
 
