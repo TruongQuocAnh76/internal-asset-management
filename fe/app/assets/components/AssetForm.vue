@@ -152,9 +152,9 @@ const onCancel = () => {
             </label>
             <select
               id="category_name"
-              v-model="formData.category_name"
-              @blur="validateField('category_name')"
-              :class="{ '!border-danger-500': errors.category_name }"
+              v-model="formData.categoryName"
+              @blur="validateField('categoryName')"
+              :class="{ '!border-danger-500': errors.categoryName }"
               class="w-full"
             >
               <option value="" disabled>Select a category</option>
@@ -162,7 +162,7 @@ const onCancel = () => {
                 {{ cat.category }}
               </option>
             </select>
-            <p v-if="errors.category_name" class="error-message">{{ errors.category_name }}</p>
+            <p v-if="errors.categoryName" class="error-message">{{ errors.categoryName }}</p>
           </div>
 
           <!-- Location -->
@@ -172,13 +172,13 @@ const onCancel = () => {
             </label>
             <input
               id="location_name"
-              v-model="formData.location_name"
+              v-model="formData.locationName"
               type="text"
               placeholder="Enter location"
-              @blur="validateField('location_name')"
-              :class="{ '!border-danger-500': errors.location_name }"
+              @blur="validateField('locationName')"
+              :class="{ '!border-danger-500': errors.locationName }"
             />
-            <p v-if="errors.location_name" class="error-message">{{ errors.location_name }}</p>
+            <p v-if="errors.locationName" class="error-message">{{ errors.locationName }}</p>
           </div>
 
           <!-- Cost -->
@@ -210,7 +210,7 @@ const onCancel = () => {
             </label>
             <input
               id="initial_quantity"
-              v-model.number="formData.initial_quantity"
+              v-model.number="formData.initialQuantity"
               type="number"
               min="1"
               placeholder="1"
@@ -279,7 +279,7 @@ const onCancel = () => {
             <label for="depreciation_method" class="label">Depreciation Method</label>
             <select
               id="depreciation_method"
-              v-model="formData.depreciation_method"
+              v-model="formData.depreciationMethod"
               class="w-full"
             >
               <option :value="null">Use Category Default</option>
@@ -290,13 +290,13 @@ const onCancel = () => {
           </div>
 
           <!-- Salvage Value (Straight Line only) -->
-          <div v-if="formData.depreciation_method === 'STRAIGHT_LINE'" class="input-group">
+          <div v-if="formData.depreciationMethod === 'STRAIGHT_LINE'" class="input-group">
             <label for="salvage_value" class="label">Salvage Value</label>
             <div class="relative">
               <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">$</span>
               <input
                 id="salvage_value"
-                v-model.number="formData.salvage_value"
+                v-model.number="formData.salvageValue"
                 type="number"
                 min="0"
                 placeholder="0"
@@ -306,7 +306,7 @@ const onCancel = () => {
           </div>
 
           <!-- Life Months (Straight Line only) -->
-          <div v-if="formData.depreciation_method === 'STRAIGHT_LINE'" class="input-group">
+          <div v-if="formData.depreciationMethod === 'STRAIGHT_LINE'" class="input-group">
             <label for="life_months" class="label">Useful Life (months)</label>
             <input
               id="life_months"
@@ -318,12 +318,12 @@ const onCancel = () => {
           </div>
 
           <!-- Decline Balance Rate (only for Declining Balance) -->
-          <div v-if="formData.depreciation_method === 'DECLINING_BALANCE'" class="input-group">
+          <div v-if="formData.depreciationMethod === 'DECLINING_BALANCE'" class="input-group">
             <label for="decline_balance_rate" class="label">Decline Balance Rate (%)</label>
             <div class="relative">
               <input
                 id="decline_balance_rate"
-                v-model.number="formData.decline_balance_rate"
+                v-model.number="formData.declineBalanceRate"
                 type="number"
                 min="0"
                 max="100"

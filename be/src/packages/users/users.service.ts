@@ -31,8 +31,17 @@ export class UsersService {
     return createdUser;
   }
 
-  findAll() {
+  findAll(search?: string) {
     return this.prisma.users.findMany({
+      where: search
+        ? {
+            OR: [
+              { first_name: { contains: search, mode: 'insensitive' } },
+              { last_name: { contains: search, mode: 'insensitive' } },
+              { username: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : undefined,
       select: {
         id: true,
         username: true,

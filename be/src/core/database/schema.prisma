@@ -316,12 +316,18 @@ enum Entity {
   ASSET_ALLOCATION
 }
 
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
 model AuditLogs {
-  id          String   @id @default(uuid()) @db.Uuid
-  actor_id    String   @db.Uuid
-  action      String
+  id          String      @id @default(uuid()) @db.Uuid
+  actor_id    String      @db.Uuid
+  action      AuditAction
   entity_type Entity
-  entity_id   String   @db.Uuid
+  entity_id   String      @db.Uuid
   before      Json
   after       Json
   created_at  DateTime @default(now())
