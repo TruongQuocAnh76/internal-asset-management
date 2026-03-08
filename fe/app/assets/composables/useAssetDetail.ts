@@ -176,9 +176,10 @@ export const useAssetDetail = (assetId: string) => {
 
   const formatCurrency = (amount: number | null | undefined) => {
     if (amount == null) return '—'
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('vi-VN', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'VND',
+      currencyDisplay: 'code',
       minimumFractionDigits: 0,
     }).format(amount)
   }
