@@ -46,7 +46,14 @@ const loadDashboardData = async () => {
       getRecentActivities(),
     ])
 
-    assetSummary.value = summaryData
+    assetSummary.value = {
+      total: summaryData.data.value.countAllItems,
+      ready: summaryData.data.value.byItemStatus.countItemsReady,
+      inUse: summaryData.data.value.byItemStatus.countItemsInUse,
+      maintenance: summaryData.data.value.byItemStatus.countItemsMaintenance,
+      broken: summaryData.data.value.byItemStatus.countItemsBroken,
+      liquidated: summaryData.data.value.byItemStatus.countItemsLiquidated,
+    }
     categoryData.value = categoryCountData.data.value || []
     
     // Transform pending approvals to match component shape
