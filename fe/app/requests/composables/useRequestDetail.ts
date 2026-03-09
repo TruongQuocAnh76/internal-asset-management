@@ -99,10 +99,8 @@ export const useRequestDetail = (requestId: string) => {
     error.value = null
 
     try {
-      const { data } = await getRequestById(requestId)
-      if (data.value) {
-        request.value = data.value
-      }
+      const data = await getRequestById(requestId)
+      request.value = data
     } catch (err: any) {
       console.error('Failed to fetch request:', err)
       error.value = err.message || 'Failed to load request details'
@@ -117,7 +115,8 @@ export const useRequestDetail = (requestId: string) => {
 
     isProcessing.value = true
     try {
-      request.value = await cancelRequest(request.value.id)
+      await cancelRequest(request.value.id)
+      await fetchRequest()
     } catch (err: any) {
       console.error('Failed to cancel request:', err)
       error.value = err.message || 'Failed to cancel request'
@@ -143,11 +142,12 @@ export const useRequestDetail = (requestId: string) => {
 
     isProcessing.value = true
     try {
-      request.value = await approveRequest(
+      await approveRequest(
         request.value.id,
         request.value.asset_id || undefined,
         request.value.kit_id || undefined
       )
+      await fetchRequest()
       closeApprovalModal()
     } catch (err: any) {
       console.error('Failed to approve request:', err)
@@ -163,7 +163,8 @@ export const useRequestDetail = (requestId: string) => {
 
     isProcessing.value = true
     try {
-      request.value = await rejectRequest(request.value.id)
+      await rejectRequest(request.value.id)
+      await fetchRequest()
       closeApprovalModal()
     } catch (err: any) {
       console.error('Failed to reject request:', err)
@@ -179,7 +180,8 @@ export const useRequestDetail = (requestId: string) => {
 
     isProcessing.value = true
     try {
-      request.value = await provideRequest(request.value.id)
+      await provideRequest(request.value.id)
+      await fetchRequest()
     } catch (err: any) {
       console.error('Failed to provide asset:', err)
       error.value = err.message || 'Failed to provide asset'
@@ -194,11 +196,12 @@ export const useRequestDetail = (requestId: string) => {
 
     isProcessing.value = true
     try {
-      request.value = await returnRequest(
+      await returnRequest(
         request.value.id,
         request.value.asset_id || undefined,
         request.value.kit_id || undefined
       )
+      await fetchRequest()
     } catch (err: any) {
       console.error('Failed to return asset:', err)
       error.value = err.message || 'Failed to return asset'

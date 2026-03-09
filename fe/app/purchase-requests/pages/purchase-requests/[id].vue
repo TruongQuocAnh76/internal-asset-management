@@ -123,6 +123,15 @@ const formatDate = (dateStr: string) => {
   })
 }
 
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    currencyDisplay: 'code',
+    minimumFractionDigits: 0,
+  }).format(amount)
+}
+
 const statusSteps = computed(() => {
   if (!purchaseRequest.value) return []
 
@@ -291,7 +300,7 @@ onMounted(fetchPurchaseRequest)
 
                 <div>
                   <dt class="text-sm font-medium text-secondary-500">Estimated Cost</dt>
-                  <dd class="mt-1 text-secondary-900 font-medium">${{ purchaseRequest.estimated_cost.toLocaleString() }}</dd>
+                  <dd class="mt-1 text-secondary-900 font-medium">{{ formatCurrency(purchaseRequest.estimated_cost) }}</dd>
                 </div>
 
                 <div>
