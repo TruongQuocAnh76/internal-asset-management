@@ -24,7 +24,7 @@ export const useRequests = () => {
 
   // Get single request by ID - uses GET /requests/:id
   const getRequestById = async (id: string) => {
-    return useFetch<BorrowRequest>(`${baseUrl}/requests/${id}`, {
+    return $fetch<BorrowRequest>(`${baseUrl}/requests/${id}`, {
       credentials: 'include'
     })
   }
