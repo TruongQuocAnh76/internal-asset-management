@@ -90,6 +90,15 @@ const canSubmit = computed(() => {
   )
 })
 
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    currencyDisplay: 'code',
+    minimumFractionDigits: 0,
+  }).format(amount)
+}
+
 const onSubmit = async () => {
   if (!validateAll()) return
 
@@ -154,7 +163,7 @@ const onSubmit = async () => {
         </div>
         <div>
           <span class="text-primary-600">Est. Cost</span>
-          <p class="font-medium text-primary-900">${{ purchaseRequest.estimated_cost.toLocaleString() }}</p>
+          <p class="font-medium text-primary-900">{{ formatCurrency(purchaseRequest.estimated_cost) }}</p>
         </div>
         <div>
           <span class="text-primary-600">Requester</span>
@@ -219,7 +228,7 @@ const onSubmit = async () => {
           <div class="input-group">
             <label for="receive_costs" class="label">Actual Cost per Unit</label>
             <div class="relative">
-              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">$</span>
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">VND</span>
               <input
                 id="receive_costs"
                 v-model.number="formData.costs"
@@ -227,7 +236,7 @@ const onSubmit = async () => {
                 min="0"
                 step="0.01"
                 placeholder="0.00"
-                class="!pl-8"
+                class="!pl-14"
                 :class="{ '!border-danger-500': errors.costs }"
               />
             </div>
@@ -319,14 +328,14 @@ const onSubmit = async () => {
           <div v-if="formData.depreciation_method === 'STRAIGHT_LINE'" class="input-group">
             <label for="receive_salvage_value" class="label">Salvage Value</label>
             <div class="relative">
-              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">$</span>
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500">VND</span>
               <input
                 id="receive_salvage_value"
                 v-model.number="formData.salvage_value"
                 type="number"
                 min="0"
                 placeholder="0"
-                class="!pl-8"
+                class="!pl-14"
               />
             </div>
           </div>
