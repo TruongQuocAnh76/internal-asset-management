@@ -43,12 +43,19 @@ export class GetKitsParams {
     example: 20,
   })
   limit?: number;
+
+  @ApiPropertyOptional({
+    description: 'Filter by category ID (matches kits containing assets of that category)',
+    example: 'uuid-here',
+  })
+  category_id?: string;
 }
 
 export const getKitsParamsSchema = z.object({
   search: z.string().optional(),
   filter: z.enum(['status']).optional(),
   filterValue: z.string().optional(),
+  category_id: z.string().uuid().optional(),
   order: z.enum(['asc', 'desc']).optional(),
   orderBy: z.enum(['name', 'createdAt', 'updatedAt']).optional(),
   page: z

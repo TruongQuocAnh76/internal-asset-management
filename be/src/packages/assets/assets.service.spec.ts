@@ -85,21 +85,19 @@ describe('AssetsService', () => {
 
   it('builds where clause for category filter', () => {
     const where = (service as any).buildWhere({
-      filter: 'category',
-      filterValue: 'Laptop',
+      category_id: 'some-uuid',
     });
 
     expect(where).toEqual({
       category: {
-        name: 'Laptop',
+        id: 'some-uuid',
       },
     });
   });
 
   it('builds where clause for status filter', () => {
     const where = (service as any).buildWhere({
-      filter: 'status',
-      filterValue: 'READY',
+      status: 'READY',
     });
 
     expect(where).toEqual({
@@ -111,8 +109,7 @@ describe('AssetsService', () => {
     const date = '2024-01-01';
 
     const where = (service as any).buildWhere({
-      filter: 'acquired_at',
-      filterValue: date,
+      acquired_at: date,
     });
 
     expect(where.acquired_at).toBeInstanceOf(Date);
@@ -138,8 +135,7 @@ describe('AssetsService', () => {
 
   it('combines filter and search correctly', () => {
     const where = (service as any).buildWhere({
-      filter: 'status',
-      filterValue: 'READY',
+      status: 'READY',
       search: 'LAP',
     });
 

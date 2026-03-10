@@ -70,9 +70,13 @@ export const useRequests = () => {
 
   // Provide request - uses PUT /requests/provide?id=
   // Admin provides asset APPROVED -> PROVIDED
-  const provideRequest = async (id: string) => {
+  const provideRequest = async (id: string, assetId?: string, kitId?: string) => {
+    const body: Record<string, string> = {}
+    if (assetId) body.assetId = assetId
+    if (kitId) body.kitId = kitId
     return $fetch<BorrowRequest>(`${baseUrl}/requests/provide?id=${id}`, {
       method: 'PUT',
+      body,
       credentials: 'include'
     })
   }
@@ -105,7 +109,7 @@ export const useRequests = () => {
 
   // Get available assets by category
   const getAvailableAssets = async (categoryId?: string, search?: string) => {
-    const params: Record<string, string> = { filter: 'status', filterValue: 'READY' }
+    const params: Record<string, string> = { status: 'READY' }
     if (categoryId) params.category_id = categoryId
     if (search) params.search = search
 
@@ -116,10 +120,11 @@ export const useRequests = () => {
     })
   }
 
-  // Get available kits (READY status)
-  const getAvailableKits = async (search?: string) => {
+  // Get available kits (READY status), optionally filtered by category
+  const getAvailableKits = async (search?: string, categoryId?: string) => {
     const params: Record<string, string> = { filter: 'status', filterValue: 'READY' }
     if (search) params.search = search
+    if (categoryId) params.category_id = categoryId
 
     return useFetch<{ data: RequestKit[] }>(`${baseUrl}/kits`, {
       params,

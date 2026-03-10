@@ -11,7 +11,7 @@ export const useHome = () => {
     }
 
     const getAssetsByCategory = async (category: string) => {
-        let url = `/assets?filter=category&filter_value=${category}`
+        let url = `/assets?category_id=${category}`
         const data = await useFetch(url, {
             method: 'GET',
             baseURL: config.public.backendUrl,

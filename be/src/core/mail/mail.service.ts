@@ -9,7 +9,7 @@ export interface BorrowMailContext {
   assetName: string;
   requestId: string;
   reason?: string;
-  dueDate: string;
+  dueDate?: string;
   daysRemaining?: number;
 }
 

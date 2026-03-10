@@ -94,6 +94,8 @@ const ids = {
   allocation2Id: randomUUID(),
   event1Id: randomUUID(),
   borrow1Id: randomUUID(),
+  borrow2Id: randomUUID(),
+  borrow3Id: randomUUID(),
   audit1Id: randomUUID(),
 };
 
@@ -662,20 +664,52 @@ async function main() {
 
   await prisma.borrowRequests.deleteMany({
     where: {
-      requester_id: employeeUser.id,
-      asset_id: aid('MN-2001'),
+      id: {
+        in: [ids.borrow1Id, ids.borrow2Id, ids.borrow3Id],
+      },
     },
   });
 
-  await prisma.borrowRequests.create({
-    data: {
-      id: ids.borrow1Id,
-      asset_id: aid('MN-2001'),
-      requester_id: employeeUser.id,
-      status: BorrowStatus.PENDING,
-      priority: BorrowPriority.MEDIUM,
-      due_date: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
-    },
+  await prisma.borrowRequests.createMany({
+    data: [
+      {
+        id: ids.borrow1Id,
+        asset_id: aid('MN-2001'),
+        category_id: monitorCategory.id,
+        requester_id: employeeUser.id,
+        status: BorrowStatus.PROVIDED,
+        priority: BorrowPriority.MEDIUM,
+        reason: 'Need external monitor for design review sprint',
+        approved_at: new Date(),
+        approved_by: adminUser.id,
+        provided_at: new Date(),
+        provided_by: adminUser.id,
+        due_date: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+      },
+      {
+        id: ids.borrow2Id,
+        kit_id: kit.id,
+        category_id: monitorCategory.id,
+        requester_id: teamLeadUser.id,
+        status: BorrowStatus.PROVIDED,
+        priority: BorrowPriority.HIGH,
+        reason: 'Starter kit required for onboarding new team member',
+        approved_at: new Date(),
+        approved_by: adminUser.id,
+        provided_at: new Date(),
+        provided_by: adminUser.id,
+        due_date: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14),
+      },
+      {
+        id: ids.borrow3Id,
+        category_id: keyboardCategory.id,
+        requester_id: employeeUser.id,
+        status: BorrowStatus.PENDING,
+        priority: BorrowPriority.LOW,
+        reason: 'Any available keyboard can be assigned temporarily',
+        due_date: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
+      },
+    ],
   });
 
   await prisma.auditLogs.deleteMany({ where: { id: ids.audit1Id } });

@@ -2,18 +2,17 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import z from 'zod';
 
 export class GetAssetsParams {
-  @ApiPropertyOptional({
-    description:
-      'Filter by requesterId category, status, costs, or acquired_at',
-    example: 'category',
-  })
-  filter?: 'requesterId' | 'category' | 'status' | 'costs' | 'acquired_at';
+  @ApiPropertyOptional({ description: 'Filter by requester ID', example: 'uuid' })
+  requesterId?: string;
 
-  @ApiPropertyOptional({
-    description: 'Value to filter by',
-    example: 'Electronics',
-  })
-  filterValue?: string;
+  @ApiPropertyOptional({ description: 'Filter by category ID', example: 'uuid' })
+  category_id?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by status', example: 'READY' })
+  status?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by acquired date (ISO string)', example: '2024-01-01' })
+  acquired_at?: string;
 
   @ApiPropertyOptional({
     description: 'Search term for asset name or code',
@@ -35,9 +34,9 @@ export class GetAssetsParams {
 
   @ApiPropertyOptional({
     description: 'Field to order results by',
-    example: 'category',
+    example: 'status',
   })
-  orderBy?: 'category' | 'status' | 'costs' | 'acquired_at';
+  orderBy?: 'status' | 'costs' | 'acquired_at';
 
   @ApiPropertyOptional({
     description: 'Page number for pagination',
@@ -53,13 +52,13 @@ export class GetAssetsParams {
 }
 
 export const getAssetsParamsSchema = z.object({
+  requesterId: z.string().optional(),
+  category_id: z.string().optional(),
+  status: z.string().optional(),
+  acquired_at: z.string().optional(),
   search: z.string().optional(),
-  filter: z
-    .enum(['requesterId', 'category', 'status', 'costs', 'acquired_at'])
-    .optional(),
-  filterValue: z.string().optional(),
   order: z.enum(['asc', 'desc']).optional(),
-  orderBy: z.enum(['category', 'status', 'costs', 'acquired_at']).optional(),
+  orderBy: z.enum(['status', 'costs', 'acquired_at']).optional(),
   page: z
     .string()
     .transform((val) => parseInt(val, 10))

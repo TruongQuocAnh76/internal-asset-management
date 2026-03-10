@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { RequestFormData, RequestAsset, RequestKit } from '../types/request.types'
+import type { RequestFormData, RequestAsset, RequestKit, AssetCategory } from '../types/request.types'
 import PriorityBadge from './PriorityBadge.vue'
 
 interface Props {
@@ -12,6 +12,7 @@ interface Props {
   }
   selectedAsset: RequestAsset | null
   selectedKit: RequestKit | null
+  selectedCategory: AssetCategory | null
   isSubmitting: boolean
 }
 
@@ -131,6 +132,21 @@ const handleConfirm = () => {
                     </p>
                     <p v-if="selectedKit" class="text-sm text-secondary-600">
                       Kit #{{ selectedKit.id.slice(0, 8).toUpperCase() }}
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Category Info -->
+                <div v-if="formData.type === 'category'">
+                  <h3 class="text-sm font-medium text-secondary-500 uppercase tracking-wider mb-2">
+                    Requested Category
+                  </h3>
+                  <div class="bg-secondary-50 rounded-lg p-4">
+                    <p class="font-medium text-secondary-900">
+                      {{ selectedCategory?.name || 'Not selected' }}
+                    </p>
+                    <p class="text-sm text-secondary-600 mt-1">
+                      An admin will assign an available asset from this category when fulfilling your request.
                     </p>
                   </div>
                 </div>

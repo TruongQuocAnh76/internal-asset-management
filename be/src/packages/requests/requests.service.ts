@@ -15,9 +15,16 @@ import {
   Prisma,
 } from '@prisma/client';
 import { GetRequestsDto } from './dto/get-request.dto';
-import { NOTIFICATION_QUEUE, NotificationJobName } from './cron/notifications/notification.processor';
+import {
+  NOTIFICATION_QUEUE,
+  NotificationJobName,
+} from './cron/notifications/notification.processor';
 import { BorrowMailContext } from 'src/core/mail/mail.service';
-import { buildMailContextBase, resolveRecipients } from './cron/notifications/notification.util';
+import {
+  buildMailContextBase,
+  resolveRecipients,
+} from './cron/notifications/notification.util';
+import { RequestProvideDto } from './dto/provide-request.dto';
 
 @Injectable()
 export class RequestsService {
@@ -35,7 +42,7 @@ export class RequestsService {
     request: {
       id: string;
       reason: string | null;
-      due_date: Date;
+      due_date: Date | null;
       provided_by?: string | null;
       user: { first_name: string; last_name: string; email: string };
       asset?: { name: string } | null;
@@ -47,7 +54,9 @@ export class RequestsService {
       const recipients = await resolveRecipients(jobName, request, this.prisma);
 
       if (recipients.length === 0) {
-        this.logger.warn(`No recipients resolved for ${jobName} on request ${request.id}`);
+        this.logger.warn(
+          `No recipients resolved for ${jobName} on request ${request.id}`,
+        );
         return;
       }
 
@@ -62,18 +71,55 @@ export class RequestsService {
         `Enqueued ${jobName} to ${recipients.length} recipient(s) for request ${request.id}`,
       );
     } catch (error) {
-      this.logger.error(`Failed to enqueue ${jobName} notification: ${error.message}`);
+      this.logger.error(
+        `Failed to enqueue ${jobName} notification: ${error.message}`,
+      );
     }
   }
 
-  async createRequest(body: CreateRequestDto, userId: string) {
+  async createRequest(body: CreateRequestDto) {
     if (body.kitId) {
-      return this.createKitRequest(body, userId);
+      return this.createKitRequest(body);
+    } else if (body.categoryId) {
+      console.log('Creating category request with body:', body);
+      return this.createCategoryRequest(body);
     }
-    return this.createAssetRequest(body, userId);
+    return this.createAssetRequest(body);
   }
 
-  private async createAssetRequest(body: CreateRequestDto, userId: string) {
+  private async createCategoryRequest(body: CreateRequestDto) {
+    try {
+      const request = await this.prisma.borrowRequests.create({
+        data: {
+          category_id: body.categoryId,
+          requester_id: body.requesterId,
+          reason: body.reason,
+          priority: body.priority,
+          due_date: body.dueDate ? new Date(body.dueDate) : null,
+        },
+        include: {
+          user: { select: { first_name: true, last_name: true, email: true } },
+          category: { select: { name: true } },
+        },
+      });
+      await this.enqueueNotifications(request, 'request-submitted');
+      return request;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025' || error.code === 'P2003') {
+          throw new NotFoundException('The requested category does not exist.');
+        }
+        if (error.code === 'P2002') {
+          throw new ConflictException(
+            'You already have an active request for this category.',
+          );
+        }
+      }
+      throw error;
+    }
+  }
+
+  private async createAssetRequest(body: CreateRequestDto) {
     try {
       const request = await this.prisma.borrowRequests.create({
         data: {
@@ -86,7 +132,7 @@ export class RequestsService {
         include: {
           user: { select: { first_name: true, last_name: true, email: true } },
           asset: { select: { name: true } },
-        }
+        },
       });
       await this.enqueueNotifications(request, 'request-submitted');
       return request;
@@ -111,7 +157,7 @@ export class RequestsService {
     }
   }
 
-  private async createKitRequest(body: CreateRequestDto, userId: string) {
+  private async createKitRequest(body: CreateRequestDto) {
     try {
       const request = await this.prisma.borrowRequests.create({
         data: {
@@ -124,7 +170,7 @@ export class RequestsService {
         include: {
           user: { select: { first_name: true, last_name: true, email: true } },
           kit: { select: { template: { select: { name: true } } } },
-        }
+        },
       });
       await this.enqueueNotifications(request, 'request-submitted');
       return request;
@@ -184,6 +230,12 @@ export class RequestsService {
             },
           },
         },
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         user: {
           select: {
             id: true,
@@ -240,6 +292,12 @@ export class RequestsService {
             },
           },
         },
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         user: {
           select: {
             id: true,
@@ -266,12 +324,7 @@ export class RequestsService {
     });
   }
 
-  async approveRequest(
-    userId: string,
-    requestId: string,
-    assetId?: string,
-    kitId?: string,
-  ) {
+  async approveRequest(userId: string, requestId: string) {
     return this.prisma.$transaction(async (tx) => {
       let updated;
       try {
@@ -283,10 +336,12 @@ export class RequestsService {
             approved_by: userId,
           },
           include: {
-            user: { select: { first_name: true, last_name: true, email: true } },
+            user: {
+              select: { first_name: true, last_name: true, email: true },
+            },
             asset: { select: { name: true } },
             kit: { select: { template: { select: { name: true } } } },
-          }
+          },
         });
       } catch (error) {
         if (
@@ -308,13 +363,16 @@ export class RequestsService {
   async rejectRequest(requestId: string, userId: string) {
     try {
       const updated = await this.prisma.borrowRequests.update({
-        where: { id: requestId, status: { in: [BorrowStatus.PENDING, BorrowStatus.APPROVED] } },
+        where: {
+          id: requestId,
+          status: { in: [BorrowStatus.PENDING, BorrowStatus.APPROVED] },
+        },
         data: { status: BorrowStatus.REJECTED },
         include: {
           user: { select: { first_name: true, last_name: true, email: true } },
           asset: { select: { name: true } },
           kit: { select: { template: { select: { name: true } } } },
-        }
+        },
       });
       await this.enqueueNotifications(updated, 'request-rejected');
       return updated;
@@ -331,22 +389,30 @@ export class RequestsService {
     }
   }
 
-  async provideRequest(userId: string, requestId: string) {
+  async provideRequest(
+    userId: string,
+    requestId: string,
+    body: RequestProvideDto,
+  ) {
     return this.prisma.$transaction(async (tx) => {
       let updated;
       try {
         updated = await tx.borrowRequests.update({
           where: { id: requestId, status: BorrowStatus.APPROVED },
           data: {
+            asset_id: body.assetId ?? null,
+            kit_id: body.kitId ?? null,
             status: BorrowStatus.PROVIDED,
             provided_at: new Date(),
             provided_by: userId,
           },
           include: {
-            user: { select: { first_name: true, last_name: true, email: true } },
+            user: {
+              select: { first_name: true, last_name: true, email: true },
+            },
             asset: { select: { name: true } },
             kit: { select: { template: { select: { name: true } } } },
-          }
+          },
         });
       } catch (error) {
         if (
@@ -373,7 +439,12 @@ export class RequestsService {
             where: { id: readyItem.id },
             data: { status: AssetStatus.IN_USE },
           });
-          await this.recomputeAssetStatus(actualAssetId, null, AssetStatus.IN_USE, tx);
+          await this.recomputeAssetStatus(
+            actualAssetId,
+            null,
+            AssetStatus.IN_USE,
+            tx,
+          );
         }
       } else if (actualKitId) {
         const kitItems = await tx.assetItems.findMany({
@@ -384,7 +455,12 @@ export class RequestsService {
             where: { kit_id: actualKitId, status: AssetStatus.READY },
             data: { status: AssetStatus.IN_USE },
           });
-          await this.recomputeKitStatus(actualKitId, null, AssetStatus.IN_USE, tx);
+          await this.recomputeKitStatus(
+            actualKitId,
+            null,
+            AssetStatus.IN_USE,
+            tx,
+          );
           const assetIds = [...new Set(kitItems.map((i) => i.asset_id))];
           await tx.assets.updateMany({
             where: { id: { in: assetIds } },
@@ -398,14 +474,11 @@ export class RequestsService {
     });
   }
 
-  async returnRequest(
-    requestId: string,
-    userId: string,
-    assetId?: string,
-    kitId?: string,
-  ) {
+  async returnRequest(requestId: string) {
     return this.prisma.$transaction(async (tx) => {
-      const request = await tx.borrowRequests.findFirst({
+      let request;
+      try {
+      request = await tx.borrowRequests.findFirstOrThrow({
         where: {
           id: requestId,
           status: { in: [BorrowStatus.PROVIDED, BorrowStatus.OVERDUE] },
@@ -416,12 +489,13 @@ export class RequestsService {
           kit_id: true,
         },
       });
-
-      if (!request) {
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
         throw new NotFoundException(
           'Request not found or not in PROVIDED/OVERDUE status.',
         );
       }
+    }
 
       const actualAssetId = request.asset_id;
       const actualKitId = request.kit_id;
@@ -435,7 +509,12 @@ export class RequestsService {
             where: { id: inUseItem.id },
             data: { status: AssetStatus.READY },
           });
-          await this.recomputeAssetStatus(actualAssetId, null, AssetStatus.READY, tx);
+          await this.recomputeAssetStatus(
+            actualAssetId,
+            null,
+            AssetStatus.READY,
+            tx,
+          );
         }
       } else if (actualKitId) {
         const kitItems = await tx.assetItems.findMany({
@@ -446,7 +525,12 @@ export class RequestsService {
             where: { kit_id: actualKitId, status: AssetStatus.IN_USE },
             data: { status: AssetStatus.READY },
           });
-          await this.recomputeKitStatus(actualKitId, null, AssetStatus.READY, tx);
+          await this.recomputeKitStatus(
+            actualKitId,
+            null,
+            AssetStatus.READY,
+            tx,
+          );
           const assetIds = [...new Set(kitItems.map((i) => i.asset_id))];
           await tx.assets.updateMany({
             where: { id: { in: assetIds } },
@@ -467,10 +551,12 @@ export class RequestsService {
             returned_at: new Date(),
           },
           include: {
-            user: { select: { first_name: true, last_name: true, email: true } },
+            user: {
+              select: { first_name: true, last_name: true, email: true },
+            },
             asset: { select: { name: true } },
             kit: { select: { template: { select: { name: true } } } },
-          }
+          },
         });
       } catch (error) {
         if (
@@ -501,7 +587,7 @@ export class RequestsService {
           user: { select: { first_name: true, last_name: true, email: true } },
           asset: { select: { name: true } },
           kit: { select: { template: { select: { name: true } } } },
-        }
+        },
       });
       await this.enqueueNotifications(updated, 'request-canceled');
       return updated;

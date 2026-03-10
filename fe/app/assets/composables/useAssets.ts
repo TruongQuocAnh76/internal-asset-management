@@ -14,11 +14,10 @@ export const useAssets = () => {
   const getAllAssets = async (params: GetAssetsParams = {}) => {
     const queryParams = new URLSearchParams()
     
-    if (params.filter && params.filter_value) {
-      queryParams.append('filter', params.filter)
-      queryParams.append('filterValue', params.filter_value)
-    }
-    
+    if (params.status) queryParams.append('status', params.status)
+    if (params.category_id) queryParams.append('category_id', params.category_id)
+    if (params.acquired_at) queryParams.append('acquired_at', params.acquired_at)
+
     if (params.search) {
       queryParams.append('search', params.search)
     }

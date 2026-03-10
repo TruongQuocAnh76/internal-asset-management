@@ -4,7 +4,7 @@ export type BorrowStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'PROVIDED' | 'O
 
 export type RequestPriority = 'LOW' | 'MEDIUM' | 'HIGH'
 
-export type RequestType = 'asset' | 'kit'
+export type RequestType = 'asset' | 'kit' | 'category'
 
 export type ApprovalAction = 'APPROVE' | 'REJECT'
 
@@ -71,6 +71,7 @@ export interface BorrowRequest {
   id: string
   asset_id: string | null
   kit_id: string | null
+  category_id: string | null
   requester_id: string
   requested_at: string
   status: BorrowStatus
@@ -81,12 +82,13 @@ export interface BorrowRequest {
   provided_at: string | null
   provided_by: string | null
   returned_at: string | null
-  due_date: string
+  due_date: string | null
   created_at: string
   // Relations (when included)
   asset?: RequestAsset
   kit?: RequestKit
   user?: RequestUser
+  category?: AssetCategory
 }
 
 export interface ApprovalStep {
@@ -102,6 +104,7 @@ export interface RequestFormData {
   type: RequestType
   assetId?: string
   kitId?: string
+  categoryId?: string
   requesterId: string
   reason: string
   priority: RequestPriority

@@ -47,7 +47,7 @@ export class AssetsService {
     const skip = query.page ? (query.page - 1) * take : 0;
 
     const orderBy = query.orderBy
-      ? { [query.orderBy]: 'asc' as const }
+      ? { [query.orderBy]: query.order ?? 'asc' as const }
       : undefined;
 
     const assets = await this.prisma.assets.findMany({
@@ -385,22 +385,26 @@ export class AssetsService {
   protected buildWhere(query: GetAssetsParams): Prisma.AssetsWhereInput {
     const where: Prisma.AssetsWhereInput = {};
 
-    if (query.filter && query.filterValue) {
-      if (query.filter === 'category') {
-        where.category = {
-          name: query.filterValue,
-        };
-      } else if (query.filter === 'status') {
-        query.filterValue = query.filterValue.toUpperCase();
-        if (
-          !Object.values(AssetStatus).includes(query.filterValue as AssetStatus)
-        ) {
-          throw new BadRequestException('Invalid asset status');
-        }
-        where.status = query.filterValue as AssetStatus;
-      } else if (query.filter === 'acquired_at') {
-        where.acquired_at = new Date(query.filterValue);
+    if (query.category_id) {
+      where.category = { id: query.category_id };
+    }
+
+    if (query.status) {
+      const statusUpper = query.status.toUpperCase();
+      if (!Object.values(AssetStatus).includes(statusUpper as AssetStatus)) {
+        throw new BadRequestException('Invalid asset status');
       }
+      where.status = statusUpper as AssetStatus;
+    }
+
+    if (query.acquired_at) {
+      where.acquired_at = new Date(query.acquired_at);
+    }
+
+    if (query.requesterId) {
+      where.borrow_requests = {
+        some: { requester_id: query.requesterId },
+      };
     }
 
     if (query.search) {

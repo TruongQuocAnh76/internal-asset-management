@@ -109,7 +109,7 @@ export class DueReminderScheduler {
     request: {
       id: string;
       reason: string | null;
-      due_date: Date;
+      due_date: Date | null;
       user: { first_name: string; last_name: string; email: string };
       asset?: { name: string } | null;
       kit?: { template: { name: string } } | null;
@@ -129,11 +129,11 @@ export class DueReminderScheduler {
       assetName,
       requestId: request.id,
       reason: request.reason ?? undefined,
-      dueDate: new Date(request.due_date).toLocaleDateString('en-US', {
+      dueDate: request.due_date ? new Date(request.due_date).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
-      }),
+      }) : undefined,
       daysRemaining,
     };
   }

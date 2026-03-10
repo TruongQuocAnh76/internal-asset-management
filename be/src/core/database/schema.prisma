@@ -59,7 +59,7 @@ model AssetItems {
   kit_id     String? @db.Uuid
   kit_status Boolean @default(false)
 
-  maintenance_notes String?
+  maintenance_notes  String?
   last_maintained_at DateTime?
 
   created_at DateTime @default(now())
@@ -87,6 +87,7 @@ model AssetsCategories {
 
   assets          Assets[]
   PurchaseRequest PurchaseRequest[]
+  BorrowRequests  BorrowRequests[]
 }
 
 model AssetsSpecs {
@@ -263,6 +264,7 @@ model BorrowRequests {
   id           String         @id @default(uuid()) @db.Uuid
   asset_id     String?        @db.Uuid
   kit_id       String?        @db.Uuid
+  category_id  String?        @db.Uuid
   requester_id String         @db.Uuid
   requested_at DateTime       @default(now())
   status       BorrowStatus   @default(PENDING)
@@ -272,13 +274,14 @@ model BorrowRequests {
   approved_by  String?        @db.Uuid
   provided_at  DateTime?
   provided_by  String?        @db.Uuid
-  due_date     DateTime
+  due_date     DateTime?
   returned_at  DateTime?
   created_at   DateTime       @default(now())
 
-  asset Assets?     @relation(fields: [asset_id], references: [id])
-  kit   AssetsKits? @relation(fields: [kit_id], references: [id])
-  user  Users       @relation(fields: [requester_id], references: [id])
+  asset    Assets?           @relation(fields: [asset_id], references: [id])
+  kit      AssetsKits?       @relation(fields: [kit_id], references: [id])
+  user     Users             @relation(fields: [requester_id], references: [id])
+  category AssetsCategories? @relation(fields: [category_id], references: [id])
 
   @@index([status, due_date])
 }
@@ -292,14 +295,14 @@ enum PurchaseRequestStatus {
 }
 
 model PurchaseRequest {
-  id                String   @id @default(uuid()) @db.Uuid
+  id                String                @id @default(uuid()) @db.Uuid
   reason            String?
-  asset_category_id String   @db.Uuid
+  asset_category_id String                @db.Uuid
   specs             Json
-  requested_by      String   @db.Uuid
-  requested_at      DateTime @default(now())
+  requested_by      String                @db.Uuid
+  requested_at      DateTime              @default(now())
   estimated_cost    BigInt
-  quantity          Int     @default(1)
+  quantity          Int                   @default(1)
   status            PurchaseRequestStatus @default(SUBMITTED)
 
   category AssetsCategories @relation(fields: [asset_category_id], references: [id])
@@ -330,7 +333,7 @@ model AuditLogs {
   entity_id   String      @db.Uuid
   before      Json
   after       Json
-  created_at  DateTime @default(now())
+  created_at  DateTime    @default(now())
 
   user Users @relation(fields: [actor_id], references: [id])
 }

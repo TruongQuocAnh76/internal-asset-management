@@ -25,11 +25,13 @@ const {
   availableKits,
   selectedKit,
   isLoadingKits,
+  selectedCategory,
   requesterInfo,
   canSubmit,
   init,
   validateField,
   onCategoryChange,
+  onCategoryTypeChange,
   onAssetChange,
   onTypeChange,
   onKitChange,
@@ -89,7 +91,7 @@ const debouncedSearch = () => {
   searchTimeout = setTimeout(() => {
     if (formData.value.type === 'kit') {
       loadAvailableKits(searchQuery.value || undefined)
-    } else {
+    } else if (formData.value.type === 'asset') {
       loadAvailableAssets(searchQuery.value || undefined)
     }
   }, 1000)
@@ -254,6 +256,26 @@ onMounted(() => {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
             <span class="font-medium">Kit</span>
+          </label>
+          <label
+            :class="[
+              'flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 cursor-pointer transition-all text-center',
+              formData.type === 'category'
+                ? 'border-primary-500 bg-primary-50 text-primary-700'
+                : 'border-secondary-200 hover:border-secondary-300 text-secondary-700'
+            ]"
+          >
+            <input
+              type="radio"
+              value="category"
+              :checked="formData.type === 'category'"
+              @change="onTypeChange('category')"
+              class="sr-only"
+            />
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+            <span class="font-medium">Category</span>
           </label>
         </div>
       </div>
@@ -446,7 +468,59 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Request Details -->
+      <!-- Category Selection (shown when type is 'category') -->
+      <div v-if="formData.type === 'category'" class="card">
+        <h2 class="text-lg font-semibold text-secondary-900 mb-1 flex items-center gap-2">
+          <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+          </svg>
+          Category Selection
+        </h2>
+        <p class="text-sm text-secondary-500 mb-4">Select a category and an admin will assign an available asset from it when fulfilling your request.</p>
+
+        <div class="input-group">
+          <label class="label">Select Category <span class="text-danger-500">*</span></label>
+          <div v-if="assetCategories.length === 0" class="py-4 text-center text-secondary-500">
+            No categories available
+          </div>
+          <div v-else class="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto">
+            <label
+              v-for="cat in assetCategories"
+              :key="cat.id"
+              :class="[
+                'flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all',
+                formData.categoryId === cat.id
+                  ? 'border-primary-500 bg-primary-50'
+                  : 'border-secondary-200 hover:border-secondary-300'
+              ]"
+            >
+              <input
+                type="radio"
+                :value="cat.id"
+                v-model="formData.categoryId"
+                @change="onCategoryTypeChange(cat.id)"
+                class="sr-only"
+              />
+              <div class="flex-1">
+                <p class="font-medium text-secondary-900">{{ cat.name }}</p>
+                <p v-if="cat.code" class="text-sm text-secondary-500">{{ cat.code }}</p>
+              </div>
+              <svg
+                v-if="formData.categoryId === cat.id"
+                class="w-5 h-5 text-primary-600 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+            </label>
+          </div>
+          <p v-if="(errors as any).categoryId" class="error-message mt-2">
+            {{ (errors as any).categoryId }}
+          </p>
+        </div>
+      </div>
       <div class="card">
         <h2 class="text-lg font-semibold text-secondary-900 mb-4 flex items-center gap-2">
           <svg
@@ -607,6 +681,7 @@ onMounted(() => {
       :requester-info="requesterInfo"
       :selected-asset="selectedAsset"
       :selected-kit="selectedKit"
+      :selected-category="selectedCategory"
       :is-submitting="isSubmitting"
       @close="closePreview"
       @confirm="handlePreviewConfirm"
