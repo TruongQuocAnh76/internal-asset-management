@@ -121,7 +121,12 @@ describe('PurchaseRequestsService', () => {
       expect(prismaMock.purchaseRequest.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ skip: 10, take: 10 }),
       );
-      expect(result.meta).toEqual({ total: 25, page: 2, limit: 10, totalPages: 3 });
+      expect(result.meta).toEqual({
+        total: 25,
+        page: 2,
+        limit: 10,
+        totalPages: 3,
+      });
     });
   });
 
@@ -191,7 +196,9 @@ describe('PurchaseRequestsService', () => {
       const err = new Error('DB connection lost');
       prismaMock.purchaseRequest.update.mockRejectedValue(err);
 
-      await expect(service.tlApprove('pr-1')).rejects.toThrow('DB connection lost');
+      await expect(service.tlApprove('pr-1')).rejects.toThrow(
+        'DB connection lost',
+      );
     });
   });
 
@@ -199,7 +206,10 @@ describe('PurchaseRequestsService', () => {
 
   describe('bodApprove', () => {
     it('updates status to BOD_APPROVED', async () => {
-      const updated = { id: 'pr-1', status: PurchaseRequestStatus.BOD_APPROVED };
+      const updated = {
+        id: 'pr-1',
+        status: PurchaseRequestStatus.BOD_APPROVED,
+      };
       prismaMock.purchaseRequest.update.mockResolvedValue(updated);
 
       const result = await service.bodApprove('pr-1');
@@ -237,7 +247,10 @@ describe('PurchaseRequestsService', () => {
         where: {
           id: 'pr-1',
           status: {
-            in: [PurchaseRequestStatus.SUBMITTED, PurchaseRequestStatus.TL_APPROVED],
+            in: [
+              PurchaseRequestStatus.SUBMITTED,
+              PurchaseRequestStatus.TL_APPROVED,
+            ],
           },
         },
         data: { status: PurchaseRequestStatus.REJECTED },
@@ -271,10 +284,15 @@ describe('PurchaseRequestsService', () => {
 
     it('marks request as RECEIVED and creates the asset within a transaction', async () => {
       const txMock = {
-        purchaseRequest: { update: jest.fn().mockResolvedValue({ id: 'pr-1' }) },
+        purchaseRequest: {
+          update: jest.fn().mockResolvedValue({ id: 'pr-1' }),
+        },
       };
       prismaMock.$transaction.mockImplementation((fn) => fn(txMock));
-      assetsServiceMock.createAsset.mockResolvedValue({ createdAsset: { id: 'a-1' }, tempImageUrls: [] });
+      assetsServiceMock.createAsset.mockResolvedValue({
+        createdAsset: { id: 'a-1' },
+        tempImageUrls: [],
+      });
 
       await service.receive('pr-1', assetBody);
 

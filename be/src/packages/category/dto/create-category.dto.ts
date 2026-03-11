@@ -39,5 +39,8 @@ export const CreateCategoryDtoSchema = z.object({
   salvage_value: z.number().int().min(0).optional().nullable(),
   default_life_months: z.number().int().min(1).optional().nullable(),
   decline_balance_rate: z.number().int().min(0).max(100).optional().nullable(),
-  default_depreciation_method: z.nativeEnum(DepreciationMethod).optional().nullable(),
+  default_depreciation_method: z
+    .nativeEnum(DepreciationMethod)
+    .optional()
+    .nullable(),
 });

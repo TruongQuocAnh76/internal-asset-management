@@ -12,6 +12,7 @@ export const useRequestForm = () => {
     type: 'asset',
     assetId: undefined,
     kitId: undefined,
+    categoryId: undefined,
     requesterId: '',
     reason: '',
     priority: 'MEDIUM',
@@ -41,6 +42,9 @@ export const useRequestForm = () => {
   const selectedKit = ref<RequestKit | null>(null)
   const isLoadingKits = ref(false)
 
+  // Selected category (for 'category' request type)
+  const selectedCategory = ref<AssetCategory | null>(null)
+
   // Computed
   const requesterInfo = computed(() => ({
     id: user.value?.id || '',
@@ -50,13 +54,17 @@ export const useRequestForm = () => {
   }))
 
   const canSubmit = computed(() => {
-    const hasSelection = formData.value.type === 'kit'
-      ? !!formData.value.kitId
-      : !!formData.value.assetId
+    let hasSelection = false
+    if (formData.value.type === 'kit') {
+      hasSelection = !!formData.value.kitId
+    } else if (formData.value.type === 'category') {
+      hasSelection = !!formData.value.categoryId
+    } else {
+      hasSelection = !!formData.value.assetId
+    }
     return (
       hasSelection &&
       formData.value.reason.trim().length > 0 &&
-      !!formData.value.dueDate &&
       Object.keys(errors.value).length === 0
     )
   })
@@ -112,19 +120,31 @@ export const useRequestForm = () => {
     }
   }
 
-  // Handle type change (asset vs kit)
+  // Handle type change (asset vs kit vs category)
   const onTypeChange = (type: RequestType) => {
     formData.value.type = type
-    // Clear the other selection
+    // Clear the other selections
     if (type === 'asset') {
       formData.value.kitId = undefined
+      formData.value.categoryId = undefined
       selectedKit.value = null
+      selectedCategory.value = null
       loadAvailableAssets()
-    } else {
+    } else if (type === 'kit') {
       formData.value.assetId = undefined
+      formData.value.categoryId = undefined
       selectedAsset.value = null
+      selectedCategory.value = null
       selectedCategoryId.value = ''
       loadAvailableKits()
+    } else {
+      // category
+      formData.value.assetId = undefined
+      formData.value.kitId = undefined
+      selectedAsset.value = null
+      selectedKit.value = null
+      selectedCategoryId.value = ''
+      // categories are already loaded on init
     }
     errors.value = {}
     autoSave()
@@ -137,6 +157,16 @@ export const useRequestForm = () => {
       ? availableKits.value.find((k: RequestKit) => k.id === kitId) || null
       : null
     delete errors.value.kitId
+    autoSave()
+  }
+
+  // Handle category selection for category-type request
+  const onCategoryTypeChange = (categoryId: string) => {
+    formData.value.categoryId = categoryId
+    selectedCategory.value = Array.isArray(assetCategories.value)
+      ? assetCategories.value.find((c: AssetCategory) => c.id === categoryId) || null
+      : null
+    delete (errors.value as any).categoryId
     autoSave()
   }
 
@@ -157,6 +187,12 @@ export const useRequestForm = () => {
         }
         break
 
+      case 'categoryId':
+        if (formData.value.type === 'category' && !formData.value.categoryId) {
+          (errors.value as any).categoryId = 'Please select a category'
+        }
+        break
+
       case 'reason':
         if (!formData.value.reason.trim()) {
           errors.value.reason = 'Reason/justification is required'
@@ -168,9 +204,7 @@ export const useRequestForm = () => {
         break
 
       case 'dueDate':
-        if (!formData.value.dueDate) {
-          errors.value.dueDate = 'Due date is required'
-        }
+        // Due date is optional.
         break
     }
 
@@ -183,11 +217,12 @@ export const useRequestForm = () => {
     
     if (formData.value.type === 'asset') {
       validateField('assetId')
-    } else {
+    } else if (formData.value.type === 'kit') {
       validateField('kitId')
+    } else {
+      validateField('categoryId')
     }
     validateField('reason')
-    validateField('dueDate')
 
     return Object.keys(errors.value).length === 0
   }
@@ -286,6 +321,7 @@ export const useRequestForm = () => {
     formData.value = {
       type: 'asset',
       assetId: '',
+      categoryId: undefined,
       requesterId: '',
       reason: '',
       priority: 'MEDIUM',
@@ -294,6 +330,7 @@ export const useRequestForm = () => {
     selectedCategoryId.value = ''
     selectedAsset.value = null
     selectedKit.value = null
+    selectedCategory.value = null
     availableAssets.value = []
     availableKits.value = []
     errors.value = {}
@@ -348,6 +385,7 @@ export const useRequestForm = () => {
     availableKits,
     selectedKit,
     isLoadingKits,
+    selectedCategory,
 
     // Computed
     requesterInfo,
@@ -358,6 +396,7 @@ export const useRequestForm = () => {
     validateField,
     validateForm,
     onCategoryChange,
+    onCategoryTypeChange,
     onAssetChange,
     onTypeChange,
     onKitChange,
