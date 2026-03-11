@@ -8,11 +8,14 @@ export const useUsers = () => {
   const config = useRuntimeConfig()
   const baseURL = config.public.backendUrl
 
-  const getUsers = async () => {
+  const getUsers = async (search?: string) => {
+    const params: Record<string, string> = {}
+    if (search) params.search = search
     return $fetch<UserSummary[]>('/users', {
       method: 'GET',
       baseURL,
       credentials: 'include',
+      params,
     })
   }
 

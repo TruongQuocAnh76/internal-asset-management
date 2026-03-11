@@ -26,6 +26,7 @@ const ids = {
 
   // Permissions
   permRequestApproveId: randomUUID(),
+  permRequestAssignId: randomUUID(),
   permRequestProvidedId: randomUUID(),
   permAssetCreateId: randomUUID(),
   permAssetMaintenanceId: randomUUID(),
@@ -136,6 +137,17 @@ async function main() {
       name: 'request:approve',
       resource: 'requests_approve',
       action: 'approve',
+    },
+  });
+
+  const permissionRequestAssign = await prisma.permissions.upsert({
+    where: { name: 'request:assign' },
+    update: {},
+    create: {
+      id: ids.permRequestAssignId,
+      name: 'request:assign',
+      resource: 'requests_assign',
+      action: 'assign',
     },
   });
 
@@ -279,6 +291,7 @@ async function main() {
   const adminPermissions = [
     permissionRequestProvided.id,
     permissionRequestApprove.id,
+    permissionRequestAssign.id,
     permissionAssetCreate.id,
     permissionAssetMaintenance.id,
     permissionPurchaseRequestBodApprove.id,

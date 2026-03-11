@@ -16,10 +16,15 @@ export const useRequests = () => {
     if (params.order) queryParams.append('order', params.order)
     if (params.orderBy) queryParams.append('orderBy', params.orderBy)
 
-    return useFetch<BorrowRequest[]>(`${baseUrl}/requests`, {
-      params: Object.fromEntries(queryParams),
-      credentials: 'include'
-    })
+    try {
+      const result = await $fetch<BorrowRequest[]>(`${baseUrl}/requests`, {
+        params: Object.fromEntries(queryParams),
+        credentials: 'include'
+      })
+      return { data: ref(result), error: ref<any>(null) }
+    } catch (err) {
+      return { data: ref<BorrowRequest[] | null>(null), error: ref(err) }
+    }
   }
 
   // Get single request by ID - uses GET /requests/:id
@@ -91,6 +96,23 @@ export const useRequests = () => {
     })
   }
 
+  // Assign request - uses POST /requests/assign
+  // Admin directly assigns an asset or kit to a user
+  const assignRequest = async (data: {
+    assetId?: string
+    kitId?: string
+    requesterId: string
+    reason: string
+    priority: 'LOW' | 'MEDIUM' | 'HIGH'
+    dueDate?: string
+  }) => {
+    return $fetch<BorrowRequest>(`${baseUrl}/requests/assign`, {
+      method: 'POST',
+      body: data,
+      credentials: 'include'
+    })
+  }
+
   // Cancel request - uses PUT /requests/cancel?id=
   // User cancels PENDING or APPROVED -> CANCELED
   const cancelRequest = async (id: string) => {
@@ -102,9 +124,14 @@ export const useRequests = () => {
 
   // Get asset categories - uses GET /category
   const getAssetCategories = async () => {
-    return useFetch<AssetCategory[]>(`${baseUrl}/category`, {
-      credentials: 'include'
-    })
+    try {
+      const result = await $fetch<AssetCategory[]>(`${baseUrl}/category`, {
+        credentials: 'include'
+      })
+      return { data: ref(result) }
+    } catch {
+      return { data: ref<AssetCategory[] | null>(null) }
+    }
   }
 
   // Get available assets by category
@@ -113,11 +140,15 @@ export const useRequests = () => {
     if (categoryId) params.category_id = categoryId
     if (search) params.search = search
 
-    return useFetch<{ data: RequestAsset[] }>(`${baseUrl}/assets`, {
-      params,
-      credentials: 'include',
-      transform: (response: any) => response.data || []
-    })
+    try {
+      const response = await $fetch<{ data: RequestAsset[] }>(`${baseUrl}/assets`, {
+        params,
+        credentials: 'include',
+      })
+      return { data: ref((response as any)?.data ?? response ?? []) }
+    } catch {
+      return { data: ref<RequestAsset[] | null>(null) }
+    }
   }
 
   // Get available kits (READY status), optionally filtered by category
@@ -126,18 +157,21 @@ export const useRequests = () => {
     if (search) params.search = search
     if (categoryId) params.category_id = categoryId
 
-    return useFetch<{ data: RequestKit[] }>(`${baseUrl}/kits`, {
-      params,
-      credentials: 'include',
-      transform: (response: any) => {
-        const items = response.data || response || []
-        return Array.isArray(items) ? items.map((kit: any) => ({
-          id: kit.id,
-          status: kit.status,
-          template: kit.template
-        })) : []
-      }
-    })
+    try {
+      const response = await $fetch<any>(`${baseUrl}/kits`, {
+        params,
+        credentials: 'include',
+      })
+      const items = (response as any)?.data ?? response ?? []
+      const result: RequestKit[] = Array.isArray(items) ? items.map((kit: any) => ({
+        id: kit.id,
+        status: kit.status,
+        template: kit.template
+      })) : []
+      return { data: ref(result) }
+    } catch {
+      return { data: ref<RequestKit[] | null>(null) }
+    }
   }
 
   return {
@@ -150,6 +184,7 @@ export const useRequests = () => {
     provideRequest,
     returnRequest,
     cancelRequest,
+    assignRequest,
     getAssetCategories,
     getAvailableAssets,
     getAvailableKits

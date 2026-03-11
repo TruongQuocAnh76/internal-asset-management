@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { Kit } from '../types/kit.types'
+import type { Asset } from '../types/asset.types'
 
 interface Props {
   visible: boolean
-  kit: Kit | null
+  asset: Asset | null
 }
 
 const props = defineProps<Props>()
@@ -54,7 +54,16 @@ const selectUser = (user: UserResult) => {
   errors.value.requesterId = ''
 }
 
+const clearSelectedUser = () => {
+  selectedUser.value = null
+  requesterId.value = ''
+  userSearch.value = ''
+  users.value = []
+  showUserDropdown.value = false
+}
+
 const handleUserInputFocus = () => {
+  if (selectedUser.value) return
   showUserDropdown.value = true
   if (userSearch.value.length >= 2) searchUsers()
 }
@@ -67,11 +76,11 @@ const validateForm = (): boolean => {
 }
 
 const handleSubmit = async () => {
-  if (!validateForm() || !props.kit) return
+  if (!validateForm() || !props.asset?.id) return
   isSubmitting.value = true
   try {
     await assignRequest({
-      kitId: props.kit.id,
+      assetId: props.asset.id,
       requesterId: requesterId.value,
       reason: reason.value.trim(),
       priority: priority.value,
@@ -80,7 +89,7 @@ const handleSubmit = async () => {
     emit('success')
     emit('close')
   } catch (err: any) {
-    errors.value.general = err.data?.message || err.message || 'Failed to assign kit'
+    errors.value.general = err.data?.message || err.message || 'Failed to assign asset'
   } finally {
     isSubmitting.value = false
   }
@@ -126,8 +135,8 @@ const handleUserBlur = () => {
           <!-- Header -->
           <div class="px-6 py-4 border-b border-secondary-200 flex items-center justify-between">
             <div>
-              <h2 class="text-lg font-semibold text-secondary-900">Assign Kit</h2>
-              <p v-if="kit" class="text-sm text-secondary-600">{{ kit.template.name }}</p>
+              <h2 class="text-lg font-semibold text-secondary-900">Assign Asset</h2>
+              <p v-if="asset" class="text-sm text-secondary-600">{{ asset.name }}</p>
             </div>
             <button
               @click="emit('close')"
@@ -162,7 +171,8 @@ const handleUserBlur = () => {
                   type="text"
                   placeholder="Search by name or email..."
                   @focus="handleUserInputFocus"
-                  @blur="setTimeout(() => showUserDropdown = false, 200)"
+                  @blur="handleUserBlur"
+                  :readonly="!!selectedUser"
                   class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   :class="errors.requesterId ? 'border-danger-500' : 'border-secondary-300'"
                 />
@@ -190,7 +200,14 @@ const handleUserBlur = () => {
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                 </svg>
-                {{ selectedUser.first_name }} {{ selectedUser.last_name }}
+                <span>{{ selectedUser.first_name }} {{ selectedUser.last_name }}</span>
+                <button
+                  type="button"
+                  class="text-secondary-500 hover:text-secondary-700 underline"
+                  @click="clearSelectedUser"
+                >
+                  Clear
+                </button>
               </div>
             </div>
 
@@ -202,7 +219,7 @@ const handleUserBlur = () => {
               <textarea
                 v-model="reason"
                 rows="3"
-                placeholder="Why is this kit being assigned?"
+                placeholder="Why is this asset being assigned?"
                 class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                 :class="errors.reason ? 'border-danger-500' : 'border-secondary-300'"
               />
@@ -258,7 +275,7 @@ const handleUserBlur = () => {
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-              {{ isSubmitting ? 'Assigning...' : 'Assign Kit' }}
+              {{ isSubmitting ? 'Assigning...' : 'Assign Asset' }}
             </button>
           </div>
         </div>

@@ -85,7 +85,6 @@ export class RequestsService {
     if (body.kitId) {
       return this.createKitRequest(body);
     } else if (body.categoryId) {
-      console.log('Creating category request with body:', body);
       return this.createCategoryRequest(body);
     }
     return this.createAssetRequest(body);
@@ -131,7 +130,7 @@ export class RequestsService {
           requester_id: body.requesterId,
           reason: body.reason,
           priority: body.priority,
-          due_date: new Date(body.dueDate),
+          due_date: new Date(body.dueDate ?? null),
         },
         include: {
           user: { select: { first_name: true, last_name: true, email: true } },
@@ -169,7 +168,7 @@ export class RequestsService {
           requester_id: body.requesterId,
           reason: body.reason,
           priority: body.priority,
-          due_date: new Date(body.dueDate),
+          due_date: new Date(body.dueDate ?? null),
         },
         include: {
           user: { select: { first_name: true, last_name: true, email: true } },

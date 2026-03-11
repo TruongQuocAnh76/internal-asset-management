@@ -4,13 +4,17 @@ import type { Asset } from '../types/asset.types'
 interface Props {
   asset: Asset
   statusConfig: { color: string; bgColor: string; label: string }
+  isAdmin?: boolean
+  canAssign?: boolean
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 const emit = defineEmits<{
   'edit': []
+  'assign': []
 }>()
+
 </script>
 
 <template>
@@ -33,25 +37,39 @@ const emit = defineEmits<{
           <div class="mt-3">
             <span 
               class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium"
-              :class="[statusConfig.bgColor, statusConfig.color]"
+              :class="[props.statusConfig?.bgColor, props.statusConfig?.color]"
             >
-              <span class="w-2 h-2 rounded-full mr-2" :class="statusConfig.color.replace('text-', 'bg-')"></span>
-              {{ statusConfig.label }}
+              <span class="w-2 h-2 rounded-full mr-2" :class="props.statusConfig?.color.replace('text-', 'bg-') ?? ''"></span>
+              {{ props.statusConfig?.label }}
             </span>
           </div>
         </div>
       </div>
 
-      <!-- Edit Button -->
-      <button
-        @click="emit('edit')"
-        class="btn-secondary flex items-center gap-2"
-      >
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-        </svg>
-        Edit Asset
-      </button>
+      <!-- Header Actions -->
+      <div class="flex items-center gap-3">
+        <button
+          v-if="isAdmin"
+          :disabled="!canAssign"
+          :title="canAssign ? 'Assign this asset' : 'This asset is not available for assignment'"
+          @click="canAssign && emit('assign')"
+          class="btn-primary flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          Assign Asset
+        </button>
+        <button
+          @click="emit('edit')"
+          class="btn-secondary flex items-center gap-2"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+          Edit Asset
+        </button>
+      </div>
     </div>
   </div>
 </template>

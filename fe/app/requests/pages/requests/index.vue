@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { BorrowRequest, RequestFilterOptions, GetRequestsParams } from '../../types/request.types'
 import { useRequests } from '../../composables/useRequests'
-import RequestsHeader from '../components/RequestsHeader.vue'
-import RequestFilters from '../components/RequestFilters.vue'
-import RequestList from '../components/RequestList.vue'
+import RequestsHeader from '../../components/RequestsHeader.vue'
+import RequestFilters from '../../components/RequestFilters.vue'
+import RequestList from '../../components/RequestList.vue'
 
 definePageMeta({
   layout: 'default',
