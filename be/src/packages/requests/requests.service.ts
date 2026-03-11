@@ -203,10 +203,10 @@ export class RequestsService {
     const take = Number(query.limit) || 20;
     const skip = query.page ? (query.page - 1) * take : 0;
 
-    // Use sort field for ordering, not filter
     const orderBy = query.orderBy
-      ? { [query.orderBy]: 'asc' as const }
-      : undefined;
+      ? { [query.orderBy]: query.order ?? ('desc' as const) }
+      : { requested_at: query.order ?? ('desc' as const) };
+
     return this.prisma.borrowRequests.findMany({
       where: where,
       orderBy: orderBy,
@@ -255,19 +255,30 @@ export class RequestsService {
 
   protected buildWhere(query: GetRequestsDto) {
     const where: Prisma.BorrowRequestsWhereInput = {};
-    if (query.filter === 'status' && query.filterValue) {
-      where.status = query.filterValue as BorrowStatus;
-    } else if (query.filter && query.filterValue) {
-      if (query.filter === 'requesterId') {
-        where.requester_id = query.filterValue;
-      } else if (query.filter === 'assetId') {
-        where.asset_id = query.filterValue;
-      } else if (query.filter === 'kitId') {
-        where.kit_id = query.filterValue;
-      } else if (query.filter === 'borrowPriority') {
-        where.priority = query.filterValue as BorrowPriority;
-      }
+
+    if (query.status) {
+      where.status = query.status as BorrowStatus;
     }
+    if (query.requesterId) {
+      where.requester_id = query.requesterId;
+    }
+    if (query.assetId) {
+      where.asset_id = query.assetId;
+    }
+    if (query.kitId) {
+      where.kit_id = query.kitId;
+    }
+    if (query.priority) {
+      where.priority = query.priority as BorrowPriority;
+    }
+    if (query.search) {
+      where.OR = [
+        { asset: { name: { contains: query.search, mode: 'insensitive' } } },
+        { kit: { template: { name: { contains: query.search, mode: 'insensitive' } } } },
+        { reason: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
     return where;
   }
 

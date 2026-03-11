@@ -50,6 +50,7 @@ const fetchRequests = async () => {
   isLoading.value = true
 
   try {
+    const currentUserId = user.value?.id
     const params: GetRequestsParams = {
       page: currentPage.value,
       limit: 10,
@@ -58,15 +59,22 @@ const fetchRequests = async () => {
 
     // Apply view filter
     if (filters.value.view === 'my_requests') {
-        params.filter = 'requesterId'
-        params.filterValue = user.value?.id
+      // Avoid accidental all-requests query before auth state is ready.
+      if (!currentUserId) {
+        requests.value = []
+        totalRequests.value = 0
+        totalPages.value = 1
+        return
+      }
+      params.requesterId = currentUserId
     }
-    // Note: team_requests view would need backend support
 
-    // Apply other filters
+    // Apply other filters (can now coexist with requesterId)
     if (filters.value.status) {
-      params.filter = 'status'
-      params.filterValue = filters.value.status
+      params.status = filters.value.status
+    }
+    if (filters.value.priority) {
+      params.priority = filters.value.priority
     }
     if (filters.value.search) {
       params.search = filters.value.search
@@ -166,6 +174,12 @@ watch(() => route.query, () => {
   }
   currentPage.value = Number(route.query.page) || 1
   fetchRequests()
+})
+
+watch(() => user.value?.id, (userId) => {
+  if (userId && filters.value.view === 'my_requests') {
+    fetchRequests()
+  }
 })
 </script>
 

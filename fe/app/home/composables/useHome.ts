@@ -34,7 +34,7 @@ export const useHome = () => {
     }
 
     const getPendingApprovals = async () => {
-        const data = await useFetch('/requests?filter=status&filterValue=PENDING', {
+        const data = await useFetch('/requests?status=PENDING', {
             method: 'GET',
             baseURL: config.public.backendUrl,
             credentials: 'include'
@@ -84,7 +84,7 @@ export const useHome = () => {
         return data
     }
     const getUserOwnedAssets = async (userId: string) => {
-        const data = await $fetch<any[]>(`/requests?filter=requesterId&filterValue=${userId}&limit=50`, {
+        const data = await $fetch<any[]>(`/requests?requesterId=${userId}&limit=50`, {
             baseURL: config.public.backendUrl,
             credentials: 'include',
         })
@@ -104,7 +104,7 @@ export const useHome = () => {
     }
 
     const getUserOwnedKits = async (userId: string) => {
-        const data = await $fetch<any[]>(`/requests?filter=requesterId&filterValue=${userId}&limit=50`, {
+        const data = await $fetch<any[]>(`/requests?requesterId=${userId}&limit=50`, {
             baseURL: config.public.backendUrl,
             credentials: 'include',
         })

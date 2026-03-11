@@ -119,16 +119,18 @@ export interface RequestDraft {
   expires_at: string
 }
 
-// Query params for fetching requests - matches backend getRequestsDto
+// Query params for fetching requests - matches backend GetRequestsDto
 export interface GetRequestsParams {
-  filter?: 'requesterId' | 'category' | 'costs' | 'status' | 'acquired_at' | 'kitId'
-  filterValue?: string
+  status?: BorrowStatus
+  requesterId?: string
+  assetId?: string
+  kitId?: string
+  priority?: RequestPriority
   search?: string
-  sort?: string
   page?: number
   limit?: number
   order?: 'asc' | 'desc'
-  orderBy?: 'category' | 'status' | 'costs' | 'acquired_at'
+  orderBy?: 'status' | 'requesterId' | 'priority' | 'requested_at' | 'due_date'
 }
 
 // Filter options for UI

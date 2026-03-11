@@ -4,21 +4,24 @@ export const useRequests = () => {
   const config = useRuntimeConfig()
   const baseUrl = config.public.backendUrl
 
-  // Get requests with query params - uses GET /requests?query=
+  // Get requests with query params - uses GET /requests
   const getRequests = async (params: GetRequestsParams = {}) => {
-    const queryParams = new URLSearchParams()
-    
-    if (params.filter) queryParams.append('filter', params.filter)
-    if (params.filterValue) queryParams.append('filterValue', params.filterValue)
-    if (params.search) queryParams.append('search', params.search)
-    if (params.page) queryParams.append('page', params.page.toString())
-    if (params.limit) queryParams.append('limit', params.limit.toString())
-    if (params.order) queryParams.append('order', params.order)
-    if (params.orderBy) queryParams.append('orderBy', params.orderBy)
+    const queryParams: Record<string, string> = {}
+
+    if (params.status) queryParams.status = params.status
+    if (params.requesterId) queryParams.requesterId = params.requesterId
+    if (params.assetId) queryParams.assetId = params.assetId
+    if (params.kitId) queryParams.kitId = params.kitId
+    if (params.priority) queryParams.priority = params.priority
+    if (params.search) queryParams.search = params.search
+    if (params.page) queryParams.page = params.page.toString()
+    if (params.limit) queryParams.limit = params.limit.toString()
+    if (params.order) queryParams.order = params.order
+    if (params.orderBy) queryParams.orderBy = params.orderBy
 
     try {
       const result = await $fetch<BorrowRequest[]>(`${baseUrl}/requests`, {
-        params: Object.fromEntries(queryParams),
+        params: queryParams,
         credentials: 'include'
       })
       return { data: ref(result), error: ref<any>(null) }
