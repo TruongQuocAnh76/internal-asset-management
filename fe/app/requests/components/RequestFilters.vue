@@ -20,14 +20,14 @@ const { statusConfig, priorityConfig } = useRequestHelpers()
 
 const localFilters = ref<RequestFilterOptions>({ ...props.modelValue })
 
+const isAllRequestsView = computed(() => localFilters.value.view === 'all_requests')
+
 const viewOptions = computed(() => {
-  const options = [
-    { value: 'my_requests', label: 'My Requests' },
-    { value: 'all_requests', label: 'All Requests' }
-  ]
+  const options = [{ value: 'my_requests', label: 'My Requests' }]
   
   if (props.showTeamRequests) {
-    options.splice(1, 0, { value: 'team_requests', label: 'Team Requests' })
+    options.push({ value: 'team_requests', label: 'Team Requests' })
+    options.push({ value: 'all_requests', label: 'All Requests' })
     options.push({ value: 'pending_approval', label: 'Pending My Approval' })
   }
   
@@ -79,11 +79,7 @@ const clearFilters = () => {
 }
 
 const hasActiveFilters = computed(() => {
-  return (
-    localFilters.value.status ||
-    localFilters.value.priority ||
-    localFilters.value.search
-  )
+  return localFilters.value.status || localFilters.value.priority
 })
 
 // Sync with parent
@@ -147,8 +143,8 @@ watch(() => props.modelValue, (newVal) => {
           </div>
         </div>
 
-        <!-- Status filter -->
-        <div class="w-full lg:w-48">
+        <!-- Status filter (all requests view only) -->
+        <div v-if="isAllRequestsView" class="w-full lg:w-48">
           <label for="status-filter" class="sr-only">Filter by status</label>
           <select
             id="status-filter"
@@ -166,8 +162,8 @@ watch(() => props.modelValue, (newVal) => {
           </select>
         </div>
 
-        <!-- Priority filter -->
-        <div class="w-full lg:w-40">
+        <!-- Priority filter (all requests view only) -->
+        <div v-if="isAllRequestsView" class="w-full lg:w-40">
           <label for="priority-filter" class="sr-only">Filter by priority</label>
           <select
             id="priority-filter"
@@ -187,7 +183,7 @@ watch(() => props.modelValue, (newVal) => {
 
         <!-- Clear filters -->
         <button
-          v-if="hasActiveFilters"
+          v-if="isAllRequestsView && hasActiveFilters"
           type="button"
           class="text-sm text-primary-600 hover:text-primary-700 font-medium whitespace-nowrap self-center"
           @click="clearFilters"

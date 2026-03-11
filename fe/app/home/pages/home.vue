@@ -8,14 +8,14 @@ import AssetStatusCards from '../components/AssetStatusCards.vue'
 import CategoryChart from '../components/CategoryChart.vue'
 import PendingApprovals from '../components/PendingApprovals.vue'
 import MyAssets from '../components/MyAssets.vue'
-import QuickActions from '../components/QuickActions.vue'
+import MyKits from '../components/MyKits.vue'
 
 definePageMeta({
   layout: 'default',
 })
 
 const { user } = useAuth()
-const { getAssetsSummary, getAssetsByCategory, getPendingApprovals, getAssetsCountByCategory, getUserOwnedAssets } = useHome()
+const { getAssetsSummary, getAssetsByCategory, getPendingApprovals, getAssetsCountByCategory, getUserOwnedAssets, getUserOwnedKits } = useHome()
 
 // Dashboard state
 const isLoading = ref(true)
@@ -30,20 +30,19 @@ const assetSummary = ref({
 const categoryData = ref<{ category: string; count: number }[]>([])
 const pendingApprovals = ref<any[]>([])
 const myAssets = ref<any[]>([])
-
-// Simulated user role - in production this would come from user data
-const userRole = ref<'admin' | 'team_lead' | 'employee'>('admin')
+const myKits = ref<any[]>([])
 
 // Fetch all dashboard data in a single aggregated load
 const loadDashboardData = async () => {
   isLoading.value = true
   try {
     // Fetch all data in parallel for optimal performance
-    const [summaryData, categoryCountData, approvals, ownedAssets] = await Promise.all([
+    const [summaryData, categoryCountData, approvals, ownedAssets, ownedKits] = await Promise.all([
       getAssetsSummary(),
       getAssetsCountByCategory(),
       getPendingApprovals(),
       user.value?.id ? getUserOwnedAssets(user.value.id) : Promise.resolve([]),
+      user.value?.id ? getUserOwnedKits(user.value.id) : Promise.resolve([]),
     ])
 
     assetSummary.value = {
@@ -68,6 +67,7 @@ const loadDashboardData = async () => {
       : []
     
     myAssets.value = ownedAssets
+    myKits.value = ownedKits
   } catch (error) {
     console.error('Failed to load dashboard data:', error)
   } finally {
@@ -120,8 +120,8 @@ onMounted(() => {
         <!-- My Assets -->
         <MyAssets :assets="myAssets" :loading="isLoading" />
 
-        <!-- Quick Actions -->
-        <QuickActions :user-role="userRole" />
+        <!-- My Kits -->
+        <MyKits :kits="myKits" :loading="isLoading" />
       </section>
 
       <!-- Footer Info -->

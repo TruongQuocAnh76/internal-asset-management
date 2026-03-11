@@ -2,6 +2,7 @@
 interface Props {
   totalRequests: number
   loading: boolean
+  isAdmin?: boolean
 }
 
 defineProps<Props>()
@@ -41,6 +42,7 @@ const emit = defineEmits<{
 
     <div class="flex items-center gap-3">
       <button
+        v-if="isAdmin"
         type="button"
         class="btn-secondary flex items-center gap-2"
         @click="emit('export')"
