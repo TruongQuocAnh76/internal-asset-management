@@ -135,7 +135,7 @@ export interface GetRequestsParams {
 
 // Filter options for UI
 export interface RequestFilterOptions {
-  view: 'my_requests' | 'team_requests' | 'all_requests' | 'pending_approval'
+  view: 'my_requests' | 'all_requests'
   status?: BorrowStatus
   priority?: RequestPriority
   search?: string

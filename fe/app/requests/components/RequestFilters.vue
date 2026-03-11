@@ -23,15 +23,10 @@ const localFilters = ref<RequestFilterOptions>({ ...props.modelValue })
 const isAllRequestsView = computed(() => localFilters.value.view === 'all_requests')
 
 const viewOptions = computed(() => {
-  const options = [{ value: 'my_requests', label: 'My Requests' }]
-  
-  if (props.showTeamRequests) {
-    options.push({ value: 'team_requests', label: 'Team Requests' })
-    options.push({ value: 'all_requests', label: 'All Requests' })
-    options.push({ value: 'pending_approval', label: 'Pending My Approval' })
-  }
-  
-  return options
+  return [
+    { value: 'my_requests', label: 'My Requests' },
+    { value: 'all_requests', label: 'All Requests' }
+  ]
 })
 
 const statusOptions: { value: BorrowStatus | ''; label: string }[] = [
@@ -123,11 +118,11 @@ watch(() => props.modelValue, (newVal) => {
               :value="localFilters.search"
               @input="handleSearch"
               placeholder="Search by asset name, reason..."
-              class="w-full pl-10"
+              class="!pl-10 w-full"
             />
-            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
               <svg
-                class="h-5 w-5 text-secondary-400"
+                class="w-5 h-5 text-secondary-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"

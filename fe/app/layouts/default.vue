@@ -12,6 +12,21 @@ const isAdmin = computed(() =>
   user.value?.user_roles?.some((ur: any) => ur.role?.name === 'Admin') ?? false
 )
 
+const isTeamLead = computed(() =>
+  user.value?.user_roles?.some((ur: any) => ur.role?.name === 'Team Lead') ?? false
+)
+
+// Filtered nav items: purchases should be visible to Admin and Team Lead;
+// other adminOnly items remain Admin-only.
+const navList = computed(() =>
+  navItems.filter(i => {
+    if (i.route === '/purchase-requests') {
+      return isAdmin.value || isTeamLead.value
+    }
+    return !i.adminOnly || isAdmin.value
+  })
+)
+
 const handleLogout = async () => {
   await signout()
   navigateTo('/signin')
@@ -117,7 +132,7 @@ const isActive = (path: string) => {
       <!-- Navigation -->
       <nav class="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
         <NuxtLink
-          v-for="item in navItems.filter(i => !i.adminOnly || isAdmin)"
+          v-for="item in navList"
           :key="item.route"
           :to="item.route"
           :class="[

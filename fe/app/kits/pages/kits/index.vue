@@ -11,12 +11,12 @@ import EmptyState from '../../components/EmptyState.vue'
 definePageMeta({
   layout: 'default',
 })
-import ViewToggle from '../../components/ViewToggle.vue'
+// View toggle removed — grid/list button is no longer needed
 import type { Kit, GetKitsParams } from '../../types/kit.types'
 import { useKits } from '../../composables/useKits'
 import { useBulkOperations } from '../../composables/useBulkOperations'
 
-const { getKits, getCategories } = useKits()
+const { getKits } = useKits()
 const {
   selectedKitIds,
   isProcessing,
@@ -40,7 +40,6 @@ const router = useRouter()
 // Filters state
 const filters = ref<GetKitsParams>({
   search: (route.query.search as string) || '',
-  status: (route.query.status as GetKitsParams['status']) || undefined,
   filter: (route.query.filter as GetKitsParams['filter']) || undefined,
   order: (route.query.order as 'asc' | 'desc') || 'desc',
   page: Number(route.query.page) || 1,
@@ -49,7 +48,6 @@ const filters = ref<GetKitsParams>({
 
 // Data state
 const kits = ref<Kit[]>([])
-const categories = ref<{ name: string }[]>([])
 const totalKits = ref(0)
 const totalPages = ref(1)
 const isLoading = ref(false)
@@ -93,16 +91,6 @@ const fetchKits = async () => {
   }
 }
 
-const fetchCategories = async () => {
-  try {
-    const { data } = await getCategories()
-    if (data.value) {
-      categories.value = data.value.map(c => ({ name: c.name }))
-    }
-  } catch (err) {
-    console.error('Error fetching categories:', err)
-  }
-}
 
 const updateUrlParams = () => {
   const query: Record<string, string> = {}
@@ -111,13 +99,7 @@ const updateUrlParams = () => {
     query.search = filters.value.search
   }
   
-  if (filters.value.category) {
-    query.category = filters.value.category
-  }
-  
-  if (filters.value.status) {
-    query.status = filters.value.status
-  }
+  // category/status filters removed
 
   if (filters.value.filter) {
     query.filter = filters.value.filter
@@ -183,15 +165,12 @@ const handleCloseResults = () => {
 // Initialize
 onMounted(() => {
   fetchKits()
-  fetchCategories()
 })
 
 // Watch for route changes
 watch(() => route.query, () => {
   filters.value = {
     search: (route.query.search as string) || '',
-    category: (route.query.category as string) || '',
-    status: (route.query.status as GetKitsParams['status']) || undefined,
     filter: (route.query.filter as GetKitsParams['filter']) || undefined,
     order: (route.query.order as 'asc' | 'desc') || 'desc',
     page: Number(route.query.page) || 1,
@@ -218,12 +197,8 @@ watch(() => route.query, () => {
           <div class="flex-1 w-full">
             <KitFilters
               v-model="filters"
-              :categories="categories"
               @apply="handleFiltersApply"
             />
-          </div>
-          <div class="hidden sm:block">
-            <ViewToggle v-model="viewMode" />
           </div>
         </div>
 
@@ -289,12 +264,12 @@ watch(() => route.query, () => {
         <!-- Empty State -->
         <EmptyState
           v-else
-          :icon="filters.search || filters.category ? 'filter' : 'kit'"
-          :title="filters.search || filters.category ? 'No kits match your filters' : 'No kits yet'"
-          :description="filters.search || filters.category 
-            ? 'Try adjusting your search or filters to find what you\'re looking for.' 
+          :icon="filters.search ? 'filter' : 'kit'"
+          :title="filters.search ? 'No kits match your filters' : 'No kits yet'"
+          :description="filters.search
+            ? 'Try adjusting your search or filters to find what you\'re looking for.'
             : 'Get started by creating your first kit to organize your assets.'"
-          :action-label="filters.search || filters.category ? undefined : 'Create Kit'"
+          :action-label="filters.search ? undefined : 'Create Kit'"
           @action="handleCreateKit"
         />
       </div>
