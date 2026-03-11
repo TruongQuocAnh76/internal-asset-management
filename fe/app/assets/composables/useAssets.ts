@@ -14,11 +14,10 @@ export const useAssets = () => {
   const getAllAssets = async (params: GetAssetsParams = {}) => {
     const queryParams = new URLSearchParams()
     
-    if (params.filter && params.filter_value) {
-      queryParams.append('filter', params.filter)
-      queryParams.append('filterValue', params.filter_value)
-    }
-    
+    if (params.status) queryParams.append('status', params.status)
+    if (params.category_id) queryParams.append('category_id', params.category_id)
+    if (params.acquired_at) queryParams.append('acquired_at', params.acquired_at)
+
     if (params.search) {
       queryParams.append('search', params.search)
     }
@@ -38,13 +37,16 @@ export const useAssets = () => {
     const queryString = queryParams.toString()
     const url = `/assets${queryString ? `?${queryString}` : ''}`
 
-    const data = await useFetch<AssetsResponse>(url, {
-      method: 'GET',
-      baseURL: config.public.backendUrl,
-      credentials: 'include'
-    })
-
-    return data
+    try {
+      const result = await $fetch<AssetsResponse>(url, {
+        method: 'GET',
+        baseURL: config.public.backendUrl,
+        credentials: 'include'
+      })
+      return { data: ref(result), error: ref<any>(null) }
+    } catch (err) {
+      return { data: ref<AssetsResponse | null>(null), error: ref(err) }
+    }
   }
 
   const getAssetById = async (id: string) => {
@@ -110,13 +112,16 @@ export const useAssets = () => {
   }
 
   const getCategories = async () => {
-    const data = await useFetch<{ id: string; name: string; code: string }[]>('/assets/category/count', {
-      method: 'GET',
-      baseURL: config.public.backendUrl,
-      credentials: 'include'
-    })
-
-    return data
+    try {
+      const result = await $fetch<{ id: string; name: string; code: string }[]>('/assets/category/count', {
+        method: 'GET',
+        baseURL: config.public.backendUrl,
+        credentials: 'include'
+      })
+      return { data: ref(result) }
+    } catch {
+      return { data: ref<{ id: string; name: string; code: string }[] | null>(null) }
+    }
   }
 
   const exportAssets = async (format: 'pdf' | 'excel') => {

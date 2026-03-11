@@ -4,12 +4,6 @@ DECLARE
   v_status public."AssetStatus";
 BEGIN
 
-  IF (NEW.asset_id IS NULL AND NEW.kit_id IS NULL)
-     OR (NEW.asset_id IS NOT NULL AND NEW.kit_id IS NOT NULL)
-  THEN
-    RAISE EXCEPTION 'borrow_target_invalid: must reference exactly one of asset_id or kit_id';
-  END IF;
-
   IF NEW.asset_id IS NOT NULL THEN
     SELECT status INTO v_status
     FROM public."Assets"

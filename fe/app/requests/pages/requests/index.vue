@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { BorrowRequest, RequestFilterOptions, GetRequestsParams } from '../../types/request.types'
 import { useRequests } from '../../composables/useRequests'
-import RequestsHeader from '../components/RequestsHeader.vue'
-import RequestFilters from '../components/RequestFilters.vue'
-import RequestList from '../components/RequestList.vue'
+import RequestsHeader from '../../components/RequestsHeader.vue'
+import RequestFilters from '../../components/RequestFilters.vue'
+import RequestList from '../../components/RequestList.vue'
 
 definePageMeta({
   layout: 'default',
@@ -14,15 +14,27 @@ const route = useRoute()
 const { getRequests, cancelRequest } = useRequests()
 const { user } = useAuth()
 
-// Check if user is approver
-const isApprover = computed(() => {
-  const roles = user.value?.roles || []
-  return roles.includes('ADMIN') || roles.includes('TEAM_LEAD')
-})
+const canViewAllRequests = computed(() =>
+  user.value?.user_roles?.some((ur: any) =>
+    ur.role?.name === 'Admin' || ur.role?.name === 'Team Lead'
+  ) ?? false
+)
+
+const isAdmin = computed(() =>
+  user.value?.user_roles?.some((ur: any) => ur.role?.name === 'Admin') ?? false
+)
+
+const resolveView = (view?: RequestFilterOptions['view']) => {
+  if (!canViewAllRequests.value && view && view !== 'my_requests') {
+    return 'my_requests'
+  }
+
+  return view || 'my_requests'
+}
 
 // Initialize filters from URL
 const filters = ref<RequestFilterOptions>({
-  view: (route.query.view as RequestFilterOptions['view']) || 'my_requests',
+  view: resolveView(route.query.view as RequestFilterOptions['view']),
   status: route.query.status as any || undefined,
   priority: route.query.priority as any || undefined,
   search: (route.query.search as string) || ''
@@ -38,6 +50,7 @@ const fetchRequests = async () => {
   isLoading.value = true
 
   try {
+    const currentUserId = user.value?.id
     const params: GetRequestsParams = {
       page: currentPage.value,
       limit: 10,
@@ -46,15 +59,22 @@ const fetchRequests = async () => {
 
     // Apply view filter
     if (filters.value.view === 'my_requests') {
-        params.filter = 'requesterId'
-        params.filterValue = user.value?.id
+      // Avoid accidental all-requests query before auth state is ready.
+      if (!currentUserId) {
+        requests.value = []
+        totalRequests.value = 0
+        totalPages.value = 1
+        return
+      }
+      params.requesterId = currentUserId
     }
-    // Note: team_requests view would need backend support
 
-    // Apply other filters
+    // Apply other filters (can now coexist with requesterId)
     if (filters.value.status) {
-      params.filter = 'status'
-      params.filterValue = filters.value.status
+      params.status = filters.value.status
+    }
+    if (filters.value.priority) {
+      params.priority = filters.value.priority
     }
     if (filters.value.search) {
       params.search = filters.value.search
@@ -147,13 +167,19 @@ onMounted(() => {
 // Watch route changes
 watch(() => route.query, () => {
   filters.value = {
-    view: (route.query.view as RequestFilterOptions['view']) || 'my_requests',
+    view: resolveView(route.query.view as RequestFilterOptions['view']),
     status: route.query.status as any || undefined,
     priority: route.query.priority as any || undefined,
     search: (route.query.search as string) || ''
   }
   currentPage.value = Number(route.query.page) || 1
   fetchRequests()
+})
+
+watch(() => user.value?.id, (userId) => {
+  if (userId && filters.value.view === 'my_requests') {
+    fetchRequests()
+  }
 })
 </script>
 
@@ -165,6 +191,7 @@ watch(() => route.query, () => {
         <RequestsHeader
           :total-requests="totalRequests"
           :loading="isLoading"
+          :is-admin="isAdmin"
           @create="handleCreate"
           @export="handleExport"
         />
@@ -172,7 +199,7 @@ watch(() => route.query, () => {
         <!-- Filters -->
         <RequestFilters
           v-model="filters"
-          :show-team-requests="isApprover"
+          :show-team-requests="canViewAllRequests"
           @apply="handleFiltersApply"
         />
 

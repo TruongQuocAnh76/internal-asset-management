@@ -6,6 +6,7 @@ import StatusActions from '../../../components/StatusActions.vue'
 import StateTransitionModal from '../../../components/StateTransitionModal.vue'
 import MaintenanceTransitionModal from '../../../components/MaintenanceTransitionModal.vue'
 import ImageCarousel from '../../../components/ImageCarousel.vue'
+import AssignAssetDialog from '../../../components/AssignAssetDialog.vue'
 import { useAssets } from '../../../composables/useAssets'
 import type { AssetItem } from '../../../types/asset.types'
 
@@ -16,6 +17,12 @@ definePageMeta({
 const route = useRoute()
 const router = useRouter()
 const id = computed(() => route.params.id as string)
+const { user } = useAuth()
+
+const isAdmin = computed(() => {
+  const roles = user.value?.user_roles?.map((item: any) => item?.role?.name) || []
+  return roles.includes('Admin')
+})
 
 const {
   asset,
@@ -39,9 +46,12 @@ const {
   confirmResolveMaintenance,
   formatCurrency,
   formatDate
-} = useAssetDetail(id.value)
+} = useAssetDetail(id)
+
+const canAssign = computed(() => assetItems.value.some((item) => item.status === 'READY'))
 
 const { updateAssetItem } = useAssets()
+const showAssignDialog = ref(false)
 const itemEditOpen = ref(false)
 const itemEditLoading = ref(false)
 const itemEditError = ref('')
@@ -65,6 +75,15 @@ watch(id, (newId) => {
 
 const handleEdit = () => {
   router.push(`/assets/${id.value}/edit`)
+}
+
+const handleAssign = () => {
+  showAssignDialog.value = true
+}
+
+const handleAssignSuccess = () => {
+  showAssignDialog.value = false
+  loadAsset()
 }
 
 const handleBack = () => {
@@ -169,7 +188,10 @@ const saveItemEdit = async () => {
         <AssetDetailHeader 
           :asset="asset" 
           :status-config="statusConfig"
+          :is-admin="isAdmin"
+          :can-assign="canAssign"
           @edit="handleEdit"
+          @assign="handleAssign"
         />
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -314,6 +336,14 @@ const saveItemEdit = async () => {
         </button>
       </div>
     </div>
+
+    <!-- Assign Asset Dialog -->
+    <AssignAssetDialog
+      :visible="showAssignDialog"
+      :asset="asset ?? null"
+      @close="showAssignDialog = false"
+      @success="handleAssignSuccess"
+    />
 
     <!-- State Transition Modal -->
     <StateTransitionModal

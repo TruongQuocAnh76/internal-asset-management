@@ -35,9 +35,7 @@ import {
 
 @Controller('assets')
 export class AssetsController {
-  constructor(
-    private readonly assetsService: AssetsService,
-  ) {}
+  constructor(private readonly assetsService: AssetsService) {}
 
   @Get()
   @UseGuards(SessionAuthGuard)
@@ -49,10 +47,7 @@ export class AssetsController {
 
   @Get('export')
   @UseGuards(SessionAuthGuard)
-  async exportAssets(
-    @Query('format') format: string,
-    @Res() res: Response,
-  ) {
+  async exportAssets(@Query('format') format: string, @Res() res: Response) {
     const { buffer, contentType, filename } =
       await this.assetsService.exportStorageReport(format);
 
@@ -69,7 +64,6 @@ export class AssetsController {
   getSummary() {
     return this.assetsService.getSummary();
   }
-
 
   @Get('maintenance/items')
   @UseGuards(SessionAuthGuard)

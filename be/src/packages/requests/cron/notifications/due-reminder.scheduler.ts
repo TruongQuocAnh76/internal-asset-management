@@ -5,7 +5,10 @@ import { Queue } from 'bullmq';
 import { PrismaService } from 'src/core/database/prisma.service';
 import { BorrowMailContext } from 'src/core/mail/mail.service';
 import { BorrowStatus } from '@prisma/client';
-import { NOTIFICATION_QUEUE, NotificationJobName } from './notification.processor';
+import {
+  NOTIFICATION_QUEUE,
+  NotificationJobName,
+} from './notification.processor';
 
 const REMINDER_DAYS = [7, 3, 1];
 
@@ -46,12 +49,16 @@ export class DueReminderScheduler {
     for (const request of overdueRequests) {
       if (!request.user.email) continue;
       const ctx = this.buildContext(request, 0);
-      await this.notificationQueue.add('request-overdue' as NotificationJobName, ctx, {
-        removeOnComplete: 100,
-        removeOnFail: 200,
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 60_000 },
-      });
+      await this.notificationQueue.add(
+        'request-overdue' as NotificationJobName,
+        ctx,
+        {
+          removeOnComplete: 100,
+          removeOnFail: 200,
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 60_000 },
+        },
+      );
       totalEnqueued++;
     }
 
@@ -86,12 +93,16 @@ export class DueReminderScheduler {
         if (!request.user.email) continue;
 
         const ctx = this.buildContext(request, days);
-        await this.notificationQueue.add('request-due-reminder' as NotificationJobName, ctx, {
-          removeOnComplete: 100,
-          removeOnFail: 200,
-          attempts: 3,
-          backoff: { type: 'exponential', delay: 60_000 },
-        });
+        await this.notificationQueue.add(
+          'request-due-reminder' as NotificationJobName,
+          ctx,
+          {
+            removeOnComplete: 100,
+            removeOnFail: 200,
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 60_000 },
+          },
+        );
         totalEnqueued++;
       }
 
@@ -102,14 +113,16 @@ export class DueReminderScheduler {
       }
     }
 
-    this.logger.log(`Due-date reminder scan complete – ${totalEnqueued} notification(s) enqueued`);
+    this.logger.log(
+      `Due-date reminder scan complete – ${totalEnqueued} notification(s) enqueued`,
+    );
   }
 
   private buildContext(
     request: {
       id: string;
       reason: string | null;
-      due_date: Date;
+      due_date: Date | null;
       user: { first_name: string; last_name: string; email: string };
       asset?: { name: string } | null;
       kit?: { template: { name: string } } | null;
@@ -117,9 +130,7 @@ export class DueReminderScheduler {
     daysRemaining: number,
   ): BorrowMailContext {
     const assetName =
-      request.asset?.name ??
-      request.kit?.template?.name ??
-      'Unknown Asset';
+      request.asset?.name ?? request.kit?.template?.name ?? 'Unknown Asset';
 
     return {
       recipientName: `${request.user.first_name} ${request.user.last_name}`,
@@ -129,11 +140,13 @@ export class DueReminderScheduler {
       assetName,
       requestId: request.id,
       reason: request.reason ?? undefined,
-      dueDate: new Date(request.due_date).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      }),
+      dueDate: request.due_date
+        ? new Date(request.due_date).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          })
+        : undefined,
       daysRemaining,
     };
   }

@@ -11,7 +11,7 @@ export const useHome = () => {
     }
 
     const getAssetsByCategory = async (category: string) => {
-        let url = `/assets?filter=category&filter_value=${category}`
+        let url = `/assets?category_id=${category}`
         const data = await useFetch(url, {
             method: 'GET',
             baseURL: config.public.backendUrl,
@@ -34,7 +34,7 @@ export const useHome = () => {
     }
 
     const getPendingApprovals = async () => {
-        const data = await useFetch('/requests?filter=status&filterValue=PENDING', {
+        const data = await useFetch('/requests?status=PENDING', {
             method: 'GET',
             baseURL: config.public.backendUrl,
             credentials: 'include'
@@ -84,20 +84,39 @@ export const useHome = () => {
         return data
     }
     const getUserOwnedAssets = async (userId: string) => {
-        const data = await $fetch<any[]>(`/requests?filter=requesterId&filterValue=${userId}&limit=50`, {
+        const data = await $fetch<any[]>(`/requests?requesterId=${userId}&limit=50`, {
             baseURL: config.public.backendUrl,
             credentials: 'include',
         })
         // Filter to only currently held assets (PROVIDED or OVERDUE)
         const held = (Array.isArray(data) ? data : []).filter(
-            (r: any) => r.status === 'PROVIDED' || r.status === 'OVERDUE'
+            (r: any) => (r.status === 'PROVIDED' || r.status === 'OVERDUE') && !r.kit_id
         )
         return held.map((r: any) => ({
             id: r.id,
-            name: r.asset?.name || r.kit?.template?.name || 'Unknown',
-            type: r.kit_id ? 'kit' : 'asset',
+            name: r.asset?.name || 'Unknown',
+            type: 'asset' as const,
             assetId: r.asset?.id,
+            dueDate: r.due_date,
+            providedAt: r.provided_at,
+            status: r.status as 'PROVIDED' | 'OVERDUE',
+        }))
+    }
+
+    const getUserOwnedKits = async (userId: string) => {
+        const data = await $fetch<any[]>(`/requests?requesterId=${userId}&limit=50`, {
+            baseURL: config.public.backendUrl,
+            credentials: 'include',
+        })
+        // Filter to only currently held kit requests (PROVIDED or OVERDUE)
+        const held = (Array.isArray(data) ? data : []).filter(
+            (r: any) => (r.status === 'PROVIDED' || r.status === 'OVERDUE') && r.kit_id
+        )
+        return held.map((r: any) => ({
+            id: r.id,
+            name: r.kit?.template?.name || 'Unknown',
             kitId: r.kit_id,
+            itemCount: r.kit?.asset_items?.length ?? 0,
             dueDate: r.due_date,
             providedAt: r.provided_at,
             status: r.status as 'PROVIDED' | 'OVERDUE',
@@ -112,5 +131,6 @@ export const useHome = () => {
         getAssetsCountByCategory,
         getAuditLogs,
         getUserOwnedAssets,
+        getUserOwnedKits,
     }
 }

@@ -15,8 +15,8 @@ const router = useRouter()
 
 // Initialize filters from URL query params
 const filters = ref<GetAssetsParams>({
-  filter: (route.query.filter as GetAssetsParams['filter']) || undefined,
-  filter_value: (route.query.filter_value as string) || '',
+  status: (route.query.status as string) || undefined,
+  category_id: (route.query.category_id as string) || undefined,
   search: (route.query.search as string) || '',
   order: (route.query.order as 'asc' | 'desc') || 'desc',
   page: Number(route.query.page) || 1,
@@ -25,8 +25,7 @@ const filters = ref<GetAssetsParams>({
 
 // Handle status filter from URL (from dashboard cards)
 if (route.query.status) {
-  filters.value.filter = 'status'
-  filters.value.filter_value = route.query.status as string
+  filters.value.status = route.query.status as string
 }
 
 const assets = ref<Asset[]>([])
@@ -59,10 +58,8 @@ const fetchAssets = async () => {
 const updateUrlParams = () => {
   const query: Record<string, string> = {}
   
-  if (filters.value.filter && filters.value.filter_value) {
-    query.filter = filters.value.filter
-    query.filter_value = filters.value.filter_value
-  }
+  if (filters.value.status) query.status = filters.value.status
+  if (filters.value.category_id) query.category_id = filters.value.category_id
   
   if (filters.value.search) {
     query.search = filters.value.search
