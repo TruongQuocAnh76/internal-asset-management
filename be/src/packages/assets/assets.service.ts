@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/core/database/prisma.service';
 import { GetAssetsParams } from './dto/get-assets-params.dto';
-import { AssetStatus, Prisma } from '@prisma/client';
+import { Prisma, ItemStatus, TemplateStatus } from '@prisma/client';
 import { EditAssetDto, EditAssetDtoSchema } from './dto/edit-asset.dto';
 import { EditAssetItemDto, EditAssetItemDtoSchema } from './dto/edit-asset-item.dto';
 import { CreateAssetDto } from './dto/create-asset.dto';
@@ -285,7 +285,7 @@ export class AssetsService {
     });
 
     // Recompute cached asset status
-    await this.recomputeAssetStatus(createdAsset.id, null, AssetStatus.READY, db);
+    await this.recomputeAssetStatus(createdAsset.id, TemplateStatus.AVAILABLE, ItemStatus.READY, false, db);
 
     return { createdAsset, tempImageUrls };
   }
@@ -391,10 +391,17 @@ export class AssetsService {
 
     if (query.status) {
       const statusUpper = query.status.toUpperCase();
-      if (!Object.values(AssetStatus).includes(statusUpper as AssetStatus)) {
+      if (Object.values(TemplateStatus).includes(statusUpper as TemplateStatus)) {
+        where.status = statusUpper as TemplateStatus;
+      } else if (statusUpper === ItemStatus.READY) {
+        // Legacy filter alias: READY items mean the asset is AVAILABLE
+        where.status = TemplateStatus.AVAILABLE;
+      } else if (Object.values(ItemStatus).includes(statusUpper as ItemStatus)) {
+        // Any other item status means the asset is UNAVAILABLE
+        where.status = TemplateStatus.UNAVAILABLE;
+      } else {
         throw new BadRequestException('Invalid asset status');
       }
-      where.status = statusUpper as AssetStatus;
     }
 
     if (query.acquired_at) {
@@ -488,76 +495,135 @@ export class AssetsService {
   }
 
   /**
+   * Update a single asset item's status and propagate the change up the
+   * asset → kit → kit-template hierarchy, stopping at any level whose
+   * computed status is unchanged.
+   */
+  async updateAssetItemStatus(
+    itemId: string,
+    newStatus: ItemStatus,
+    tx?: any,
+  ): Promise<void> {
+    const client = tx ?? this.prisma;
+
+    const item = await client.assetItems.findUniqueOrThrow({
+      where: { id: itemId },
+      select: {
+        status: true,
+        asset_id: true,
+        kit_id: true,
+        asset: { select: { status: true } },
+        kit: {
+          select: {
+            status: true,
+            template_id: true,
+            template: { select: { status: true } },
+          },
+        },
+      },
+    });
+
+    if (item.status === newStatus) return;
+
+    const staleAssetStatus: TemplateStatus = item.asset.status;
+    const staleKitStatus: TemplateStatus | null = item.kit?.status ?? null;
+    const kitTemplateId: string | null = item.kit?.template_id ?? null;
+    const staleKitTemplateStatus: TemplateStatus | null =
+      item.kit?.template?.status ?? null;
+
+    // Update the item first so recompute queries see the new state
+    await client.assetItems.update({
+      where: { id: itemId },
+      data: { status: newStatus },
+    });
+
+    // Asset level
+    const newAssetStatus = await this.recomputeAssetStatus(
+      item.asset_id,
+      staleAssetStatus,
+      newStatus,
+      false,
+      client,
+    );
+    if (newAssetStatus !== staleAssetStatus) {
+      await client.assets.update({
+        where: { id: item.asset_id },
+        data: { status: newAssetStatus },
+      });
+    }
+
+    // Kit level — only when the item belongs to a kit
+    if (!item.kit_id || staleKitStatus === null) return;
+
+    const newKitStatus = await this.kitsService.recomputeKitStatus(
+      item.kit_id,
+      staleKitStatus,
+      newStatus,
+      false,
+      client,
+    );
+    if (newKitStatus === staleKitStatus) return;
+
+    await client.assetsKits.update({
+      where: { id: item.kit_id },
+      data: { status: newKitStatus },
+    });
+
+    // Kit-template level — only when kit status changed
+    if (!kitTemplateId || staleKitTemplateStatus === null) return;
+
+    const newKitTemplateStatus = await this.kitsService.recomputeKitTemplateStatus(
+      kitTemplateId,
+      staleKitTemplateStatus,
+      newKitStatus,
+      false,
+      client,
+    );
+    if (newKitTemplateStatus !== staleKitTemplateStatus) {
+      await client.kitTemplates.update({
+        where: { id: kitTemplateId },
+        data: { status: newKitTemplateStatus },
+      });
+    }
+  }
+
+  /**
    * Recompute cached status on the Assets row.
+   * AVAILABLE if all asset items are READY, otherwise UNAVAILABLE.
    */
   private async recomputeAssetStatus(
     assetId: string,
-    currentStatus: AssetStatus | null,
-    updateStatus: AssetStatus,
+    staleAssetStatus: TemplateStatus,
+    updatedItemStatus: ItemStatus | null,
+    deletedItem: boolean,
     tx?: any,
-  ): Promise<AssetStatus> {
-    const client = tx || this.prisma;
-
-    try {
-      if (updateStatus == AssetStatus.READY) {
-        await client.assets.update({
-          where: { id: assetId },
-          data: { status: AssetStatus.READY },
-        });
-        return AssetStatus.READY;
+  ): Promise<TemplateStatus> {
+    const client = tx ?? this.prisma;
+    // CASE ITEM STATUS UPDATE
+    if (!deletedItem) {
+      if (updatedItemStatus === ItemStatus.READY) {
+        return TemplateStatus.AVAILABLE;
       }
-
-      let currStatus = currentStatus;
-      if (!currStatus) {
-        const current = await client.assets.findUnique({
-          where: { id: assetId },
-          select: { status: true },
-        });
-        if (!current) return AssetStatus.READY;
-        currStatus = current.status as AssetStatus;
+      if (staleAssetStatus === TemplateStatus.UNAVAILABLE) {
+        return TemplateStatus.UNAVAILABLE;
       }
-
-      if (currStatus !== AssetStatus.READY) {
-        const [cnt, totalCount] = await Promise.all([
-          client.assetItems.count({
-            where: { asset_id: assetId, status: updateStatus },
-          }),
-          client.assetItems.count({
-            where: { asset_id: assetId },
-          }),
-        ]);
-
-        if (cnt === totalCount && updateStatus !== null) {
-          await client.assets.update({
-            where: { id: assetId },
-            data: { status: updateStatus },
-          });
-          return updateStatus;
-        }
-        return currStatus;
-      } else {
-        const readyCount = await client.assetItems.count({
-          where: { asset_id: assetId, status: AssetStatus.READY },
-        });
-        // since current is ready, there's atleast 1 ready item
-        // if readyCount < 1, then asset status is update status
-        if (readyCount < 1) {
-          await client.assets.update({
-            where: { id: assetId },
-            data: { status: updateStatus},
-          });
-          return updateStatus;
-        }
-        // otherwise its still ready
-        return AssetStatus.READY;
+      const readyCount = await client.assetItems.count({
+        where: { asset_id: assetId, status: ItemStatus.READY },
+      });
+      if (readyCount === 0) {
+        return TemplateStatus.UNAVAILABLE;
       }
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-        throw new NotFoundException('Asset not found');
-      }
-      throw error;
+      return TemplateStatus.AVAILABLE;
     }
+    // CASE ITEM DELETION
+    const remainingItemCount = await client.assetItems.count({
+      where: {
+        asset_id: assetId,
+      },
+    });
+    return remainingItemCount === 0 ? TemplateStatus.UNAVAILABLE : TemplateStatus.AVAILABLE; // if no items remain, asset becomes UNAVAILABLE, otherwise it becomes AVAILABLE because the deleted item is necessarily not READY
   }
+
 
   computeDepreciation(params: {
     costs: bigint;
@@ -602,9 +668,9 @@ export class AssetsService {
     while (true) {
       const items = await this.prisma.assetItems.findMany({
         where: {
+          status: { not: ItemStatus.LIQUIDATED },
           asset: {
             depreciation_method: { not: null },
-            status: { not: 'LIQUIDATED' },
           },
         },
         select: {
@@ -678,10 +744,10 @@ export class AssetsService {
         item = await tx.assetItems.update({
           where: {
             id: body.asset_item_id,
-            status: { notIn: [AssetStatus.MAINTAINANCE, AssetStatus.LIQUIDATED] },
+            status: { notIn: [ItemStatus.MAINTAINANCE, ItemStatus.LIQUIDATED] },
           },
           data: {
-            status: AssetStatus.MAINTAINANCE,
+            status: ItemStatus.MAINTAINANCE,
             maintenance_notes: body.maintenance_notes,
             last_maintained_at: new Date(),
           },
@@ -698,11 +764,12 @@ export class AssetsService {
       }
 
       // Recompute parent asset status
-      await this.recomputeAssetStatus(item.asset_id, null, AssetStatus.MAINTAINANCE, tx);
+      const newAssetStatus = await this.recomputeAssetStatus(item.asset_id, TemplateStatus.AVAILABLE, ItemStatus.MAINTAINANCE, false, tx);
+      await tx.assets.update({ where: { id: item.asset_id }, data: { status: newAssetStatus } });
 
       // Recompute kit status if item belongs to a kit
       if (item.kit_id) {
-        await this.kitsService.recomputeKitStatus(item.kit_id, null, AssetStatus.MAINTAINANCE, tx);
+        await this.kitsService.refreshKitAndTemplateStatus(item.kit_id, tx);
       }
 
       return { asset_item_id: body.asset_item_id, status: 'MAINTAINANCE' };
@@ -749,12 +816,12 @@ export class AssetsService {
    */
   async resolveMaintenance(body: ResolveMaintenanceDto, userId: string) {
     return this.prisma.$transaction(async (tx) => {
-      const newStatus = body.resolved_status as AssetStatus;
+      const newStatus = body.resolved_status as ItemStatus;
 
       let item: any;
       try {
         item = await tx.assetItems.update({
-          where: { id: body.asset_item_id, status: AssetStatus.MAINTAINANCE },
+          where: { id: body.asset_item_id, status: ItemStatus.MAINTAINANCE },
           data: {
             status: newStatus,
             maintenance_notes: null,
@@ -785,11 +852,12 @@ export class AssetsService {
       }
 
       // Recompute parent asset status
-      await this.recomputeAssetStatus(item.asset_id, null, newStatus, tx);
+      const newAssetStatusResolved = await this.recomputeAssetStatus(item.asset_id, TemplateStatus.AVAILABLE, newStatus, false, tx);
+      await tx.assets.update({ where: { id: item.asset_id }, data: { status: newAssetStatusResolved } });
 
       // Recompute kit status if item belongs to a kit
       if (item.kit_id) {
-        await this.kitsService.recomputeKitStatus(item.kit_id, null, newStatus, tx);
+        await this.kitsService.refreshKitAndTemplateStatus(item.kit_id, tx);
       }
 
       return {
@@ -804,7 +872,7 @@ export class AssetsService {
    */
   async getMaintenanceItems() {
     const items = await this.prisma.assetItems.findMany({
-      where: { status: AssetStatus.MAINTAINANCE },
+      where: { status: ItemStatus.MAINTAINANCE },
       include: {
         asset: { select: { id: true, code: true, name: true } },
         kit: {
@@ -868,7 +936,7 @@ export class AssetsService {
     ]);
 
     const mapStatus = (
-      groups: { status: AssetStatus; _count: number }[],
+      groups: { status: ItemStatus; _count: number }[],
     ): Record<string, number> => {
       const m: Record<string, number> = {
         READY: 0,

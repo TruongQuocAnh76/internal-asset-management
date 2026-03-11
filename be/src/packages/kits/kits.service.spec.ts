@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { KitsService } from './kits.service';
+import { ItemStatus, TemplateStatus } from '@prisma/client';
 import { PrismaService } from 'src/core/database/prisma.service';
-import { AssetStatus } from '@prisma/client';
+import { KitsService } from './kits.service';
 
 describe('KitsService', () => {
   let service: KitsService;
@@ -18,6 +18,7 @@ describe('KitsService', () => {
     assetItems: {
       findMany: jest.fn(),
       count: jest.fn(),
+      updateMany: jest.fn(),
     },
     kitTemplates: {
       update: jest.fn(),
@@ -46,231 +47,152 @@ describe('KitsService', () => {
     }).compile();
 
     service = module.get(KitsService);
-
     jest.clearAllMocks();
   });
 
-  // ── recomputeKitStatus ──────────────────────────────────────────────────────
-
   describe('recomputeKitStatus', () => {
+    const kitId = 'kit-1';
+
+    describe('item status update (deletedItem = false)', () => {
+      it('returns UNAVAILABLE when updated item is not READY', async () => {
+        const result = await service.recomputeKitStatus(
+          kitId,
+          TemplateStatus.AVAILABLE,
+          ItemStatus.IN_USE,
+          false,
+        );
+
+        expect(result).toBe(TemplateStatus.UNAVAILABLE);
+      });
+
+      it('returns AVAILABLE when stale kit is AVAILABLE and updated item is READY', async () => {
+        const result = await service.recomputeKitStatus(
+          kitId,
+          TemplateStatus.AVAILABLE,
+          ItemStatus.READY,
+          false,
+        );
+
+        expect(result).toBe(TemplateStatus.AVAILABLE);
+      });
+
+      it('returns AVAILABLE when stale kit is UNAVAILABLE and last not-READY item becomes READY', async () => {
+        prismaMock.assetItems.count.mockResolvedValue(1);
+
+        const result = await service.recomputeKitStatus(
+          kitId,
+          TemplateStatus.UNAVAILABLE,
+          ItemStatus.READY,
+          false,
+        );
+
+        expect(result).toBe(TemplateStatus.AVAILABLE);
+      });
+
+      it('returns UNAVAILABLE when stale kit is UNAVAILABLE and other not-READY items still exist', async () => {
+        prismaMock.assetItems.count.mockResolvedValue(2);
+
+        const result = await service.recomputeKitStatus(
+          kitId,
+          TemplateStatus.UNAVAILABLE,
+          ItemStatus.READY,
+          false,
+        );
+
+        expect(result).toBe(TemplateStatus.UNAVAILABLE);
+      });
+    });
+
+    describe('item deletion (deletedItem = true)', () => {
+      it('returns AVAILABLE when stale kit is AVAILABLE', async () => {
+        const result = await service.recomputeKitStatus(
+          kitId,
+          TemplateStatus.AVAILABLE,
+          ItemStatus.READY,
+          true,
+        );
+
+        expect(result).toBe(TemplateStatus.AVAILABLE);
+      });
+
+      it('returns AVAILABLE when stale kit is UNAVAILABLE and deleted item was last not-READY item', async () => {
+        prismaMock.assetItems.count.mockResolvedValue(1);
+
+        const result = await service.recomputeKitStatus(
+          kitId,
+          TemplateStatus.UNAVAILABLE,
+          ItemStatus.BROKEN,
+          true,
+        );
+
+        expect(result).toBe(TemplateStatus.AVAILABLE);
+      });
+
+      it('returns UNAVAILABLE when stale kit is UNAVAILABLE and deleted item was READY', async () => {
+        const result = await service.recomputeKitStatus(
+          kitId,
+          TemplateStatus.UNAVAILABLE,
+          ItemStatus.READY,
+          true,
+        );
+
+        expect(result).toBe(TemplateStatus.UNAVAILABLE);
+      });
+
+      it('returns UNAVAILABLE when stale kit is UNAVAILABLE and other not-READY items still exist', async () => {
+        prismaMock.assetItems.count.mockResolvedValue(3);
+
+        const result = await service.recomputeKitStatus(
+          kitId,
+          TemplateStatus.UNAVAILABLE,
+          ItemStatus.MAINTAINANCE,
+          true,
+        );
+
+        expect(result).toBe(TemplateStatus.UNAVAILABLE);
+      });
+    });
+  });
+
+  describe('refreshKitAndTemplateStatus', () => {
     const kitId = 'kit-1';
     const templateId = 'template-1';
 
-    beforeEach(() => {
-      // Default: kit exists with template
-      prismaMock.assetsKits.findUnique.mockResolvedValue({ status: AssetStatus.READY, template_id: templateId });
-      prismaMock.assetsKits.update.mockResolvedValue({});
-      prismaMock.assetsKits.count.mockResolvedValue(1);
-      prismaMock.kitTemplates.update.mockResolvedValue({});
-    });
-
-    describe('currentStatus is null (lazy fetch)', () => {
-      it('queries DB for current status when currentStatus is null', async () => {
-        prismaMock.assetsKits.findUnique
-          .mockResolvedValueOnce({ status: AssetStatus.IN_USE }) // status fetch
-          .mockResolvedValueOnce({ template_id: templateId }); // template fetch
-
-        await service.recomputeKitStatus(kitId, null, AssetStatus.MAINTAINANCE);
-
-        expect(prismaMock.assetsKits.findUnique).toHaveBeenCalledWith({
-          where: { id: kitId },
-          select: { status: true },
-        });
+    it('sets kit AVAILABLE when all kit items are READY and template AVAILABLE when at least one kit is AVAILABLE', async () => {
+      prismaMock.assetItems.count.mockResolvedValueOnce(0);
+      prismaMock.assetsKits.findUnique.mockResolvedValueOnce({
+        template_id: templateId,
       });
+      prismaMock.assetsKits.count.mockResolvedValueOnce(1);
 
-      it('returns READY early when kit not found in DB', async () => {
-        prismaMock.assetsKits.findUnique.mockResolvedValueOnce(null);
+      await service.refreshKitAndTemplateStatus(kitId);
 
-        const result = await service.recomputeKitStatus(kitId, null, AssetStatus.IN_USE);
-
-        expect(prismaMock.assetsKits.update).not.toHaveBeenCalled();
-        expect(result).toBe(AssetStatus.READY);
+      expect(prismaMock.assetsKits.update).toHaveBeenCalledWith({
+        where: { id: kitId },
+        data: { status: TemplateStatus.AVAILABLE },
+      });
+      expect(prismaMock.kitTemplates.update).toHaveBeenCalledWith({
+        where: { id: templateId },
+        data: { status: TemplateStatus.AVAILABLE },
       });
     });
 
-    describe('updateStatus provided (add/replace path)', () => {
-      it('updates to updateStatus when it has higher priority than currStatus', async () => {
-        // currStatus = IN_USE (index 3), updateStatus = BROKEN (index 1) → BROKEN wins
-        prismaMock.assetsKits.findUnique
-          .mockResolvedValueOnce({ status: AssetStatus.IN_USE })
-          .mockResolvedValueOnce({ template_id: templateId });
-
-        const result = await service.recomputeKitStatus(kitId, AssetStatus.IN_USE, AssetStatus.BROKEN);
-
-        expect(prismaMock.assetsKits.update).toHaveBeenCalledWith({
-          where: { id: kitId },
-          data: { status: AssetStatus.BROKEN },
-        });
-        expect(result).toBe(AssetStatus.BROKEN);
+    it('sets kit UNAVAILABLE when any kit item is not READY', async () => {
+      prismaMock.assetItems.count.mockResolvedValueOnce(1);
+      prismaMock.assetsKits.findUnique.mockResolvedValueOnce({
+        template_id: templateId,
       });
+      prismaMock.assetsKits.count.mockResolvedValueOnce(0);
 
-      it('keeps currStatus when it has higher priority than updateStatus', async () => {
-        // currStatus = BROKEN (index 1), updateStatus = IN_USE (index 3) → BROKEN stays
-        const result = await service.recomputeKitStatus(kitId, AssetStatus.BROKEN, AssetStatus.IN_USE);
+      await service.refreshKitAndTemplateStatus(kitId);
 
-        expect(prismaMock.assetsKits.update).not.toHaveBeenCalled();
-        expect(result).toBe(AssetStatus.BROKEN);
+      expect(prismaMock.assetsKits.update).toHaveBeenCalledWith({
+        where: { id: kitId },
+        data: { status: TemplateStatus.UNAVAILABLE },
       });
-
-      it('keeps currStatus when priorities are equal', async () => {
-        const result = await service.recomputeKitStatus(kitId, AssetStatus.IN_USE, AssetStatus.IN_USE);
-
-        expect(prismaMock.assetsKits.update).not.toHaveBeenCalled();
-        expect(result).toBe(AssetStatus.IN_USE);
-      });
-
-      it('updates LIQUIDATED over any other status', async () => {
-        // currStatus = BROKEN (index 1), updateStatus = LIQUIDATED (index 0) → LIQUIDATED wins
-        prismaMock.assetsKits.findUnique
-          .mockResolvedValueOnce({ template_id: templateId });
-
-        const result = await service.recomputeKitStatus(kitId, AssetStatus.BROKEN, AssetStatus.LIQUIDATED);
-
-        expect(prismaMock.assetsKits.update).toHaveBeenCalledWith({
-          where: { id: kitId },
-          data: { status: AssetStatus.LIQUIDATED },
-        });
-        expect(result).toBe(AssetStatus.LIQUIDATED);
-      });
-    });
-
-    describe('updateStatus is null (remove/recalculate path)', () => {
-      beforeEach(() => {
-        // second findUnique for template lookup
-        prismaMock.assetsKits.findUnique
-          .mockResolvedValueOnce({ status: AssetStatus.IN_USE }) // status query (when currentStatus is null)
-          .mockResolvedValueOnce({ template_id: templateId }); // template query
-      });
-
-      it('sets to READY when all items are READY', async () => {
-        prismaMock.assetItems.findMany.mockResolvedValue([
-          { status: AssetStatus.READY },
-          { status: AssetStatus.READY },
-        ]);
-
-        const result = await service.recomputeKitStatus(kitId, null, null);
-
-        expect(prismaMock.assetsKits.update).toHaveBeenCalledWith({
-          where: { id: kitId },
-          data: { status: AssetStatus.READY },
-        });
-        expect(result).toBe(AssetStatus.READY);
-      });
-
-      it('picks highest priority status from items', async () => {
-        prismaMock.assetItems.findMany.mockResolvedValue([
-          { status: AssetStatus.READY },
-          { status: AssetStatus.IN_USE },
-          { status: AssetStatus.BROKEN },
-        ]);
-
-        const result = await service.recomputeKitStatus(kitId, null, null);
-
-        expect(prismaMock.assetsKits.update).toHaveBeenCalledWith({
-          where: { id: kitId },
-          data: { status: AssetStatus.BROKEN },
-        });
-        expect(result).toBe(AssetStatus.BROKEN);
-      });
-
-      it('picks LIQUIDATED as highest priority when present', async () => {
-        prismaMock.assetItems.findMany.mockResolvedValue([
-          { status: AssetStatus.BROKEN },
-          { status: AssetStatus.LIQUIDATED },
-          { status: AssetStatus.MAINTAINANCE },
-        ]);
-
-        const result = await service.recomputeKitStatus(kitId, null, null);
-
-        expect(result).toBe(AssetStatus.LIQUIDATED);
-      });
-
-      it('sets to READY when there are no items', async () => {
-        prismaMock.assetItems.findMany.mockResolvedValue([]);
-
-        const result = await service.recomputeKitStatus(kitId, null, null);
-
-        expect(result).toBe(AssetStatus.READY);
-      });
-
-      it('does not update kit row when status is unchanged', async () => {
-        // currStatus already IN_USE, items give IN_USE
-        prismaMock.assetItems.findMany.mockResolvedValue([
-          { status: AssetStatus.IN_USE },
-          { status: AssetStatus.READY },
-        ]);
-
-        await service.recomputeKitStatus(kitId, AssetStatus.IN_USE, null);
-
-        // The status stays IN_USE — no update call for the kit row
-        expect(prismaMock.assetsKits.update).not.toHaveBeenCalledWith(
-          expect.objectContaining({ where: { id: kitId } }),
-        );
-      });
-    });
-
-    describe('template status recomputation', () => {
-      it('sets template to READY when at least one kit is READY', async () => {
-        prismaMock.assetsKits.update.mockResolvedValue({});
-        prismaMock.assetsKits.findUnique.mockResolvedValueOnce({ template_id: templateId });
-        prismaMock.assetsKits.count.mockResolvedValue(2); // readyKitCount > 0
-
-        await service.recomputeKitStatus(kitId, AssetStatus.IN_USE, AssetStatus.READY);
-
-        expect(prismaMock.kitTemplates.update).toHaveBeenCalledWith({
-          where: { id: templateId },
-          data: { status: AssetStatus.READY },
-        });
-      });
-
-      it('sets template to IN_USE when no kits are READY', async () => {
-        prismaMock.assetsKits.update.mockResolvedValue({});
-        prismaMock.assetsKits.findUnique.mockResolvedValueOnce({ template_id: templateId });
-        prismaMock.assetsKits.count.mockResolvedValue(0); // readyKitCount = 0
-
-        await service.recomputeKitStatus(kitId, AssetStatus.READY, AssetStatus.IN_USE);
-
-        expect(prismaMock.kitTemplates.update).toHaveBeenCalledWith({
-          where: { id: templateId },
-          data: { status: AssetStatus.IN_USE },
-        });
-      });
-
-      it('skips template update when kit row not found for template lookup', async () => {
-        const txMock: any = {
-          assetsKits: {
-            findUnique: jest.fn().mockResolvedValue(null),
-            update: jest.fn(),
-            count: jest.fn().mockResolvedValue(0),
-          },
-          kitTemplates: { update: jest.fn() },
-          assetItems: { findMany: jest.fn() },
-        };
-
-        await service.recomputeKitStatus(kitId, AssetStatus.READY, AssetStatus.IN_USE, txMock);
-
-        expect(txMock.kitTemplates.update).not.toHaveBeenCalled();
-      });
-    });
-
-    describe('custom tx client', () => {
-      it('uses provided tx client instead of prisma', async () => {
-        const txMock: any = {
-          assetsKits: {
-            findUnique: jest.fn().mockResolvedValueOnce({ template_id: templateId }),
-            update: jest.fn(),
-            count: jest.fn().mockResolvedValue(1),
-          },
-          kitTemplates: {
-            update: jest.fn(),
-          },
-          assetItems: { findMany: jest.fn() },
-        };
-
-        await service.recomputeKitStatus(kitId, AssetStatus.READY, AssetStatus.IN_USE, txMock);
-
-        expect(txMock.assetsKits.update).toHaveBeenCalled();
-        expect(prismaMock.assetsKits.update).not.toHaveBeenCalled();
+      expect(prismaMock.kitTemplates.update).toHaveBeenCalledWith({
+        where: { id: templateId },
+        data: { status: TemplateStatus.UNAVAILABLE },
       });
     });
   });

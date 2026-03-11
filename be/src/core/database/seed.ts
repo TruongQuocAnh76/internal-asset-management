@@ -1,6 +1,7 @@
 import {
   PrismaClient,
-  AssetStatus,
+  ItemStatus,
+  TemplateStatus,
   BorrowStatus,
   BorrowPriority,
   DeploymentStatus,
@@ -92,7 +93,6 @@ const ids = {
   // Misc
   allocation1Id: randomUUID(),
   allocation2Id: randomUUID(),
-  event1Id: randomUUID(),
   borrow1Id: randomUUID(),
   borrow2Id: randomUUID(),
   borrow3Id: randomUUID(),
@@ -416,7 +416,7 @@ async function main() {
     create: {
       id: ids.kitTemplateId,
       name: 'Starter Kit',
-      status: AssetStatus.READY,
+      status: TemplateStatus.AVAILABLE,
     },
   });
 
@@ -426,7 +426,7 @@ async function main() {
     create: {
       id: ids.kitId,
       template_id: kitTemplate.id,
-      status: AssetStatus.READY,
+      status: TemplateStatus.AVAILABLE,
     },
   });
 
@@ -502,7 +502,7 @@ async function main() {
 
   const assetItemsData: {
     asset_id: string;
-    status: AssetStatus;
+    status: ItemStatus;
     location_name: string;
     costs: bigint;
     kit_id?: string;
@@ -510,46 +510,46 @@ async function main() {
     maintenance_notes?: string;
   }[] = [
     // ── Laptops ──
-    { asset_id: aid('LT-1001'), status: AssetStatus.IN_USE,       location_name: 'Office A - Floor 3',       costs: BigInt(150000) },
-    { asset_id: aid('LT-1002'), status: AssetStatus.READY,        location_name: 'Office B - Floor 2',       costs: BigInt(250000) },
-    { asset_id: aid('LT-1003'), status: AssetStatus.IN_USE,       location_name: 'Office A - Floor 5',       costs: BigInt(180000) },
-    { asset_id: aid('LT-1004'), status: AssetStatus.MAINTAINANCE, location_name: 'IT Repair Lab',            costs: BigInt(140000), maintenance_notes: 'Fan replacement and thermal paste reapplication' },
-    { asset_id: aid('LT-1005'), status: AssetStatus.READY,        location_name: 'Office C - Floor 1',       costs: BigInt(135000) },
-    { asset_id: aid('LT-1006'), status: AssetStatus.READY,        location_name: 'Warehouse - Storage C',    costs: BigInt(165000) },
-    { asset_id: aid('LT-1007'), status: AssetStatus.IN_USE,       location_name: 'Office B - Floor 4',       costs: BigInt(220000) },
+    { asset_id: aid('LT-1001'), status: ItemStatus.IN_USE,       location_name: 'Office A - Floor 3',       costs: BigInt(150000) },
+    { asset_id: aid('LT-1002'), status: ItemStatus.READY,        location_name: 'Office B - Floor 2',       costs: BigInt(250000) },
+    { asset_id: aid('LT-1003'), status: ItemStatus.IN_USE,       location_name: 'Office A - Floor 5',       costs: BigInt(180000) },
+    { asset_id: aid('LT-1004'), status: ItemStatus.MAINTAINANCE, location_name: 'IT Repair Lab',            costs: BigInt(140000), maintenance_notes: 'Fan replacement and thermal paste reapplication' },
+    { asset_id: aid('LT-1005'), status: ItemStatus.READY,        location_name: 'Office C - Floor 1',       costs: BigInt(135000) },
+    { asset_id: aid('LT-1006'), status: ItemStatus.READY,        location_name: 'Warehouse - Storage C',    costs: BigInt(165000) },
+    { asset_id: aid('LT-1007'), status: ItemStatus.IN_USE,       location_name: 'Office B - Floor 4',       costs: BigInt(220000) },
 
     // ── Monitors ──
-    { asset_id: aid('MN-2001'), status: AssetStatus.READY,        location_name: 'Warehouse - Storage B',    costs: BigInt(65000), kit_id: kit.id, kit_status: true },
-    { asset_id: aid('MN-2002'), status: AssetStatus.IN_USE,       location_name: 'Office B - Floor 3',       costs: BigInt(85000) },
-    { asset_id: aid('MN-2003'), status: AssetStatus.READY,        location_name: 'Warehouse - Storage A',    costs: BigInt(55000) },
-    { asset_id: aid('MN-2004'), status: AssetStatus.IN_USE,       location_name: 'Office A - Floor 4',       costs: BigInt(95000) },
-    { asset_id: aid('MN-2005'), status: AssetStatus.BROKEN,       location_name: 'IT Repair Lab',            costs: BigInt(72000) },
+    { asset_id: aid('MN-2001'), status: ItemStatus.READY,        location_name: 'Warehouse - Storage B',    costs: BigInt(65000), kit_id: kit.id, kit_status: true },
+    { asset_id: aid('MN-2002'), status: ItemStatus.IN_USE,       location_name: 'Office B - Floor 3',       costs: BigInt(85000) },
+    { asset_id: aid('MN-2003'), status: ItemStatus.READY,        location_name: 'Warehouse - Storage A',    costs: BigInt(55000) },
+    { asset_id: aid('MN-2004'), status: ItemStatus.IN_USE,       location_name: 'Office A - Floor 4',       costs: BigInt(95000) },
+    { asset_id: aid('MN-2005'), status: ItemStatus.BROKEN,       location_name: 'IT Repair Lab',            costs: BigInt(72000) },
 
     // ── Keyboards ──
-    { asset_id: aid('KB-3001'), status: AssetStatus.READY,        location_name: 'Office A - Supplies',      costs: BigInt(12000) },
-    { asset_id: aid('KB-3002'), status: AssetStatus.IN_USE,       location_name: 'Office B - Floor 2',       costs: BigInt(9500) },
-    { asset_id: aid('KB-3003'), status: AssetStatus.MAINTAINANCE, location_name: 'IT Repair Lab',            costs: BigInt(8000), maintenance_notes: 'Several keycaps broken, replacement ordered' },
+    { asset_id: aid('KB-3001'), status: ItemStatus.READY,        location_name: 'Office A - Supplies',      costs: BigInt(12000) },
+    { asset_id: aid('KB-3002'), status: ItemStatus.IN_USE,       location_name: 'Office B - Floor 2',       costs: BigInt(9500) },
+    { asset_id: aid('KB-3003'), status: ItemStatus.MAINTAINANCE, location_name: 'IT Repair Lab',            costs: BigInt(8000), maintenance_notes: 'Several keycaps broken, replacement ordered' },
 
     // ── Headsets ──
-    { asset_id: aid('HS-4001'), status: AssetStatus.IN_USE,       location_name: 'Office A - Floor 2',       costs: BigInt(35000) },
-    { asset_id: aid('HS-4002'), status: AssetStatus.READY,        location_name: 'Warehouse - Storage A',    costs: BigInt(38000) },
-    { asset_id: aid('HS-4003'), status: AssetStatus.READY,        location_name: 'Warehouse - Storage B',    costs: BigInt(42000) },
+    { asset_id: aid('HS-4001'), status: ItemStatus.IN_USE,       location_name: 'Office A - Floor 2',       costs: BigInt(35000) },
+    { asset_id: aid('HS-4002'), status: ItemStatus.READY,        location_name: 'Warehouse - Storage A',    costs: BigInt(38000) },
+    { asset_id: aid('HS-4003'), status: ItemStatus.READY,        location_name: 'Warehouse - Storage B',    costs: BigInt(42000) },
 
     // ── Printers ──
-    { asset_id: aid('PR-5001'), status: AssetStatus.IN_USE,       location_name: 'Office A - Floor 1',       costs: BigInt(45000) },
-    { asset_id: aid('PR-5002'), status: AssetStatus.MAINTAINANCE, location_name: 'IT Repair Lab',            costs: BigInt(120000), maintenance_notes: 'Paper feed mechanism jammed, awaiting parts' },
+    { asset_id: aid('PR-5001'), status: ItemStatus.IN_USE,       location_name: 'Office A - Floor 1',       costs: BigInt(45000) },
+    { asset_id: aid('PR-5002'), status: ItemStatus.MAINTAINANCE, location_name: 'IT Repair Lab',            costs: BigInt(120000), maintenance_notes: 'Paper feed mechanism jammed, awaiting parts' },
 
     // ── Servers ──
-    { asset_id: aid('SV-6001'), status: AssetStatus.IN_USE,       location_name: 'Data Center - Rack A1',    costs: BigInt(850000) },
-    { asset_id: aid('SV-6002'), status: AssetStatus.READY,        location_name: 'Data Center - Rack A2',    costs: BigInt(720000) },
+    { asset_id: aid('SV-6001'), status: ItemStatus.IN_USE,       location_name: 'Data Center - Rack A1',    costs: BigInt(850000) },
+    { asset_id: aid('SV-6002'), status: ItemStatus.READY,        location_name: 'Data Center - Rack A2',    costs: BigInt(720000) },
 
     // ── Networking ──
-    { asset_id: aid('NW-7001'), status: AssetStatus.IN_USE,       location_name: 'Data Center - Rack B1',    costs: BigInt(180000) },
-    { asset_id: aid('NW-7002'), status: AssetStatus.IN_USE,       location_name: 'Office A - Ceiling',       costs: BigInt(25000) },
+    { asset_id: aid('NW-7001'), status: ItemStatus.IN_USE,       location_name: 'Data Center - Rack B1',    costs: BigInt(180000) },
+    { asset_id: aid('NW-7002'), status: ItemStatus.IN_USE,       location_name: 'Office A - Ceiling',       costs: BigInt(25000) },
 
     // ── Mobile ──
-    { asset_id: aid('MB-8001'), status: AssetStatus.IN_USE,       location_name: 'Operations Dept',          costs: BigInt(55000) },
-    { asset_id: aid('MB-8002'), status: AssetStatus.READY,        location_name: 'Warehouse - Storage A',    costs: BigInt(65000) },
+    { asset_id: aid('MB-8001'), status: ItemStatus.IN_USE,       location_name: 'Operations Dept',          costs: BigInt(55000) },
+    { asset_id: aid('MB-8002'), status: ItemStatus.READY,        location_name: 'Warehouse - Storage A',    costs: BigInt(65000) },
   ];
 
   for (const item of assetItemsData) {
@@ -568,21 +568,14 @@ async function main() {
   }
 
   // ── Recompute asset statuses to match items ───────────────────────
-  const priority: AssetStatus[] = [
-    AssetStatus.LIQUIDATED,
-    AssetStatus.BROKEN,
-    AssetStatus.MAINTAINANCE,
-    AssetStatus.IN_USE,
-    AssetStatus.READY,
-  ];
-
   for (const actualId of upsertedAssets.values()) {
     const items = await prisma.assetItems.findMany({
       where: { asset_id: actualId },
       select: { status: true },
     });
     if (items.length === 0) continue;
-    const dominantStatus = priority.find((s) => items.some((i) => i.status === s)) ?? AssetStatus.READY;
+    const hasReadyItem = items.some((i) => i.status === ItemStatus.READY);
+    const dominantStatus = hasReadyItem ? TemplateStatus.AVAILABLE : TemplateStatus.UNAVAILABLE;
     await prisma.assets.update({
       where: { id: actualId },
       data: { status: dominantStatus },
@@ -620,7 +613,7 @@ async function main() {
     },
   });
 
-  // ── Allocations, events, requests, audit ─────────────────────────
+  // ── Allocations, requests, audit ─────────────────────────────────
   const allocationOne = await prisma.assetsAllocation.upsert({
     where: { asset_id: aid('LT-1001') },
     update: {},
@@ -642,23 +635,6 @@ async function main() {
       kit_id: kit.id,
       allocated_by: adminUser.id,
       allocated_at: new Date(),
-    },
-  });
-
-  await prisma.assetsEvents.deleteMany({
-    where: { asset_id: aid('LT-1001'), event_type: 'ALLOCATED' },
-  });
-
-  await prisma.assetsEvents.create({
-    data: {
-      id: ids.event1Id,
-      asset_id: aid('LT-1001'),
-      event_type: 'ALLOCATED',
-      actor_id: adminUser.id,
-      allocation_id: allocationOne.id,
-      previous_status: AssetStatus.READY,
-      new_status: AssetStatus.IN_USE,
-      payload: { note: 'Allocated to Operations manager' },
     },
   });
 

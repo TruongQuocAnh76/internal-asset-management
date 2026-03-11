@@ -14,12 +14,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum AssetStatus {
+// status of asset/kit instances (asset item and asset kit)
+enum ItemStatus {
   READY
   IN_USE
   MAINTAINANCE
   BROKEN
   LIQUIDATED
+}
+
+// status of asset/kit template (kit template and asset)
+enum TemplateStatus {
+  AVAILABLE
+  UNAVAILABLE
 }
 
 model Assets {
@@ -37,10 +44,9 @@ model Assets {
   updated_at           DateTime            @updatedAt
 
   asset_specs        AssetsSpecs?
-  asset_events       AssetsEvents[]     @relation("AssetToEvents")
   category           AssetsCategories   @relation(fields: [category_id], references: [id])
   asset_allocation   AssetsAllocation[]
-  status             AssetStatus        @default(READY)
+  status             TemplateStatus     @default(AVAILABLE)
   borrow_requests    BorrowRequests[]
   kit_template_items KitTemplateItems[]
   // assets_kits_items AssetsKitsItems[]
@@ -51,10 +57,10 @@ model AssetItems {
   id       String @id @default(uuid()) @db.Uuid
   asset_id String @db.Uuid
 
-  status        AssetStatus @default(READY)
+  status        ItemStatus @default(READY)
   location_name String?
   costs         BigInt
-  acquired_at   DateTime    @default(now())
+  acquired_at   DateTime   @default(now())
 
   kit_id     String? @db.Uuid
   kit_status Boolean @default(false)
@@ -97,37 +103,21 @@ model AssetsSpecs {
   asset Assets? @relation(fields: [asset_id], references: [id])
 }
 
-model AssetsEvents {
-  id              String      @id @default(uuid()) @db.Uuid
-  asset_id        String      @db.Uuid
-  event_type      String
-  actor_id        String      @db.Uuid
-  allocation_id   String      @db.Uuid
-  occured_at      DateTime    @default(now())
-  previous_status AssetStatus
-  new_status      AssetStatus
-  payload         Json
-  created_at      DateTime    @default(now())
-
-  asset Assets @relation("AssetToEvents", fields: [asset_id], references: [id])
-  user  Users  @relation(fields: [actor_id], references: [id])
-}
-
 model AssetRepairs {
-  id              String      @id @default(uuid()) @db.Uuid
-  asset_item_id   String      @db.Uuid
+  id              String     @id @default(uuid()) @db.Uuid
+  asset_item_id   String     @db.Uuid
   cost            BigInt
   description     String?
-  resolved_status AssetStatus @default(READY)
-  created_at      DateTime    @default(now())
-  asset_item      AssetItems  @relation(fields: [asset_item_id], references: [id])
+  resolved_status ItemStatus @default(READY)
+  created_at      DateTime   @default(now())
+  asset_item      AssetItems @relation(fields: [asset_item_id], references: [id])
 }
 
 model AssetsKits {
-  id          String      @id @default(uuid()) @db.Uuid
-  template_id String      @db.Uuid
-  status      AssetStatus @default(READY)
-  created_at  DateTime    @default(now())
+  id          String         @id @default(uuid()) @db.Uuid
+  template_id String         @db.Uuid
+  status      TemplateStatus @default(AVAILABLE)
+  created_at  DateTime       @default(now())
 
   asset_allocations AssetsAllocation[]
   borrowRequests    BorrowRequests[]
@@ -136,10 +126,10 @@ model AssetsKits {
 }
 
 model KitTemplates {
-  id         String      @id @default(uuid()) @db.Uuid
+  id         String         @id @default(uuid()) @db.Uuid
   name       String
-  status     AssetStatus @default(READY)
-  created_at DateTime    @default(now())
+  status     TemplateStatus @default(AVAILABLE)
+  created_at DateTime       @default(now())
 
   template_items KitTemplateItems[]
   assetsKits     AssetsKits[]
@@ -153,16 +143,6 @@ model KitTemplateItems {
   template KitTemplates @relation(fields: [template_id], references: [id])
   asset    Assets       @relation(fields: [asset_id], references: [id])
 }
-
-// model AssetsKitsItems {
-//   kit_id   String @db.Uuid
-//   asset_id String @db.Uuid
-
-//   kit   AssetsKits @relation(fields: [kit_id], references: [id])
-//   asset Assets     @relation(fields: [asset_id], references: [id])
-
-//   @@unique([kit_id, asset_id])
-// }
 
 model AssetsAllocation {
   id       String @id @default(uuid()) @db.Uuid
@@ -198,7 +178,6 @@ model Users {
   created_at DateTime         @default(now())
   updated_at DateTime         @default(now())
 
-  asset_events      AssetsEvents[]
   user_roles        UserRoles[]
   audit_logs        AuditLogs[]
   asset_allocations AssetsAllocation[]

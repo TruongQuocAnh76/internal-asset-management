@@ -1,9 +1,6 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/core/database/prisma.service';
-import { AssetStatus, Prisma } from '@prisma/client';
+import { ItemStatus, TemplateStatus, Prisma } from '@prisma/client';
 import { CreateKitDto, UpdateKitDto } from './dto/create-kit.dto';
 import { GetKitsParams } from './dto/get-kits-params.dto';
 
@@ -44,9 +41,9 @@ export class KitsService {
     const totalKitsCount = await this.prisma.assetsKits.count({ where: where });
 
     // Convert BigInt costs to numbers
-    const transformedKits = kits.map(kit => ({
+    const transformedKits = kits.map((kit) => ({
       ...kit,
-      asset_items: kit.asset_items.map(item => ({
+      asset_items: kit.asset_items.map((item) => ({
         ...item,
         costs: item.costs ? Number(item.costs) : null,
       })),
@@ -74,13 +71,16 @@ export class KitsService {
 
       return {
         ...kit,
-        asset_items: kit.asset_items.map(item => ({
+        asset_items: kit.asset_items.map((item) => ({
           ...item,
           costs: item.costs ? Number(item.costs) : null,
         })),
       };
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
         throw new NotFoundException('Asset kit not found');
       }
       throw error;
@@ -90,14 +90,17 @@ export class KitsService {
   async createKit(body: CreateKitDto, userId: string) {
     return this.prisma.$transaction(async (tx) => {
       // check for duplicate template
-      const duplicateTemplateId = await this.checkDuplicateTemplate(body.asset_ids, tx);
+      const duplicateTemplateId = await this.checkDuplicateTemplate(
+        body.asset_ids,
+        tx,
+      );
 
       if (duplicateTemplateId) {
         // Create another kit instance for the existing template
         const newKit = await tx.assetsKits.create({
           data: {
             template_id: duplicateTemplateId,
-            status: AssetStatus.READY,
+            status: TemplateStatus.AVAILABLE,
           },
           include: KIT_INCLUDE,
         });
@@ -118,11 +121,11 @@ export class KitsService {
         },
       });
 
-      // kit status: READY if all assets are READY, otherwise IN_USE
+      // kit status: AVAILABLE if all assets are AVAILABLE, otherwise UNAVAILABLE
       const allReady = assets_status.every(
-        (asset) => asset.status === AssetStatus.READY,
+        (asset) => asset.status === TemplateStatus.AVAILABLE,
       );
-      const kitStatus = allReady ? AssetStatus.READY : AssetStatus.IN_USE;
+      const kitStatus = allReady ? TemplateStatus.AVAILABLE : TemplateStatus.UNAVAILABLE;
 
       // create template + kit instance
       const template = await tx.kitTemplates.create({
@@ -180,7 +183,10 @@ export class KitsService {
           include: KIT_INCLUDE,
         });
       } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2025'
+        ) {
           throw new NotFoundException('Asset kit not found');
         }
         throw error;
@@ -205,7 +211,12 @@ export class KitsService {
 
   async addComponentToKit(
     kitId: string,
-    body: { assetId?: string; assetType: string; quantity: number; isPlaceholder: boolean },
+    body: {
+      assetId?: string;
+      assetType: string;
+      quantity: number;
+      isPlaceholder: boolean;
+    },
     userId: string,
   ) {
     if (body.isPlaceholder || !body.assetId) {
@@ -216,7 +227,9 @@ export class KitsService {
 
     await this.prisma.$transaction(async (tx) => {
       try {
-        const kit = await tx.assetsKits.findUniqueOrThrow({ where: { id: kitId } });
+        const kit = await tx.assetsKits.findUniqueOrThrow({
+          where: { id: kitId },
+        });
 
         await tx.kitTemplateItems.create({
           data: {
@@ -225,11 +238,13 @@ export class KitsService {
           },
         });
 
-        await this.recomputeKitStatus(kitId, null, null, tx);
+        await this.refreshKitAndTemplateStatus(kitId, tx);
       } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError) {
-          if (error.code === 'P2025') throw new NotFoundException('Asset kit not found');
-          if (error.code === 'P2003') throw new NotFoundException('Asset not found');
+          if (error.code === 'P2025')
+            throw new NotFoundException('Asset kit not found');
+          if (error.code === 'P2003')
+            throw new NotFoundException('Asset not found');
         }
         throw error;
       }
@@ -241,7 +256,9 @@ export class KitsService {
   async removeComponentFromKit(kitId: string, assetId: string, userId: string) {
     await this.prisma.$transaction(async (tx) => {
       try {
-        const kit = await tx.assetsKits.findUniqueOrThrow({ where: { id: kitId } });
+        const kit = await tx.assetsKits.findUniqueOrThrow({
+          where: { id: kitId },
+        });
 
         await tx.kitTemplateItems.deleteMany({
           where: {
@@ -250,9 +267,12 @@ export class KitsService {
           },
         });
 
-        await this.recomputeKitStatus(kitId, null, null, tx);
+        await this.refreshKitAndTemplateStatus(kitId, tx);
       } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2025'
+        ) {
           throw new NotFoundException('Asset kit not found');
         }
         throw error;
@@ -270,7 +290,9 @@ export class KitsService {
   ) {
     await this.prisma.$transaction(async (tx) => {
       try {
-        const kit = await tx.assetsKits.findUniqueOrThrow({ where: { id: kitId } });
+        const kit = await tx.assetsKits.findUniqueOrThrow({
+          where: { id: kitId },
+        });
 
         await tx.kitTemplateItems.deleteMany({
           where: {
@@ -286,11 +308,13 @@ export class KitsService {
           },
         });
 
-        await this.recomputeKitStatus(kitId, kit.status as AssetStatus, kit.status as AssetStatus, tx);
+        await this.refreshKitAndTemplateStatus(kitId, tx);
       } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError) {
-          if (error.code === 'P2025') throw new NotFoundException('Asset kit not found');
-          if (error.code === 'P2003') throw new NotFoundException('Replacement asset not found');
+          if (error.code === 'P2025')
+            throw new NotFoundException('Asset kit not found');
+          if (error.code === 'P2003')
+            throw new NotFoundException('Replacement asset not found');
         }
         throw error;
       }
@@ -299,10 +323,16 @@ export class KitsService {
     return this.getKitById(kitId);
   }
 
-  async convertComponentToPlaceholder(kitId: string, assetId: string, userId: string) {
+  async convertComponentToPlaceholder(
+    kitId: string,
+    assetId: string,
+    userId: string,
+  ) {
     await this.prisma.$transaction(async (tx) => {
       try {
-        const kit = await tx.assetsKits.findUniqueOrThrow({ where: { id: kitId } });
+        const kit = await tx.assetsKits.findUniqueOrThrow({
+          where: { id: kitId },
+        });
 
         await tx.kitTemplateItems.deleteMany({
           where: {
@@ -311,9 +341,12 @@ export class KitsService {
           },
         });
 
-        await this.recomputeKitStatus(kitId, null, null, tx);
+        await this.refreshKitAndTemplateStatus(kitId, tx);
       } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2025'
+        ) {
           throw new NotFoundException('Asset kit not found');
         }
         throw error;
@@ -324,91 +357,23 @@ export class KitsService {
   }
 
   /**
-   * Recompute cached status on the AssetsKits row.
-   * Efficient approach: only query when needed.
+   * Full recompute of kit status and its parent template status from scratch.
+   * Used after template composition changes (add/remove/replace components).
    */
-  async recomputeKitStatus(
-    kitId: string,
-    currentStatus: AssetStatus | null = null,
-    updateStatus: AssetStatus | null = null,
-    tx?: any,
-  ): Promise<AssetStatus> {
+  async refreshKitAndTemplateStatus(kitId: string, tx?: any): Promise<void> {
     const client = tx ?? this.prisma;
-    let currStatus = currentStatus;
-    if (currStatus === null) {
-      const current = await client.assetsKits.findUnique({
-        where: { id: kitId },
-        select: { status: true },
-      });
-      if (!current) return AssetStatus.READY;
-      currStatus = current.status as AssetStatus;
-    }
-    const priorityOrder: AssetStatus[] = [
-      AssetStatus.LIQUIDATED,
-      AssetStatus.BROKEN,
-      AssetStatus.MAINTAINANCE,
-      AssetStatus.IN_USE,
-      AssetStatus.READY,
-    ];
-
-    let newStatus: AssetStatus;
-
-    // replace or add asset: if the new status is worse than current, update to new status; otherwise, keep current
-    if (updateStatus) {
-      const currIndex = priorityOrder.indexOf(currStatus);
-      const updateIndex = priorityOrder.indexOf(updateStatus);
-      newStatus = updateIndex < currIndex ? updateStatus : currStatus;
-    } else {
-      const items = await client.assetItems.findMany({
-        where: { kit_id: kitId },
-        select: { status: true },
-      });
-      if (items.length === 0) {
-        newStatus = AssetStatus.READY;
-      } else {
-        const highest = items.reduce((best, item) => {
-          const bestIndex = priorityOrder.indexOf(best);
-          const itemIndex = priorityOrder.indexOf(item.status as AssetStatus);
-          return itemIndex < bestIndex ? (item.status as AssetStatus) : best;
-        }, AssetStatus.READY);
-        newStatus = highest;
-      }
-    }
-
-    if (newStatus !== currStatus) {
-      await client.assetsKits.update({
-        where: { id: kitId },
-        data: { status: newStatus },
-      });
-    }
-    const kit = await client.assetsKits.findUnique({
-      where: { id: kitId },
-      select: { template_id: true },
+    const notReadyCount = await client.assetItems.count({
+      where: { kit_id: kitId, status: { not: ItemStatus.READY } },
     });
-    if (kit) {
-      await this.recomputeTemplateStatus(kit.template_id, tx);
-    }
-    return newStatus;
-  }
-
-  /**
-   * Recompute cached status on the KitTemplates row.
-   */
-  private async recomputeTemplateStatus(
-    templateId: string,
-    tx?: any,
-  ): Promise<AssetStatus> {
-    const client = tx ?? this.prisma;
-    const readyKitCount = await client.assetsKits.count({
-      where: { template_id: templateId, status: AssetStatus.READY },
+    const newKitStatus = notReadyCount === 0 ? TemplateStatus.AVAILABLE : TemplateStatus.UNAVAILABLE;
+    await client.assetsKits.update({ where: { id: kitId }, data: { status: newKitStatus } });
+    const kit = await client.assetsKits.findUnique({ where: { id: kitId }, select: { template_id: true } });
+    if (!kit) return;
+    const availableKitCount = await client.assetsKits.count({
+      where: { template_id: kit.template_id, status: TemplateStatus.AVAILABLE },
     });
-    const newStatus =
-      readyKitCount > 0 ? AssetStatus.READY : AssetStatus.IN_USE;
-    await client.kitTemplates.update({
-      where: { id: templateId },
-      data: { status: newStatus },
-    });
-    return newStatus;
+    const newTemplateStatus = availableKitCount > 0 ? TemplateStatus.AVAILABLE : TemplateStatus.UNAVAILABLE;
+    await client.kitTemplates.update({ where: { id: kit.template_id }, data: { status: newTemplateStatus } });
   }
 
   protected async checkDuplicateTemplate(
@@ -425,7 +390,9 @@ export class KitsService {
     });
 
     for (const template of templates) {
-      const templateAssetIds = template.template_items.map((item) => item.asset_id);
+      const templateAssetIds = template.template_items.map(
+        (item) => item.asset_id,
+      );
       if (
         templateAssetIds.length === asset_ids.length &&
         templateAssetIds.every((id) => asset_ids.includes(id))
@@ -440,7 +407,7 @@ export class KitsService {
     const where: Prisma.AssetsKitsWhereInput = {};
     if (query.filter && query.filterValue) {
       if (query.filter === 'status') {
-        where.status = query.filterValue as AssetStatus;
+        where.status = query.filterValue as TemplateStatus;
       }
     }
     if (query.search) {
@@ -452,5 +419,88 @@ export class KitsService {
       };
     }
     return where;
+  }
+
+  /**
+   * Recompute cached status on the AssetsKits row and its KitTemplates parent.
+   * AVAILABLE if all items in the kit are READY, otherwise UNAVAILABLE.
+   * KitTemplates is AVAILABLE only if ALL of its kit instances are AVAILABLE.
+   */
+  async recomputeKitStatus(
+    kitId: string,
+    staleKitStatus: TemplateStatus,
+    updatedKitItemStatus: ItemStatus,
+    deletedItem: boolean,
+    tx?: any,
+  ): Promise<TemplateStatus> {
+    const client = tx ?? this.prisma;
+    // CASE ITEM STATUS UPDATE
+    if (!deletedItem) {
+      if (updatedKitItemStatus !== ItemStatus.READY) {
+        return TemplateStatus.UNAVAILABLE;
+      }
+      if (staleKitStatus === TemplateStatus.AVAILABLE) {
+        return TemplateStatus.AVAILABLE;
+      }
+      // item update to ready, kit is not available
+      const notReadyCount = await client.assetItems.count({
+        where: {
+          kit_id: kitId,
+          status: { not: { equals: ItemStatus.READY } },
+        },
+      });
+      if (notReadyCount == 1) return TemplateStatus.AVAILABLE;
+      return TemplateStatus.UNAVAILABLE;
+    }
+    // CASE ITEM DELETION
+    if (staleKitStatus === TemplateStatus.AVAILABLE)
+      return TemplateStatus.AVAILABLE;
+    if (updatedKitItemStatus !== ItemStatus.READY) {
+      const notReadyCount = await client.assetItems.count({
+        where: {
+          kit_id: kitId,
+          status: { not: { equals: ItemStatus.READY } },
+        },
+      });
+      if (notReadyCount == 1) return TemplateStatus.AVAILABLE; // the deleted item is the only not READY item, so kit becomes AVAILABLE
+      return TemplateStatus.UNAVAILABLE;
+    }
+    return TemplateStatus.UNAVAILABLE; // kit unavailable, deleted item was READY, other not-READY items remain
+  }
+
+  /**
+   * Logic is similar to asset status
+   */
+  async recomputeKitTemplateStatus(
+    kitTemplateId: string,
+    staleKitTemplateStatus: TemplateStatus,
+    updatedKitStatus: TemplateStatus,
+    deletedKit: boolean,
+    tx?: any,
+  ) {
+    const client = tx ?? this.prisma;
+    // CASE KIT STATUS UPDATE
+    if (!deletedKit) {
+      if (updatedKitStatus === TemplateStatus.AVAILABLE) {
+        return TemplateStatus.AVAILABLE;
+      }
+      if (staleKitTemplateStatus === TemplateStatus.UNAVAILABLE) {
+        return TemplateStatus.UNAVAILABLE;
+      }
+      const availableCount = await client.assetsKits.count({
+        where: { template_id: kitTemplateId, status: TemplateStatus.AVAILABLE },
+      });
+      if (availableCount === 0) {
+        return TemplateStatus.UNAVAILABLE;
+      }
+      return TemplateStatus.AVAILABLE;
+    }
+    // CASE KIT DELETION
+    const remainingKitCount = await client.assetsKits.count({
+      where: { template_id: kitTemplateId },
+    });
+    return remainingKitCount === 0
+      ? TemplateStatus.UNAVAILABLE
+      : TemplateStatus.AVAILABLE;
   }
 }

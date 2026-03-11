@@ -17,6 +17,7 @@ import { Permission } from 'src/core/auth/decorator/permission.decorator';
 import { GetRequestsDto } from './dto/get-request.dto';
 import { CurrentUser } from 'src/core/auth/decorator/current-user.decorator';
 import { RequestProvideDto } from './dto/provide-request.dto';
+import { AssignRequestDto } from './dto/assign.dto';
 
 @Controller('requests')
 export class RequestsController {
@@ -51,6 +52,17 @@ export class RequestsController {
     @Body(new ZodValidationPipe(CreateRequestDto)) body: CreateRequestDto,
   ) {
     return this.requestService.editRequest(userId, requestId, body);
+  }
+
+  @Post('/assign')
+  @UseGuards(SessionAuthGuard)
+  @Permission('request:assign')
+  @UseGuards(PermissionAuthGuard)
+  assignRequest(
+    @Body(new ZodValidationPipe(AssignRequestDto)) body: AssignRequestDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.requestService.assign(body, userId);
   }
 
   @Put('/approve')
