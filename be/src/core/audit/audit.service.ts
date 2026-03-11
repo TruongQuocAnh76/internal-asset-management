@@ -35,7 +35,14 @@ export class AuditService {
     page?: number;
     limit?: number;
   }) {
-    const { entityType, actorId, entityId, action, page = 1, limit = 25 } = filters;
+    const {
+      entityType,
+      actorId,
+      entityId,
+      action,
+      page = 1,
+      limit = 25,
+    } = filters;
 
     const where: Prisma.AuditLogsWhereInput = {};
     if (entityType) where.entity_type = entityType;

@@ -14,9 +14,12 @@ const createRequestSchema = z
     dueDate: z.string().date().optional(),
   })
   .refine(
-    (data) => (data.assetId || data.kitId || data.categoryId) && !(data.assetId && data.kitId && data.categoryId),
+    (data) =>
+      (data.assetId || data.kitId || data.categoryId) &&
+      !(data.assetId && data.kitId && data.categoryId),
     {
-      message: 'Either assetId or kitId or categoryId must be provided, but not both.',
+      message:
+        'Either assetId or kitId or categoryId must be provided, but not both.',
     },
   );
 

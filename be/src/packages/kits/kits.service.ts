@@ -125,7 +125,9 @@ export class KitsService {
       const allReady = assets_status.every(
         (asset) => asset.status === TemplateStatus.AVAILABLE,
       );
-      const kitStatus = allReady ? TemplateStatus.AVAILABLE : TemplateStatus.UNAVAILABLE;
+      const kitStatus = allReady
+        ? TemplateStatus.AVAILABLE
+        : TemplateStatus.UNAVAILABLE;
 
       // create template + kit instance
       const template = await tx.kitTemplates.create({
@@ -365,15 +367,30 @@ export class KitsService {
     const notReadyCount = await client.assetItems.count({
       where: { kit_id: kitId, status: { not: ItemStatus.READY } },
     });
-    const newKitStatus = notReadyCount === 0 ? TemplateStatus.AVAILABLE : TemplateStatus.UNAVAILABLE;
-    await client.assetsKits.update({ where: { id: kitId }, data: { status: newKitStatus } });
-    const kit = await client.assetsKits.findUnique({ where: { id: kitId }, select: { template_id: true } });
+    const newKitStatus =
+      notReadyCount === 0
+        ? TemplateStatus.AVAILABLE
+        : TemplateStatus.UNAVAILABLE;
+    await client.assetsKits.update({
+      where: { id: kitId },
+      data: { status: newKitStatus },
+    });
+    const kit = await client.assetsKits.findUnique({
+      where: { id: kitId },
+      select: { template_id: true },
+    });
     if (!kit) return;
     const availableKitCount = await client.assetsKits.count({
       where: { template_id: kit.template_id, status: TemplateStatus.AVAILABLE },
     });
-    const newTemplateStatus = availableKitCount > 0 ? TemplateStatus.AVAILABLE : TemplateStatus.UNAVAILABLE;
-    await client.kitTemplates.update({ where: { id: kit.template_id }, data: { status: newTemplateStatus } });
+    const newTemplateStatus =
+      availableKitCount > 0
+        ? TemplateStatus.AVAILABLE
+        : TemplateStatus.UNAVAILABLE;
+    await client.kitTemplates.update({
+      where: { id: kit.template_id },
+      data: { status: newTemplateStatus },
+    });
   }
 
   protected async checkDuplicateTemplate(

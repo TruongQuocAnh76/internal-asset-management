@@ -440,7 +440,11 @@ export class RequestsService {
           select: { id: true },
         });
         if (readyItem) {
-          await this.assetsService.updateAssetItemStatus(readyItem.id, ItemStatus.IN_USE, tx);
+          await this.assetsService.updateAssetItemStatus(
+            readyItem.id,
+            ItemStatus.IN_USE,
+            tx,
+          );
         }
       } else if (actualKitId) {
         const kitItems = await tx.assetItems.findMany({
@@ -448,7 +452,11 @@ export class RequestsService {
           select: { id: true },
         });
         for (const item of kitItems) {
-          await this.assetsService.updateAssetItemStatus(item.id, ItemStatus.IN_USE, tx);
+          await this.assetsService.updateAssetItemStatus(
+            item.id,
+            ItemStatus.IN_USE,
+            tx,
+          );
         }
       }
 
@@ -461,24 +469,27 @@ export class RequestsService {
     return this.prisma.$transaction(async (tx) => {
       let request;
       try {
-      request = await tx.borrowRequests.findFirstOrThrow({
-        where: {
-          id: requestId,
-          status: { in: [BorrowStatus.PROVIDED, BorrowStatus.OVERDUE] },
-        },
-        select: {
-          id: true,
-          asset_id: true,
-          kit_id: true,
-        },
-      });
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-        throw new NotFoundException(
-          'Request not found or not in PROVIDED/OVERDUE status.',
-        );
+        request = await tx.borrowRequests.findFirstOrThrow({
+          where: {
+            id: requestId,
+            status: { in: [BorrowStatus.PROVIDED, BorrowStatus.OVERDUE] },
+          },
+          select: {
+            id: true,
+            asset_id: true,
+            kit_id: true,
+          },
+        });
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2025'
+        ) {
+          throw new NotFoundException(
+            'Request not found or not in PROVIDED/OVERDUE status.',
+          );
+        }
       }
-    }
 
       const actualAssetId = request.asset_id;
       const actualKitId = request.kit_id;
@@ -489,7 +500,11 @@ export class RequestsService {
           select: { id: true },
         });
         if (inUseItem) {
-          await this.assetsService.updateAssetItemStatus(inUseItem.id, ItemStatus.READY, tx);
+          await this.assetsService.updateAssetItemStatus(
+            inUseItem.id,
+            ItemStatus.READY,
+            tx,
+          );
         }
       } else if (actualKitId) {
         const kitItems = await tx.assetItems.findMany({
@@ -497,7 +512,11 @@ export class RequestsService {
           select: { id: true },
         });
         for (const item of kitItems) {
-          await this.assetsService.updateAssetItemStatus(item.id, ItemStatus.READY, tx);
+          await this.assetsService.updateAssetItemStatus(
+            item.id,
+            ItemStatus.READY,
+            tx,
+          );
         }
       }
 

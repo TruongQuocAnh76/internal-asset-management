@@ -32,11 +32,13 @@ export function buildMailContextBase(
     assetName,
     requestId: request.id,
     reason: request.reason ?? undefined,
-    dueDate: request.due_date ? new Date(request.due_date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    }) : undefined,
+    dueDate: request.due_date
+      ? new Date(request.due_date).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        })
+      : undefined,
   };
 }
 

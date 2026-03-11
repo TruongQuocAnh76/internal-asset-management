@@ -2,16 +2,25 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import z from 'zod';
 
 export class GetAssetsParams {
-  @ApiPropertyOptional({ description: 'Filter by requester ID', example: 'uuid' })
+  @ApiPropertyOptional({
+    description: 'Filter by requester ID',
+    example: 'uuid',
+  })
   requesterId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by category ID', example: 'uuid' })
+  @ApiPropertyOptional({
+    description: 'Filter by category ID',
+    example: 'uuid',
+  })
   category_id?: string;
 
   @ApiPropertyOptional({ description: 'Filter by status', example: 'READY' })
   status?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by acquired date (ISO string)', example: '2024-01-01' })
+  @ApiPropertyOptional({
+    description: 'Filter by acquired date (ISO string)',
+    example: '2024-01-01',
+  })
   acquired_at?: string;
 
   @ApiPropertyOptional({
@@ -22,7 +31,10 @@ export class GetAssetsParams {
 
   @ApiPropertyOptional({
     description: 'Array of image URLs associated with the asset',
-    example: ['https://example.com/image1.jpg', 'https://example.com/image2.jpg'],
+    example: [
+      'https://example.com/image1.jpg',
+      'https://example.com/image2.jpg',
+    ],
   })
   image_urls: string[];
 

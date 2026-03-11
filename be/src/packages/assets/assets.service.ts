@@ -7,7 +7,10 @@ import { PrismaService } from 'src/core/database/prisma.service';
 import { GetAssetsParams } from './dto/get-assets-params.dto';
 import { Prisma, ItemStatus, TemplateStatus } from '@prisma/client';
 import { EditAssetDto, EditAssetDtoSchema } from './dto/edit-asset.dto';
-import { EditAssetItemDto, EditAssetItemDtoSchema } from './dto/edit-asset-item.dto';
+import {
+  EditAssetItemDto,
+  EditAssetItemDtoSchema,
+} from './dto/edit-asset-item.dto';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { StorageService } from 'src/core/storage/storage.service';
 import { DepreciationMethod } from '@prisma/client';
@@ -34,7 +37,7 @@ export class AssetsService {
     private storageService: StorageService,
     private mailService: MailService,
     private kitsService: KitsService,
-  ) { }
+  ) {}
 
   private normalizeDate(value: Date | string | null | undefined): Date | null {
     if (!value) return null;
@@ -47,7 +50,7 @@ export class AssetsService {
     const skip = query.page ? (query.page - 1) * take : 0;
 
     const orderBy = query.orderBy
-      ? { [query.orderBy]: query.order ?? 'asc' as const }
+      ? { [query.orderBy]: query.order ?? ('asc' as const) }
       : undefined;
 
     const assets = await this.prisma.assets.findMany({
@@ -160,7 +163,10 @@ export class AssetsService {
         })),
       };
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
         throw new BadRequestException('Asset not found');
       }
       throw error;
@@ -202,7 +208,10 @@ export class AssetsService {
           select: { id: true },
         });
       } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2025'
+        ) {
           throw new NotFoundException('Asset not found');
         }
         throw error;
@@ -227,16 +236,32 @@ export class AssetsService {
       .replace(/\s+/g, '_')
       .concat('_', Date.now().toString().slice(-4));
 
-    const { category_name, costs, specs, image_num, initial_quantity, location_name, salvage_value, life_months, decline_balance_rate, depreciation_method, ...rest } = body;
+    const {
+      category_name,
+      costs,
+      specs,
+      image_num,
+      initial_quantity,
+      location_name,
+      salvage_value,
+      life_months,
+      decline_balance_rate,
+      depreciation_method,
+      ...rest
+    } = body;
     const asset_costs = costs !== undefined ? Number(costs) : null;
 
     // Fall back to category defaults when depreciation fields are not provided
-    const resolvedMethod = depreciation_method ?? category.default_depreciation_method ?? null;
-    const resolvedSalvageValue = salvage_value != null
-      ? BigInt(salvage_value)
-      : (category.salvage_value ?? BigInt(0));
-    const resolvedLifeMonths = life_months ?? category.default_life_months ?? null;
-    const resolvedDeclineRate = decline_balance_rate ?? category.decline_balance_rate ?? null;
+    const resolvedMethod =
+      depreciation_method ?? category.default_depreciation_method ?? null;
+    const resolvedSalvageValue =
+      salvage_value != null
+        ? BigInt(salvage_value)
+        : (category.salvage_value ?? BigInt(0));
+    const resolvedLifeMonths =
+      life_months ?? category.default_life_months ?? null;
+    const resolvedDeclineRate =
+      decline_balance_rate ?? category.decline_balance_rate ?? null;
 
     // create temp url for each images
     const fileNames: string[] = [];
@@ -285,7 +310,13 @@ export class AssetsService {
     });
 
     // Recompute cached asset status
-    await this.recomputeAssetStatus(createdAsset.id, TemplateStatus.AVAILABLE, ItemStatus.READY, false, db);
+    await this.recomputeAssetStatus(
+      createdAsset.id,
+      TemplateStatus.AVAILABLE,
+      ItemStatus.READY,
+      false,
+      db,
+    );
 
     return { createdAsset, tempImageUrls };
   }
@@ -302,16 +333,31 @@ export class AssetsService {
       category = await this.checkCategory(data.category_name);
     }
 
-    const { category_name, specs, costs, salvage_value, life_months, decline_balance_rate, depreciation_method, ...rest } = data;
+    const {
+      category_name,
+      specs,
+      costs,
+      salvage_value,
+      life_months,
+      decline_balance_rate,
+      depreciation_method,
+      ...rest
+    } = data;
     const asset = await this.prisma.assets.update({
       where: { id: id },
       data: {
         ...rest,
         ...(category?.id && { category_id: category.id }),
-        ...(salvage_value !== undefined && { salvage_value: salvage_value != null ? BigInt(salvage_value) : null }),
+        ...(salvage_value !== undefined && {
+          salvage_value: salvage_value != null ? BigInt(salvage_value) : null,
+        }),
         ...(life_months !== undefined && { life_months: life_months ?? null }),
-        ...(decline_balance_rate !== undefined && { decline_balance_rate: decline_balance_rate ?? null }),
-        ...(depreciation_method !== undefined && { depreciation_method: depreciation_method ?? null }),
+        ...(decline_balance_rate !== undefined && {
+          decline_balance_rate: decline_balance_rate ?? null,
+        }),
+        ...(depreciation_method !== undefined && {
+          depreciation_method: depreciation_method ?? null,
+        }),
         ...(specs !== undefined && {
           asset_specs: {
             upsert: {
@@ -330,15 +376,23 @@ export class AssetsService {
     return asset;
   }
 
-  async updateAssetItem(itemId: string, body: EditAssetItemDto, userId: string) {
+  async updateAssetItem(
+    itemId: string,
+    body: EditAssetItemDto,
+    userId: string,
+  ) {
     const data = EditAssetItemDtoSchema.parse(body);
 
     try {
       const updated = await this.prisma.assetItems.update({
         where: { id: itemId },
         data: {
-          ...(data.location_name !== undefined && { location_name: data.location_name }),
-          ...(data.costs !== undefined && { costs: BigInt(Math.round(data.costs)) }),
+          ...(data.location_name !== undefined && {
+            location_name: data.location_name,
+          }),
+          ...(data.costs !== undefined && {
+            costs: BigInt(Math.round(data.costs)),
+          }),
         },
         select: {
           id: true,
@@ -368,14 +422,20 @@ export class AssetsService {
         costs: updated.costs ? Number(updated.costs) : null,
       };
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
         throw new NotFoundException('Asset item not found');
       }
       throw error;
     }
   }
 
-  protected async checkCategory(category_name: string, db?: Prisma.TransactionClient | PrismaService) {
+  protected async checkCategory(
+    category_name: string,
+    db?: Prisma.TransactionClient | PrismaService,
+  ) {
     const client = db ?? this.prisma;
     return await client.assetsCategories.findFirst({
       where: { name: category_name },
@@ -391,12 +451,16 @@ export class AssetsService {
 
     if (query.status) {
       const statusUpper = query.status.toUpperCase();
-      if (Object.values(TemplateStatus).includes(statusUpper as TemplateStatus)) {
+      if (
+        Object.values(TemplateStatus).includes(statusUpper as TemplateStatus)
+      ) {
         where.status = statusUpper as TemplateStatus;
       } else if (statusUpper === ItemStatus.READY) {
         // Legacy filter alias: READY items mean the asset is AVAILABLE
         where.status = TemplateStatus.AVAILABLE;
-      } else if (Object.values(ItemStatus).includes(statusUpper as ItemStatus)) {
+      } else if (
+        Object.values(ItemStatus).includes(statusUpper as ItemStatus)
+      ) {
         // Any other item status means the asset is UNAVAILABLE
         where.status = TemplateStatus.UNAVAILABLE;
       } else {
@@ -572,13 +636,14 @@ export class AssetsService {
     // Kit-template level — only when kit status changed
     if (!kitTemplateId || staleKitTemplateStatus === null) return;
 
-    const newKitTemplateStatus = await this.kitsService.recomputeKitTemplateStatus(
-      kitTemplateId,
-      staleKitTemplateStatus,
-      newKitStatus,
-      false,
-      client,
-    );
+    const newKitTemplateStatus =
+      await this.kitsService.recomputeKitTemplateStatus(
+        kitTemplateId,
+        staleKitTemplateStatus,
+        newKitStatus,
+        false,
+        client,
+      );
     if (newKitTemplateStatus !== staleKitTemplateStatus) {
       await client.kitTemplates.update({
         where: { id: kitTemplateId },
@@ -621,9 +686,10 @@ export class AssetsService {
         asset_id: assetId,
       },
     });
-    return remainingItemCount === 0 ? TemplateStatus.UNAVAILABLE : TemplateStatus.AVAILABLE; // if no items remain, asset becomes UNAVAILABLE, otherwise it becomes AVAILABLE because the deleted item is necessarily not READY
+    return remainingItemCount === 0
+      ? TemplateStatus.UNAVAILABLE
+      : TemplateStatus.AVAILABLE; // if no items remain, asset becomes UNAVAILABLE, otherwise it becomes AVAILABLE because the deleted item is necessarily not READY
   }
-
 
   computeDepreciation(params: {
     costs: bigint;
@@ -642,11 +708,13 @@ export class AssetsService {
 
     if (depreciation_method === DepreciationMethod.STRAIGHT_LINE) {
       if (params.life_months && params.life_months > 0) {
-        monthlyDepreciation = (costs - salvageValue) / BigInt(params.life_months);
+        monthlyDepreciation =
+          (costs - salvageValue) / BigInt(params.life_months);
       }
     } else if (depreciation_method === DepreciationMethod.DECLINING_BALANCE) {
       if (params.decline_balance_rate && params.decline_balance_rate > 0) {
-        monthlyDepreciation = (costs * BigInt(params.decline_balance_rate)) / BigInt(100);
+        monthlyDepreciation =
+          (costs * BigInt(params.decline_balance_rate)) / BigInt(100);
       }
     }
 
@@ -693,7 +761,6 @@ export class AssetsService {
 
       if (items.length === 0) break;
 
-
       const updates: { id: string; newCost: bigint }[] = [];
       for (const item of items) {
         const currentCost = item.costs;
@@ -738,76 +805,94 @@ export class AssetsService {
    * Sends email notification to all admins.
    */
   async setMaintenance(body: SetMaintenanceDto, userId: string) {
-    return this.prisma.$transaction(async (tx) => {
-      let item: any;
-      try {
-        item = await tx.assetItems.update({
-          where: {
-            id: body.asset_item_id,
-            status: { notIn: [ItemStatus.MAINTAINANCE, ItemStatus.LIQUIDATED] },
-          },
-          data: {
-            status: ItemStatus.MAINTAINANCE,
-            maintenance_notes: body.maintenance_notes,
-            last_maintained_at: new Date(),
-          },
-          include: {
-            asset: { select: { id: true, name: true } },
-            kit: { select: { id: true } },
-          },
-        });
-      } catch (err) {
-        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
-          throw new BadRequestException('Asset item not found or cannot be sent to maintenance');
+    return this.prisma
+      .$transaction(async (tx) => {
+        let item: any;
+        try {
+          item = await tx.assetItems.update({
+            where: {
+              id: body.asset_item_id,
+              status: {
+                notIn: [ItemStatus.MAINTAINANCE, ItemStatus.LIQUIDATED],
+              },
+            },
+            data: {
+              status: ItemStatus.MAINTAINANCE,
+              maintenance_notes: body.maintenance_notes,
+              last_maintained_at: new Date(),
+            },
+            include: {
+              asset: { select: { id: true, name: true } },
+              kit: { select: { id: true } },
+            },
+          });
+        } catch (err) {
+          if (
+            err instanceof Prisma.PrismaClientKnownRequestError &&
+            err.code === 'P2025'
+          ) {
+            throw new BadRequestException(
+              'Asset item not found or cannot be sent to maintenance',
+            );
+          }
+          throw err;
         }
-        throw err;
-      }
 
-      // Recompute parent asset status
-      const newAssetStatus = await this.recomputeAssetStatus(item.asset_id, TemplateStatus.AVAILABLE, ItemStatus.MAINTAINANCE, false, tx);
-      await tx.assets.update({ where: { id: item.asset_id }, data: { status: newAssetStatus } });
-
-      // Recompute kit status if item belongs to a kit
-      if (item.kit_id) {
-        await this.kitsService.refreshKitAndTemplateStatus(item.kit_id, tx);
-      }
-
-      return { asset_item_id: body.asset_item_id, status: 'MAINTAINANCE' };
-    }).then(async (result) => {
-      // Send email notifications to admins (outside transaction)
-      const item = await this.prisma.assetItems.findUnique({
-        where: { id: body.asset_item_id },
-        include: {
-          asset: { select: { name: true } },
-        },
-      });
-      const reporter = await this.prisma.users.findUnique({
-        where: { id: userId },
-        select: { first_name: true, last_name: true },
-      });
-      const admins = await this.prisma.users.findMany({
-        where: { user_roles: { some: { role: { name: 'Admin' } } } },
-        select: { first_name: true, last_name: true, email: true },
-      });
-
-      const reporterName = reporter
-        ? `${reporter.first_name} ${reporter.last_name}`
-        : 'Unknown';
-
-      for (const admin of admins) {
-        if (!admin.email) continue;
-        await this.mailService.sendMaintenanceNotification({
-          recipientName: `${admin.first_name} ${admin.last_name}`,
-          recipientEmail: admin.email,
-          assetName: item?.asset.name ?? 'Unknown Asset',
-          assetItemId: body.asset_item_id,
-          maintenanceNotes: body.maintenance_notes,
-          reportedBy: reporterName,
+        // Recompute parent asset status
+        const newAssetStatus = await this.recomputeAssetStatus(
+          item.asset_id,
+          TemplateStatus.AVAILABLE,
+          ItemStatus.MAINTAINANCE,
+          false,
+          tx,
+        );
+        await tx.assets.update({
+          where: { id: item.asset_id },
+          data: { status: newAssetStatus },
         });
-      }
 
-      return result;
-    });
+        // Recompute kit status if item belongs to a kit
+        if (item.kit_id) {
+          await this.kitsService.refreshKitAndTemplateStatus(item.kit_id, tx);
+        }
+
+        return { asset_item_id: body.asset_item_id, status: 'MAINTAINANCE' };
+      })
+      .then(async (result) => {
+        // Send email notifications to admins (outside transaction)
+        const item = await this.prisma.assetItems.findUnique({
+          where: { id: body.asset_item_id },
+          include: {
+            asset: { select: { name: true } },
+          },
+        });
+        const reporter = await this.prisma.users.findUnique({
+          where: { id: userId },
+          select: { first_name: true, last_name: true },
+        });
+        const admins = await this.prisma.users.findMany({
+          where: { user_roles: { some: { role: { name: 'Admin' } } } },
+          select: { first_name: true, last_name: true, email: true },
+        });
+
+        const reporterName = reporter
+          ? `${reporter.first_name} ${reporter.last_name}`
+          : 'Unknown';
+
+        for (const admin of admins) {
+          if (!admin.email) continue;
+          await this.mailService.sendMaintenanceNotification({
+            recipientName: `${admin.first_name} ${admin.last_name}`,
+            recipientEmail: admin.email,
+            assetName: item?.asset.name ?? 'Unknown Asset',
+            assetItemId: body.asset_item_id,
+            maintenanceNotes: body.maintenance_notes,
+            reportedBy: reporterName,
+          });
+        }
+
+        return result;
+      });
   }
 
   /**
@@ -845,15 +930,26 @@ export class AssetsService {
       } catch (err) {
         if (err instanceof Prisma.PrismaClientKnownRequestError) {
           if (err.code === 'P2025' || err.code === 'P2003') {
-            throw new BadRequestException('Asset item not found or is not in maintenance');
+            throw new BadRequestException(
+              'Asset item not found or is not in maintenance',
+            );
           }
         }
         throw err;
       }
 
       // Recompute parent asset status
-      const newAssetStatusResolved = await this.recomputeAssetStatus(item.asset_id, TemplateStatus.AVAILABLE, newStatus, false, tx);
-      await tx.assets.update({ where: { id: item.asset_id }, data: { status: newAssetStatusResolved } });
+      const newAssetStatusResolved = await this.recomputeAssetStatus(
+        item.asset_id,
+        TemplateStatus.AVAILABLE,
+        newStatus,
+        false,
+        tx,
+      );
+      await tx.assets.update({
+        where: { id: item.asset_id },
+        data: { status: newAssetStatusResolved },
+      });
 
       // Recompute kit status if item belongs to a kit
       if (item.kit_id) {
@@ -968,7 +1064,9 @@ export class AssetsService {
           include: {
             category: true,
             asset_allocation: {
-              include: { user: { select: { first_name: true, last_name: true } } },
+              include: {
+                user: { select: { first_name: true, last_name: true } },
+              },
             },
           },
         },
@@ -1029,7 +1127,8 @@ export class AssetsService {
       const lifeMonths = asset.life_months ?? cat?.default_life_months ?? null;
       const method: DepreciationMethod | null =
         asset.depreciation_method ?? cat?.default_depreciation_method ?? null;
-      const declineRate = asset.decline_balance_rate ?? cat?.decline_balance_rate ?? null;
+      const declineRate =
+        asset.decline_balance_rate ?? cat?.decline_balance_rate ?? null;
 
       let accDep = 0;
       if (method && lifeMonths && lifeMonths > 0) {
@@ -1042,11 +1141,14 @@ export class AssetsService {
         if (method === DepreciationMethod.STRAIGHT_LINE) {
           const monthlyDep = (originalCost - salvage) / lifeMonths;
           accDep = Math.min(monthlyDep * monthsElapsed, originalCost - salvage);
-        } else if (method === DepreciationMethod.DECLINING_BALANCE && declineRate) {
+        } else if (
+          method === DepreciationMethod.DECLINING_BALANCE &&
+          declineRate
+        ) {
           let remaining = originalCost;
           const rate = declineRate / 100;
           for (let m = 0; m < monthsElapsed; m++) {
-            const dep = remaining * rate / 12;
+            const dep = (remaining * rate) / 12;
             remaining -= dep;
             if (remaining <= salvage) {
               remaining = salvage;
@@ -1089,7 +1191,11 @@ export class AssetsService {
             asset_allocation: {
               include: {
                 user: {
-                  select: { first_name: true, last_name: true, department: true },
+                  select: {
+                    first_name: true,
+                    last_name: true,
+                    department: true,
+                  },
                 },
               },
             },
@@ -1116,9 +1222,7 @@ export class AssetsService {
         assetName: i.asset.name,
         itemId: i.id,
         status: i.status,
-        allocatedToUser: user
-          ? `${user.first_name} ${user.last_name}`
-          : null,
+        allocatedToUser: user ? `${user.first_name} ${user.last_name}` : null,
         department: user?.department ?? null,
         allocatedAt: this.normalizeDate(alloc?.allocated_at),
         borrowDueDate: this.normalizeDate(borrow?.due_date),
@@ -1154,7 +1258,9 @@ export class AssetsService {
     const kits = await this.prisma.assetsKits.findMany({
       include: {
         template: true,
-        asset_items: { include: { asset: { select: { code: true, name: true } } } },
+        asset_items: {
+          include: { asset: { select: { code: true, name: true } } },
+        },
         asset_allocations: {
           include: {
             user: { select: { first_name: true, last_name: true } },
@@ -1183,7 +1289,9 @@ export class AssetsService {
         templateName: k.template.name,
         kitStatus: k.status,
         itemCount: k.asset_items.length,
-        items: k.asset_items.map((ai) => `${ai.asset.code} (${ai.asset.name})`).join(', '),
+        items: k.asset_items
+          .map((ai) => `${ai.asset.code} (${ai.asset.name})`)
+          .join(', '),
         allocatedTo: allocTo,
         statusConsistency: consistency,
       };
@@ -1407,7 +1515,8 @@ export class AssetsService {
         colWidths?: number[],
       ) => {
         const cols = headers.length;
-        const widths = colWidths ?? headers.map(() => Math.floor(PAGE_W / cols));
+        const widths =
+          colWidths ?? headers.map(() => Math.floor(PAGE_W / cols));
         const rowH = 18;
         let y = doc.y;
 
@@ -1482,23 +1591,47 @@ export class AssetsService {
       addKV('Total Repair Cost', summary.totalRepairCost.toLocaleString());
 
       doc.moveDown(0.5);
-      doc.font('Helvetica-Bold').fontSize(11).fillColor('#374151').text('Items by Status:');
-      for (const [s, c] of Object.entries(summary.itemsByStatus)) addKV(`  ${s}`, c);
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(11)
+        .fillColor('#374151')
+        .text('Items by Status:');
+      for (const [s, c] of Object.entries(summary.itemsByStatus))
+        addKV(`  ${s}`, c);
 
       doc.moveDown(0.3);
-      doc.font('Helvetica-Bold').fontSize(11).fillColor('#374151').text('Assets by Status:');
-      for (const [s, c] of Object.entries(summary.assetsByStatus)) addKV(`  ${s}`, c);
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(11)
+        .fillColor('#374151')
+        .text('Assets by Status:');
+      for (const [s, c] of Object.entries(summary.assetsByStatus))
+        addKV(`  ${s}`, c);
 
       doc.moveDown(0.3);
-      doc.font('Helvetica-Bold').fontSize(11).fillColor('#374151').text('Kits by Status:');
-      for (const [s, c] of Object.entries(summary.kitsByStatus)) addKV(`  ${s}`, c);
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(11)
+        .fillColor('#374151')
+        .text('Kits by Status:');
+      for (const [s, c] of Object.entries(summary.kitsByStatus))
+        addKV(`  ${s}`, c);
 
       doc.addPage();
       addSectionTitle('2. Inventory Overview');
       {
         const headers = [
-          'Code', 'Name', 'Category', 'Item ID', 'Status',
-          'Location', 'Kit?', 'Cost', 'Acquired', 'Allocated To', 'Dep. Method',
+          'Code',
+          'Name',
+          'Category',
+          'Item ID',
+          'Status',
+          'Location',
+          'Kit?',
+          'Cost',
+          'Acquired',
+          'Allocated To',
+          'Dep. Method',
         ];
         const colW = [55, 80, 65, 70, 55, 80, 30, 55, 60, 80, 70];
         const rows = inventory.map((r) => [
@@ -1521,8 +1654,17 @@ export class AssetsService {
       addSectionTitle('3. Financial Data');
       {
         const headers = [
-          'Code', 'Name', 'Item ID', 'Orig. Cost', 'Salvage',
-          'Life (mo)', 'Method', 'Acc. Dep.', 'Book Value', 'Repair $', 'Net Value',
+          'Code',
+          'Name',
+          'Item ID',
+          'Orig. Cost',
+          'Salvage',
+          'Life (mo)',
+          'Method',
+          'Acc. Dep.',
+          'Book Value',
+          'Repair $',
+          'Net Value',
         ];
         const colW = [55, 80, 65, 60, 50, 45, 65, 60, 60, 55, 55];
         const rows = financial.map((r) => [
@@ -1545,8 +1687,15 @@ export class AssetsService {
       addSectionTitle('4. Allocation / Usage');
       {
         const headers = [
-          'Code', 'Name', 'Item ID', 'Status', 'Allocated To',
-          'Department', 'Allocated At', 'Due Date', 'Overdue',
+          'Code',
+          'Name',
+          'Item ID',
+          'Status',
+          'Allocated To',
+          'Department',
+          'Allocated At',
+          'Due Date',
+          'Overdue',
         ];
         const colW = [60, 90, 70, 60, 90, 75, 75, 75, 50];
         const rows = allocations.map((r) => [
@@ -1567,8 +1716,14 @@ export class AssetsService {
       addSectionTitle('5. Maintenance & Repairs');
       {
         const headers = [
-          'Code', 'Name', 'Item ID', 'Repairs', 'Total Cost',
-          'Last Repair', 'Resolved Status', 'Notes',
+          'Code',
+          'Name',
+          'Item ID',
+          'Repairs',
+          'Total Cost',
+          'Last Repair',
+          'Resolved Status',
+          'Notes',
         ];
         const colW = [60, 90, 70, 50, 65, 75, 80, 160];
         const rows = repairs.map((r) => [
@@ -1588,8 +1743,13 @@ export class AssetsService {
       addSectionTitle('6. Kit Overview');
       {
         const headers = [
-          'Kit ID', 'Template', 'Status', 'Items', 'Included Items',
-          'Allocated To', 'Consistency',
+          'Kit ID',
+          'Template',
+          'Status',
+          'Items',
+          'Included Items',
+          'Allocated To',
+          'Consistency',
         ];
         const colW = [70, 90, 60, 40, 210, 90, 80];
         const rows = kits.map((r) => [
@@ -1610,13 +1770,15 @@ export class AssetsService {
       {
         const headers = ['Timestamp', 'Actor', 'Action', 'Entity', 'Entity ID'];
         const colW = [110, 100, 120, 90, 220];
-        const rows = audit.slice(0, 200).map((r) => [
-          r.timestamp.toISOString(),
-          r.actor,
-          r.action,
-          r.entityType,
-          r.entityId,
-        ]);
+        const rows = audit
+          .slice(0, 200)
+          .map((r) => [
+            r.timestamp.toISOString(),
+            r.actor,
+            r.action,
+            r.entityType,
+            r.entityId,
+          ]);
         drawTable(headers, rows, colW);
       }
 

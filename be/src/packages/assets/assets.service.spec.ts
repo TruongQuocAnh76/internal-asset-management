@@ -1,7 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AssetsService } from './assets.service';
 import { PrismaService } from 'src/core/database/prisma.service';
-import { ItemStatus, TemplateStatus, DepreciationMethod, Prisma } from '@prisma/client';
+import {
+  ItemStatus,
+  TemplateStatus,
+  DepreciationMethod,
+  Prisma,
+} from '@prisma/client';
 import { EditAssetDto } from './dto/edit-asset.dto';
 import { StorageService } from 'src/core/storage/storage.service';
 import { MailService } from 'src/core/mail/mail.service';
@@ -579,7 +584,8 @@ describe('AssetsService', () => {
       expect(result).toBe(3);
       expect(prismaMock.$executeRawUnsafe).toHaveBeenCalledTimes(2);
       // Second batch call should have used cursor (skip+cursor present in findMany)
-      const secondFindManyCall = prismaMock.assetItems.findMany.mock.calls[1][0];
+      const secondFindManyCall =
+        prismaMock.assetItems.findMany.mock.calls[1][0];
       expect(secondFindManyCall.cursor).toEqual({ id: 'item-b' });
       expect(secondFindManyCall.skip).toBe(1);
     });
@@ -619,24 +625,40 @@ describe('AssetsService', () => {
       updatedItemStatus: ItemStatus | null,
       deletedItem = false,
       client: any = prismaMock,
-    ) => (service as any).recomputeAssetStatus(assetId, staleStatus, updatedItemStatus, deletedItem, client);
+    ) =>
+      (service as any).recomputeAssetStatus(
+        assetId,
+        staleStatus,
+        updatedItemStatus,
+        deletedItem,
+        client,
+      );
 
     describe('item status update (deletedItem = false)', () => {
       it('returns AVAILABLE when updated item status is READY', async () => {
-        const result = await callRecompute(TemplateStatus.UNAVAILABLE, ItemStatus.READY);
+        const result = await callRecompute(
+          TemplateStatus.UNAVAILABLE,
+          ItemStatus.READY,
+        );
         expect(result).toBe(TemplateStatus.AVAILABLE);
         expect(prismaMock.assetItems.count).not.toHaveBeenCalled();
       });
 
       it('returns UNAVAILABLE when stale status is UNAVAILABLE and item is not READY', async () => {
-        const result = await callRecompute(TemplateStatus.UNAVAILABLE, ItemStatus.IN_USE);
+        const result = await callRecompute(
+          TemplateStatus.UNAVAILABLE,
+          ItemStatus.IN_USE,
+        );
         expect(result).toBe(TemplateStatus.UNAVAILABLE);
         expect(prismaMock.assetItems.count).not.toHaveBeenCalled();
       });
 
       it('returns UNAVAILABLE when stale is AVAILABLE and no READY items remain after non-READY update', async () => {
         prismaMock.assetItems.count.mockResolvedValue(0);
-        const result = await callRecompute(TemplateStatus.AVAILABLE, ItemStatus.IN_USE);
+        const result = await callRecompute(
+          TemplateStatus.AVAILABLE,
+          ItemStatus.IN_USE,
+        );
         expect(result).toBe(TemplateStatus.UNAVAILABLE);
         expect(prismaMock.assetItems.count).toHaveBeenCalledWith({
           where: { asset_id: assetId, status: ItemStatus.READY },
@@ -645,7 +667,10 @@ describe('AssetsService', () => {
 
       it('returns AVAILABLE when stale is AVAILABLE and READY items still exist', async () => {
         prismaMock.assetItems.count.mockResolvedValue(2);
-        const result = await callRecompute(TemplateStatus.AVAILABLE, ItemStatus.IN_USE);
+        const result = await callRecompute(
+          TemplateStatus.AVAILABLE,
+          ItemStatus.IN_USE,
+        );
         expect(result).toBe(TemplateStatus.AVAILABLE);
       });
     });
@@ -653,13 +678,21 @@ describe('AssetsService', () => {
     describe('item deletion (deletedItem = true)', () => {
       it('returns UNAVAILABLE when no remaining items', async () => {
         prismaMock.assetItems.count.mockResolvedValue(0);
-        const result = await callRecompute(TemplateStatus.AVAILABLE, null, true);
+        const result = await callRecompute(
+          TemplateStatus.AVAILABLE,
+          null,
+          true,
+        );
         expect(result).toBe(TemplateStatus.UNAVAILABLE);
       });
 
       it('returns AVAILABLE when remaining items exist', async () => {
         prismaMock.assetItems.count.mockResolvedValue(3);
-        const result = await callRecompute(TemplateStatus.AVAILABLE, null, true);
+        const result = await callRecompute(
+          TemplateStatus.AVAILABLE,
+          null,
+          true,
+        );
         expect(result).toBe(TemplateStatus.AVAILABLE);
       });
     });

@@ -41,7 +41,7 @@ describe('RequestsService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new RequestsService(prismaMock as any, notificationQueueMock as any);
+    service = new RequestsService(prismaMock, notificationQueueMock);
   });
 
   describe('createRequest (asset)', () => {

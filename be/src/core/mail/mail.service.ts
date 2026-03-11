@@ -17,18 +17,18 @@ export interface BorrowMailContext {
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private transporter = nodemailer.createTransport({
-  host: process.env.MAIL_HOST,
-  port: Number(process.env.MAIL_PORT),
-  secure: false,
-  ...(process.env.MAIL_USER && process.env.MAIL_PASS
-    ? {
-        auth: {
-          user: process.env.MAIL_USER,
-          pass: process.env.MAIL_PASS,
-        },
-      }
-    : {}),
-})
+    host: process.env.MAIL_HOST,
+    port: Number(process.env.MAIL_PORT),
+    secure: false,
+    ...(process.env.MAIL_USER && process.env.MAIL_PASS
+      ? {
+          auth: {
+            user: process.env.MAIL_USER,
+            pass: process.env.MAIL_PASS,
+          },
+        }
+      : {}),
+  });
 
   private readonly from = process.env.EMAIL_FROM;
 
@@ -210,7 +210,12 @@ export class MailService {
 
   async sendDueReminder(ctx: BorrowMailContext) {
     const days = ctx.daysRemaining ?? 0;
-    const urgency = days <= 1 ? 'color: #dc2626;' : days <= 3 ? 'color: #d97706;' : 'color: #2563eb;';
+    const urgency =
+      days <= 1
+        ? 'color: #dc2626;'
+        : days <= 3
+          ? 'color: #d97706;'
+          : 'color: #2563eb;';
     const label = days === 1 ? 'tomorrow' : `in ${days} days`;
 
     await this.send(

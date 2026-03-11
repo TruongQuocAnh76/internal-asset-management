@@ -45,7 +45,8 @@ export class GetKitsParams {
   limit?: number;
 
   @ApiPropertyOptional({
-    description: 'Filter by category ID (matches kits containing assets of that category)',
+    description:
+      'Filter by category ID (matches kits containing assets of that category)',
     example: 'uuid-here',
   })
   category_id?: string;
