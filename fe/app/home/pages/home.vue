@@ -17,6 +17,17 @@ definePageMeta({
 const { user } = useAuth()
 const { getAssetsSummary, getAssetsByCategory, getPendingApprovals, getAssetsCountByCategory, getUserOwnedAssets, getUserOwnedKits } = useHome()
 
+const isAdmin = computed(() =>
+  user.value?.user_roles?.some((ur: any) => ur.role?.name === 'Admin') ?? false
+)
+
+const userRole = computed(() => {
+  const roleNames = user.value?.user_roles?.map((ur: any) => ur.role?.name) || []
+  if (roleNames.includes('Admin')) return 'admin'
+  if (roleNames.includes('Team Lead')) return 'team_lead'
+  return 'employee'
+})
+
 // Dashboard state
 const isLoading = ref(true)
 const assetSummary = ref({
@@ -103,7 +114,7 @@ onMounted(() => {
           </svg>
           Asset Status Overview
         </h2>
-        <AssetStatusCards :summary="assetSummary" :loading="isLoading" />
+        <AssetStatusCards :summary="assetSummary" :loading="isLoading" :is-admin="isAdmin" />
       </section>
 
       <!-- Section 2 & 3: Category Chart + Pending Approvals -->

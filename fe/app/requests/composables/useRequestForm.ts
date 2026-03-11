@@ -65,7 +65,6 @@ export const useRequestForm = () => {
     return (
       hasSelection &&
       formData.value.reason.trim().length > 0 &&
-      !!formData.value.dueDate &&
       Object.keys(errors.value).length === 0
     )
   })
@@ -205,9 +204,7 @@ export const useRequestForm = () => {
         break
 
       case 'dueDate':
-        if (!formData.value.dueDate) {
-          errors.value.dueDate = 'Due date is required'
-        }
+        // Due date is optional.
         break
     }
 
@@ -226,7 +223,6 @@ export const useRequestForm = () => {
       validateField('categoryId')
     }
     validateField('reason')
-    validateField('dueDate')
 
     return Object.keys(errors.value).length === 0
   }

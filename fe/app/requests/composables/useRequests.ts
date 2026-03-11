@@ -40,7 +40,11 @@ export const useRequests = () => {
   // Create request - uses POST /requests
   const createRequest = async (data: RequestFormData) => {
     // Strip type field - backend doesn't need it, it infers from assetId/kitId
-    const { type, ...payload } = data
+    const { type, dueDate, ...rest } = data
+    const payload = {
+      ...rest,
+      ...(dueDate ? { dueDate } : {})
+    }
     return $fetch<BorrowRequest>(`${baseUrl}/requests`, {
       method: 'POST',
       body: payload,
@@ -156,7 +160,7 @@ export const useRequests = () => {
 
   // Get available kits (READY status), optionally filtered by category
   const getAvailableKits = async (search?: string, categoryId?: string) => {
-    const params: Record<string, string> = { filter: 'status', filterValue: 'READY' }
+    const params: Record<string, string> = { filter: 'status', filterValue: 'AVAILABLE' }
     if (search) params.search = search
     if (categoryId) params.category_id = categoryId
 

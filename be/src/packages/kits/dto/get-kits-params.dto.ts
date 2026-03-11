@@ -10,7 +10,7 @@ export class GetKitsParams {
 
   @ApiPropertyOptional({
     description: 'Value to filter by',
-    example: 'READY',
+    example: 'AVAILABLE',
   })
   filterValue?: string;
 

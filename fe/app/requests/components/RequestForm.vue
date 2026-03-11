@@ -602,15 +602,13 @@ onMounted(() => {
 
         <!-- Due Date -->
         <div class="input-group mt-4">
-          <label for="due-date" class="label">Due Date <span class="text-red-500">*</span></label>
+          <label for="due-date" class="label">Due Date</label>
           <input
             id="due-date"
             type="date"
             v-model="formData.dueDate"
             :min="minDueDate"
             class="w-full"
-            required
-            @blur="validateField('dueDate')"
           />
           <p v-if="errors.dueDate" class="text-sm text-red-500 mt-1">{{ errors.dueDate }}</p>
           <p v-else class="text-sm text-secondary-500 mt-1">

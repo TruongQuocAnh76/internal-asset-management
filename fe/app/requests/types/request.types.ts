@@ -108,7 +108,7 @@ export interface RequestFormData {
   requesterId: string
   reason: string
   priority: RequestPriority
-  dueDate: string
+  dueDate?: string
 }
 
 // Draft data stored in localStorage

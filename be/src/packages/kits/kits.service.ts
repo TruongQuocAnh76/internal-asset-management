@@ -424,7 +424,11 @@ export class KitsService {
     const where: Prisma.AssetsKitsWhereInput = {};
     if (query.filter && query.filterValue) {
       if (query.filter === 'status') {
-        where.status = query.filterValue as TemplateStatus;
+        const raw = query.filterValue.toUpperCase();
+        where.status =
+          raw === 'READY'
+            ? TemplateStatus.AVAILABLE
+            : (raw as TemplateStatus);
       }
     }
     if (query.search) {

@@ -47,7 +47,11 @@ const ids = {
 
   // Kit
   kitTemplateId: randomUUID(),
+  kitTemplateDesignId: randomUUID(),
+  kitTemplateRemoteId: randomUUID(),
   kitId: randomUUID(),
+  kitDesignId: randomUUID(),
+  kitRemoteId: randomUUID(),
 
   // Assets — Laptops
   asset1Id: randomUUID(),
@@ -435,12 +439,52 @@ async function main() {
     },
   });
 
+  const designKitTemplate = await prisma.kitTemplates.upsert({
+    where: { id: ids.kitTemplateDesignId },
+    update: {},
+    create: {
+      id: ids.kitTemplateDesignId,
+      name: 'Design Workstation Kit',
+      status: TemplateStatus.AVAILABLE,
+    },
+  });
+
+  const remoteKitTemplate = await prisma.kitTemplates.upsert({
+    where: { id: ids.kitTemplateRemoteId },
+    update: {},
+    create: {
+      id: ids.kitTemplateRemoteId,
+      name: 'Remote Collaboration Kit',
+      status: TemplateStatus.AVAILABLE,
+    },
+  });
+
   const kit = await prisma.assetsKits.upsert({
     where: { id: ids.kitId },
     update: {},
     create: {
       id: ids.kitId,
       template_id: kitTemplate.id,
+      status: TemplateStatus.AVAILABLE,
+    },
+  });
+
+  const designKit = await prisma.assetsKits.upsert({
+    where: { id: ids.kitDesignId },
+    update: {},
+    create: {
+      id: ids.kitDesignId,
+      template_id: designKitTemplate.id,
+      status: TemplateStatus.AVAILABLE,
+    },
+  });
+
+  const remoteKit = await prisma.assetsKits.upsert({
+    where: { id: ids.kitRemoteId },
+    update: {},
+    create: {
+      id: ids.kitRemoteId,
+      template_id: remoteKitTemplate.id,
       status: TemplateStatus.AVAILABLE,
     },
   });
@@ -639,6 +683,32 @@ async function main() {
   }
   const aid = (code: string) => upsertedAssets.get(code)!;
 
+  // ── Kit Template Components (drives UI component count) ─────────
+  // Keep idempotent by resetting template components on each seed run.
+  await prisma.kitTemplateItems.deleteMany({
+    where: {
+      template_id: {
+        in: [kitTemplate.id, designKitTemplate.id, remoteKitTemplate.id],
+      },
+    },
+  });
+
+  await prisma.kitTemplateItems.createMany({
+    data: [
+      // Starter Kit
+      { template_id: kitTemplate.id, asset_id: aid('MN-2001') },
+      { template_id: kitTemplate.id, asset_id: aid('KB-3001') },
+
+      // Design Workstation Kit
+      { template_id: designKitTemplate.id, asset_id: aid('LT-1002') },
+      { template_id: designKitTemplate.id, asset_id: aid('MN-2003') },
+
+      // Remote Collaboration Kit
+      { template_id: remoteKitTemplate.id, asset_id: aid('LT-1005') },
+      { template_id: remoteKitTemplate.id, asset_id: aid('HS-4002') },
+    ],
+  });
+
   // ── Asset Items ───────────────────────────────────────────────────
   // Delete and recreate to stay idempotent
   await prisma.assetItems.deleteMany({
@@ -685,6 +755,8 @@ async function main() {
       status: ItemStatus.READY,
       location_name: 'Office C - Floor 1',
       costs: BigInt(135000),
+      kit_id: remoteKit.id,
+      kit_status: true,
     },
     {
       asset_id: aid('LT-1006'),
@@ -719,6 +791,8 @@ async function main() {
       status: ItemStatus.READY,
       location_name: 'Warehouse - Storage A',
       costs: BigInt(55000),
+      kit_id: designKit.id,
+      kit_status: true,
     },
     {
       asset_id: aid('MN-2004'),
@@ -739,6 +813,8 @@ async function main() {
       status: ItemStatus.READY,
       location_name: 'Office A - Supplies',
       costs: BigInt(12000),
+      kit_id: kit.id,
+      kit_status: true,
     },
     {
       asset_id: aid('KB-3002'),
@@ -766,6 +842,8 @@ async function main() {
       status: ItemStatus.READY,
       location_name: 'Warehouse - Storage A',
       costs: BigInt(38000),
+      kit_id: remoteKit.id,
+      kit_status: true,
     },
     {
       asset_id: aid('HS-4003'),

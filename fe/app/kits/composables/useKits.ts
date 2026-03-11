@@ -166,11 +166,11 @@ export const useKits = () => {
   }
 
   // GET /assets (for searching available assets to add to kits)
-  const searchAvailableAssets = async (query: string, status?: string) => {
+  const searchAvailableAssets = async (query: string, categoryId?: string) => {
     const params = new URLSearchParams()
     if (query) params.append('search', query)
-    if (status) params.append('filter', 'status')
-    if (status) params.append('filterValue', status)
+    params.append('status', 'READY')
+    if (categoryId) params.append('category_id', categoryId)
 
     try {
       const result = await $fetch<{ data: any[] }>(`/assets?${params.toString()}`, {
@@ -184,10 +184,10 @@ export const useKits = () => {
     }
   }
 
-  // GET /assets/category/count - Get all categories
+  // GET /category - Get all categories
   const getCategories = async () => {
     try {
-      const result = await $fetch<{ id: string; name: string; code: string }[]>('/assets/category/count', {
+      const result = await $fetch<{ id: string; name: string; code: string }[]>('/category', {
         method: 'GET',
         baseURL: config.public.backendUrl,
         credentials: 'include'
