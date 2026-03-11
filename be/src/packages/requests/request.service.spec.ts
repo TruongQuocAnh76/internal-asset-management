@@ -1,6 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { RequestsService } from './requests.service';
-import { Prisma } from '@prisma/client';
+import { ItemStatus, Prisma } from '@prisma/client';
 import { CreateRequestDto } from './dto/create-request.dto';
 
 describe('RequestsService', () => {
@@ -41,7 +41,7 @@ describe('RequestsService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new RequestsService(prismaMock as any, notificationQueueMock as any);
+    service = new RequestsService(prismaMock, notificationQueueMock);
   });
 
   describe('createRequest (asset)', () => {
@@ -59,7 +59,7 @@ describe('RequestsService', () => {
         priority: 'LOW',
       } as CreateRequestDto;
 
-      await expect(service.createRequest(dto, 'user-1')).rejects.toThrow(
+      await expect(service.createRequest(dto)).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -78,7 +78,7 @@ describe('RequestsService', () => {
         priority: 'LOW',
       } as CreateRequestDto;
 
-      await expect(service.createRequest(dto, 'user-1')).rejects.toThrow(
+      await expect(service.createRequest(dto)).rejects.toThrow(
         ConflictException,
       );
     });
@@ -99,7 +99,7 @@ describe('RequestsService', () => {
         dueDate: '2026-04-01',
       } as CreateRequestDto;
 
-      const res = await service.createRequest(dto, 'user-1');
+      const res = await service.createRequest(dto);
 
       expect(prismaMock.borrowRequests.create).toHaveBeenCalledWith({
         data: {
@@ -134,7 +134,7 @@ describe('RequestsService', () => {
         priority: 'LOW',
       } as CreateRequestDto;
 
-      await expect(service.createRequest(dto, 'user-2')).rejects.toThrow(
+      await expect(service.createRequest(dto)).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -153,7 +153,7 @@ describe('RequestsService', () => {
         priority: 'LOW',
       } as CreateRequestDto;
 
-      await expect(service.createRequest(dto, 'user-2')).rejects.toThrow(
+      await expect(service.createRequest(dto)).rejects.toThrow(
         ConflictException,
       );
     });
@@ -174,7 +174,7 @@ describe('RequestsService', () => {
         dueDate: '2026-04-01',
       } as CreateRequestDto;
 
-      const res = await service.createRequest(dto, 'user-2');
+      const res = await service.createRequest(dto);
 
       expect(prismaMock.borrowRequests.create).toHaveBeenCalledWith({
         data: {
@@ -191,6 +191,186 @@ describe('RequestsService', () => {
       });
 
       expect(res).toEqual(created);
+    });
+  });
+
+  // computeNewAssetStatus was removed: asset status is now TemplateStatus
+  // (AVAILABLE/UNAVAILABLE). Recomputation lives in AssetsService.recomputeAssetStatus.
+  xdescribe('computeNewAssetStatus', () => {
+    const compute = (
+      assetId: string,
+      currentStatus: ItemStatus | null,
+      updateStatus: ItemStatus,
+      deletedStatus?: ItemStatus,
+    ) =>
+      (service as any).computeNewAssetStatus(
+        assetId,
+        currentStatus,
+        updateStatus,
+        undefined,
+        deletedStatus,
+      ) as Promise<ItemStatus | null>;
+
+    it('returns READY when updateStatus is READY (normal update, 0 queries)', async () => {
+      const result = await compute(
+        'asset-1',
+        ItemStatus.IN_USE,
+        ItemStatus.READY,
+      );
+
+      expect(result).toBe(ItemStatus.READY);
+      expect(prismaMock.assetItems.count).not.toHaveBeenCalled();
+    });
+
+    it('returns IN_USE when current non-READY uniform state is broken (normal update)', async () => {
+      const result = await compute(
+        'asset-1',
+        ItemStatus.BROKEN,
+        ItemStatus.LIQUIDATED,
+      );
+
+      expect(result).toBe(ItemStatus.IN_USE);
+      expect(prismaMock.assetItems.count).not.toHaveBeenCalled();
+    });
+
+    it('returns READY when current is READY and there is still a READY item', async () => {
+      prismaMock.assetItems.count.mockResolvedValueOnce(2);
+
+      const result = await compute(
+        'asset-1',
+        ItemStatus.READY,
+        ItemStatus.IN_USE,
+      );
+
+      expect(result).toBe(ItemStatus.READY);
+      expect(prismaMock.assetItems.count).toHaveBeenCalledWith({
+        where: { asset_id: 'asset-1', status: ItemStatus.READY },
+      });
+    });
+
+    it('returns updateStatus when current is READY and all remaining items match updateStatus', async () => {
+      prismaMock.assetItems.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0);
+
+      const result = await compute(
+        'asset-1',
+        ItemStatus.READY,
+        ItemStatus.BROKEN,
+      );
+
+      expect(result).toBe(ItemStatus.BROKEN);
+      expect(prismaMock.assetItems.count).toHaveBeenNthCalledWith(2, {
+        where: { asset_id: 'asset-1', status: { not: ItemStatus.BROKEN } },
+      });
+    });
+
+    it('returns IN_USE when current is IN_USE and remaining items are mixed', async () => {
+      prismaMock.assetItems.count.mockResolvedValueOnce(3);
+
+      const result = await compute(
+        'asset-1',
+        ItemStatus.IN_USE,
+        ItemStatus.MAINTAINANCE,
+      );
+
+      expect(result).toBe(ItemStatus.IN_USE);
+      expect(prismaMock.assetItems.count).toHaveBeenCalledWith({
+        where: {
+          asset_id: 'asset-1',
+          status: { not: ItemStatus.MAINTAINANCE },
+        },
+      });
+    });
+
+    it('deletion: returns READY when a READY item is deleted but another READY remains', async () => {
+      prismaMock.assetItems.count.mockResolvedValueOnce(1);
+
+      const result = await compute(
+        'asset-1',
+        ItemStatus.READY,
+        ItemStatus.IN_USE,
+        ItemStatus.READY,
+      );
+
+      expect(result).toBe(ItemStatus.READY);
+      expect(prismaMock.assetItems.findMany).not.toHaveBeenCalled();
+    });
+
+    it('deletion: returns remaining single distinct status when READY deleted and no READY left', async () => {
+      prismaMock.assetItems.count.mockResolvedValueOnce(0);
+      prismaMock.assetItems.findMany.mockResolvedValueOnce([
+        { status: ItemStatus.BROKEN },
+      ]);
+
+      const result = await compute(
+        'asset-1',
+        ItemStatus.READY,
+        ItemStatus.IN_USE,
+        ItemStatus.READY,
+      );
+
+      expect(result).toBe(ItemStatus.BROKEN);
+      expect(prismaMock.assetItems.findMany).toHaveBeenCalledWith({
+        where: { asset_id: 'asset-1' },
+        select: { status: true },
+        distinct: ['status'],
+      });
+    });
+
+    it('deletion: returns LIQUIDATED when deleting from uniform non-READY leaves no items', async () => {
+      prismaMock.assetItems.count.mockResolvedValueOnce(0);
+
+      const result = await compute(
+        'asset-1',
+        ItemStatus.BROKEN,
+        ItemStatus.IN_USE,
+        ItemStatus.BROKEN,
+      );
+
+      expect(result).toBe(ItemStatus.LIQUIDATED);
+    });
+
+    it('deletion: returns deletedStatus when current IN_USE becomes uniform after deletion', async () => {
+      prismaMock.assetItems.count.mockResolvedValueOnce(0);
+
+      const result = await compute(
+        'asset-1',
+        ItemStatus.IN_USE,
+        ItemStatus.IN_USE,
+        ItemStatus.MAINTAINANCE,
+      );
+
+      expect(result).toBe(ItemStatus.MAINTAINANCE);
+      expect(prismaMock.assetItems.count).toHaveBeenCalledWith({
+        where: {
+          asset_id: 'asset-1',
+          status: { not: ItemStatus.MAINTAINANCE },
+        },
+      });
+    });
+
+    it('loads current status from DB when currentStatus is null', async () => {
+      prismaMock.assets.findUnique.mockResolvedValueOnce({
+        status: ItemStatus.READY,
+      });
+      prismaMock.assetItems.count.mockResolvedValueOnce(1);
+
+      const result = await compute('asset-1', null, ItemStatus.IN_USE);
+
+      expect(result).toBe(ItemStatus.READY);
+      expect(prismaMock.assets.findUnique).toHaveBeenCalledWith({
+        where: { id: 'asset-1' },
+        select: { status: true },
+      });
+    });
+
+    it('returns null when currentStatus is null and asset does not exist', async () => {
+      prismaMock.assets.findUnique.mockResolvedValueOnce(null);
+
+      const result = await compute('missing-asset', null, ItemStatus.IN_USE);
+
+      expect(result).toBeNull();
     });
   });
 });

@@ -17,6 +17,9 @@ definePageMeta({
 const route = useRoute()
 const router = useRouter()
 const id = computed(() => route.params.id as string)
+const { user } = useAuth()
+
+const isAdmin = computed(() => (user.value?.roles as string[] | undefined)?.includes('ADMIN') ?? false)
 
 const {
   kit,
@@ -179,6 +182,7 @@ const onRestore = async () => {
           <KitDetailHeader
             :kit="kit"
             :loading="updating"
+            :is-admin="isAdmin"
             @edit="handleEdit"
             @assign="handleAssign"
             @archive="onArchive"

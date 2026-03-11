@@ -14,43 +14,64 @@ const emit = defineEmits<{
   'select': [asset: ComponentPickerAsset | null, assetType: string]
 }>()
 
-const { searchAvailableAssets } = useKits()
+const { searchAvailableAssets, getCategories } = useKits()
 
 const searchQuery = ref('')
-const assetType = ref('')
-const isPlaceholder = ref(false)
+const categoryQuery = ref('')
+const isCategoryMode = ref(false)
 const assets = ref<ComponentPickerAsset[]>([])
 const isSearching = ref(false)
 const selectedAsset = ref<ComponentPickerAsset | null>(null)
+const selectedCategory = ref<{ id: string; name: string } | null>(null)
+const categories = ref<{ id: string; name: string }[]>([])
 const debounceTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
 
-const commonAssetTypes = [
-  'Monitor',
-  'Keyboard',
-  'Mouse',
-  'Laptop',
-  'Desktop',
-  'Headset',
-  'Webcam',
-  'Docking Station',
-  'Cable',
-  'Case',
-  'Chair',
-  'Desk'
-]
+const filteredCategories = computed(() => {
+  const q = categoryQuery.value.trim().toLowerCase()
+  if (!q) return categories.value.slice(0, 8)
+  return categories.value
+    .filter(c => c.name.toLowerCase().includes(q))
+    .slice(0, 8)
+})
+
+const loadCategories = async () => {
+  const { data } = await getCategories()
+  categories.value = Array.isArray(data.value)
+    ? data.value.map(c => ({ id: c.id, name: c.name }))
+    : []
+}
 
 const handleSearch = async () => {
-  if (searchQuery.value.length < 2 && !props.categoryFilter) {
+  const isCategorySearch = isCategoryMode.value
+
+  if (isCategorySearch && !selectedCategory.value?.id) {
+    assets.value = []
+    return
+  }
+
+  if (!isCategorySearch && searchQuery.value.length < 2) {
     assets.value = []
     return
   }
 
   isSearching.value = true
   try {
-    const { data: response } = await searchAvailableAssets(searchQuery.value, props.categoryFilter)
-    const results = response.value?.data ?? []
-    // Filter to only show available assets
-    assets.value = (Array.isArray(results) ? results : []).filter(a => a.status === 'READY')
+    const { data: response } = await searchAvailableAssets(
+      isCategorySearch ? '' : searchQuery.value,
+      isCategorySearch ? selectedCategory.value?.id : props.categoryFilter
+    )
+    // API may return either { data: Asset[] } or { data: { data: Asset[], pagination } }
+    const payload: any = response.value
+    const results = Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload?.data?.data)
+        ? payload.data.data
+        : []
+
+    // Keep only available assets (different endpoints may use READY vs AVAILABLE)
+    assets.value = results.filter((a: ComponentPickerAsset) =>
+      a.status === 'READY' || a.status === 'AVAILABLE'
+    )
   } catch (err) {
     console.error('Search failed:', err)
     assets.value = []
@@ -66,41 +87,42 @@ const debouncedSearch = () => {
   debounceTimeout.value = setTimeout(handleSearch, 300)
 }
 
+const handleSelectCategory = (category: { id: string; name: string }) => {
+  selectedCategory.value = category
+  categoryQuery.value = category.name
+  selectedAsset.value = null
+  handleSearch()
+}
+
 const handleSelectAsset = (asset: ComponentPickerAsset) => {
   selectedAsset.value = asset
-  assetType.value = asset.category?.name || ''
 }
 
 const handleConfirm = () => {
-  if (isPlaceholder.value) {
-    if (assetType.value.trim()) {
-      emit('select', null, assetType.value.trim())
-      resetAndClose()
-    }
-  } else if (selectedAsset.value) {
-    emit('select', selectedAsset.value, assetType.value || selectedAsset.value.category?.name || '')
+  if (selectedAsset.value) {
+    emit('select', selectedAsset.value, selectedAsset.value.category?.name || selectedCategory.value?.name || '')
     resetAndClose()
   }
 }
 
 const resetAndClose = () => {
   searchQuery.value = ''
-  assetType.value = ''
-  isPlaceholder.value = false
+  categoryQuery.value = ''
+  isCategoryMode.value = false
   assets.value = []
   selectedAsset.value = null
+  selectedCategory.value = null
   emit('close')
 }
 
 const canConfirm = computed(() => {
-  if (isPlaceholder.value) {
-    return assetType.value.trim().length > 0
-  }
   return selectedAsset.value !== null
 })
 
 watch(() => props.visible, (visible) => {
-  if (!visible) {
+  if (visible) {
+    loadCategories()
+  } else {
     resetAndClose()
   }
 })
@@ -143,52 +165,58 @@ onUnmounted(() => {
             <div class="mb-6">
               <div class="flex rounded-lg bg-secondary-100 p-1">
                 <button
-                  @click="isPlaceholder = false"
+                  @click="isCategoryMode = false; selectedCategory = null; categoryQuery = ''; assets = []; selectedAsset = null"
                   class="flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors"
-                  :class="!isPlaceholder ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-600 hover:text-secondary-900'"
+                  :class="!isCategoryMode ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-600 hover:text-secondary-900'"
                 >
                   Specific Asset
                 </button>
                 <button
-                  @click="isPlaceholder = true"
+                  @click="isCategoryMode = true; searchQuery = ''; assets = []; selectedAsset = null"
                   class="flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors"
-                  :class="isPlaceholder ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-600 hover:text-secondary-900'"
+                  :class="isCategoryMode ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-600 hover:text-secondary-900'"
                 >
-                  Any of Type
+                  Category
                 </button>
               </div>
               <p class="text-xs text-secondary-500 mt-2">
-                {{ isPlaceholder 
-                  ? 'Reserve a component slot for any available asset of the specified type' 
+                {{ isCategoryMode
+                  ? 'Search and choose a category, then pick one available asset from that category'
                   : 'Bind a specific asset (by serial/code) to this kit'
                 }}
               </p>
             </div>
 
-            <!-- Placeholder Mode: Asset Type Selection -->
-            <div v-if="isPlaceholder">
+            <!-- Category Mode: Category Search -->
+            <div v-if="isCategoryMode">
               <label class="block text-sm font-medium text-secondary-700 mb-2">
-                Asset Type <span class="text-danger-500">*</span>
+                Category <span class="text-danger-500">*</span>
               </label>
-              <input
-                v-model="assetType"
-                type="text"
-                list="asset-types-list"
-                placeholder="e.g., Monitor, Keyboard, Mouse"
-                class="w-full px-4 py-2.5 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-              <datalist id="asset-types-list">
-                <option v-for="type in commonAssetTypes" :key="type" :value="type" />
-              </datalist>
-              <div class="flex flex-wrap gap-2 mt-3">
+              <div class="relative">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  v-model="categoryQuery"
+                  type="text"
+                  placeholder="Search category..."
+                  class="!pl-10 w-full"
+                />
+              </div>
+              <div class="mt-3 border border-secondary-200 rounded-lg max-h-44 overflow-y-auto divide-y divide-secondary-100">
                 <button
-                  v-for="type in commonAssetTypes.slice(0, 6)"
-                  :key="type"
-                  @click="assetType = type"
-                  class="px-3 py-1.5 text-xs font-medium bg-secondary-100 hover:bg-secondary-200 text-secondary-700 rounded-md transition-colors"
+                  v-for="category in filteredCategories"
+                  :key="category.id"
+                  type="button"
+                  @click="handleSelectCategory(category)"
+                  class="w-full px-4 py-2.5 text-left text-sm hover:bg-secondary-50"
+                  :class="selectedCategory?.id === category.id ? 'bg-primary-50 text-primary-700' : 'text-secondary-700'"
                 >
-                  {{ type }}
+                  {{ category.name }}
                 </button>
+                <div v-if="filteredCategories.length === 0" class="px-4 py-3 text-sm text-secondary-500">
+                  No matching categories
+                </div>
               </div>
             </div>
 
@@ -196,7 +224,7 @@ onUnmounted(() => {
             <div v-else>
               <label class="block text-sm font-medium text-secondary-700 mb-2">Search Assets</label>
               <div class="relative mb-4">
-                <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input
@@ -204,7 +232,7 @@ onUnmounted(() => {
                   @input="debouncedSearch"
                   type="text"
                   placeholder="Search by name, code, or serial..."
-                  class="w-full pl-10 pr-4 py-2.5 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    class="!pl-10 w-full"
                 />
               </div>
 
@@ -275,6 +303,50 @@ onUnmounted(() => {
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Category Mode: Result Panel -->
+            <div v-if="isCategoryMode" class="mt-4">
+              <div class="border border-secondary-200 rounded-lg overflow-hidden">
+                <div v-if="isSearching" class="p-8 text-center">
+                  <svg class="animate-spin h-6 w-6 text-primary-600 mx-auto" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                </div>
+
+                <div v-else-if="!selectedCategory" class="p-8 text-center text-secondary-500">
+                  <p>Select a category to view available assets</p>
+                </div>
+
+                <div v-else-if="assets.length === 0" class="p-8 text-center text-secondary-500">
+                  <p>No available assets found for {{ selectedCategory.name }}</p>
+                </div>
+
+                <div v-else class="max-h-64 overflow-y-auto divide-y divide-secondary-100">
+                  <button
+                    v-for="asset in assets"
+                    :key="asset.id"
+                    @click="handleSelectAsset(asset)"
+                    class="w-full px-4 py-3 flex items-center gap-4 hover:bg-secondary-50 transition-colors text-left"
+                    :class="{ 'bg-primary-50 ring-1 ring-primary-500': selectedAsset?.id === asset.id }"
+                  >
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2">
+                        <span class="font-medium text-secondary-900">{{ asset.name }}</span>
+                        <span class="text-xs font-mono text-secondary-500">{{ asset.code }}</span>
+                      </div>
+                      <div class="text-sm text-secondary-500 mt-0.5">
+                        {{ asset.category?.name }}
+                        <span v-if="asset.serial" class="ml-2">• {{ asset.serial }}</span>
+                      </div>
+                    </div>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-100 text-success-700">
+                      Available
+                    </span>
                   </button>
                 </div>
               </div>
