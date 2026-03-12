@@ -47,7 +47,7 @@ function createExtendedClient() {
         async $allOperations({ model, operation, args, query }) {
           if (
             !AUDITED_OPERATIONS.has(operation) ||
-            !(model! in MODEL_ENTITY_MAP)
+            !(model in MODEL_ENTITY_MAP)
           ) {
             const result = await query(args);
             return normalizeBigInt(result);
@@ -59,9 +59,9 @@ function createExtendedClient() {
             return normalizeBigInt(result);
           }
 
-          const entityType = MODEL_ENTITY_MAP[model!];
+          const entityType = MODEL_ENTITY_MAP[model];
           const actorId = ctx.actorId;
-          const delegate = getDelegate(baseClient, model!);
+          const delegate = getDelegate(baseClient, model);
 
           // get before state
           let beforeRecords: any[] = [];
@@ -75,10 +75,7 @@ function createExtendedClient() {
               where: (args as any).where,
             });
             if (before) beforeRecords = [before];
-          } else if (
-            operation === 'updateMany' ||
-            operation === 'deleteMany'
-          ) {
+          } else if (operation === 'updateMany' || operation === 'deleteMany') {
             beforeRecords = await delegate.findMany({
               where: (args as any).where,
             });
@@ -123,8 +120,7 @@ function createExtendedClient() {
                     actor_id: actorId,
                     action: 'DELETE',
                     entity_type: entityType,
-                    entity_id:
-                      beforeRecords[0]?.id ?? (args as any).where?.id,
+                    entity_id: beforeRecords[0]?.id ?? (args as any).where?.id,
                     before: beforeRecords[0] ?? {},
                     after: {},
                   },
@@ -193,9 +189,10 @@ class ExtendedPrismaClientBase {
   }
 }
 
-const ExtendedPrismaClient = ExtendedPrismaClientBase as unknown as new () => ReturnType<
-  typeof createExtendedClient
->;
+const ExtendedPrismaClient =
+  ExtendedPrismaClientBase as unknown as new () => ReturnType<
+    typeof createExtendedClient
+  >;
 
 @Injectable()
 export class PrismaService

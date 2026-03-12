@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { AssignKitFormData, Kit } from '../types/kit.types'
-import { useKits } from '../composables/useKits'
+import type { Kit } from '../types/kit.types'
 
 interface Props {
   visible: boolean
@@ -14,105 +13,70 @@ const emit = defineEmits<{
   'success': []
 }>()
 
-const { assignKit, getUsers } = useKits()
+const { assignRequest } = useRequests()
+const { getUsers } = useUsers()
 
-const formData = ref<AssignKitFormData>({
-  userId: '',
-  quantity: 1,
-  checkoutDate: new Date().toISOString().split('T')[0],
-  expectedReturnDate: '',
-  handoverCondition: ''
-})
+type UserResult = { id: string; first_name: string; last_name: string; email: string }
+
+const requesterId = ref('')
+const reason = ref('')
+const priority = ref<'LOW' | 'MEDIUM' | 'HIGH'>('MEDIUM')
+const dueDate = ref('')
 
 const errors = ref<Record<string, string>>({})
 const isSubmitting = ref(false)
-const users = ref<{ id: string; firstName: string; lastName: string; email: string }[]>([])
+const users = ref<UserResult[]>([])
 const userSearch = ref('')
 const isSearchingUsers = ref(false)
 const showUserDropdown = ref(false)
-const selectedUser = ref<{ id: string; firstName: string; lastName: string; email: string } | null>(null)
-const insufficientInventory = ref(false)
-const assignmentOption = ref<'full' | 'partial' | 'hold' | 'escalate'>('full')
-
-const handoverChecklist = [
-  { id: 'physical', label: 'Physical condition verified', checked: ref(false) },
-  { id: 'accessories', label: 'All accessories included', checked: ref(false) },
-  { id: 'functional', label: 'Functionality tested', checked: ref(false) },
-  { id: 'documented', label: 'Serial numbers documented', checked: ref(false) }
-]
+const selectedUser = ref<UserResult | null>(null)
 
 const searchUsers = async () => {
   if (userSearch.value.length < 2) {
     users.value = []
     return
   }
-
   isSearchingUsers.value = true
   try {
-    users.value = await getUsers(userSearch.value)
-  } catch (err) {
-    console.error('Failed to search users:', err)
+    users.value = await getUsers(userSearch.value) as UserResult[]
+  } catch {
     users.value = []
   } finally {
     isSearchingUsers.value = false
   }
 }
 
-const selectUser = (user: typeof users.value[0]) => {
+const selectUser = (user: UserResult) => {
   selectedUser.value = user
-  formData.value.userId = user.id
-  userSearch.value = `${user.firstName} ${user.lastName}`
+  requesterId.value = user.id
+  userSearch.value = `${user.first_name} ${user.last_name}`
   showUserDropdown.value = false
-  errors.value.userId = ''
+  errors.value.requesterId = ''
 }
 
 const handleUserInputFocus = () => {
   showUserDropdown.value = true
-  if (userSearch.value.length >= 2) {
-    searchUsers()
-  }
+  if (userSearch.value.length >= 2) searchUsers()
 }
 
 const validateForm = (): boolean => {
   errors.value = {}
-
-  if (!formData.value.userId) {
-    errors.value.userId = 'Please select a user'
-  }
-
-  if (formData.value.quantity < 1) {
-    errors.value.quantity = 'Quantity must be at least 1'
-  }
-
-  if (!formData.value.checkoutDate) {
-    errors.value.checkoutDate = 'Checkout date is required'
-  }
-
-  if (!formData.value.expectedReturnDate) {
-    errors.value.expectedReturnDate = 'Expected return date is required'
-  } else if (formData.value.expectedReturnDate < formData.value.checkoutDate) {
-    errors.value.expectedReturnDate = 'Return date must be after checkout date'
-  }
-
+  if (!requesterId.value) errors.value.requesterId = 'Please select a user'
+  if (!reason.value.trim()) errors.value.reason = 'Reason is required'
   return Object.keys(errors.value).length === 0
 }
 
 const handleSubmit = async () => {
   if (!validateForm() || !props.kit) return
-
-  // Each kit is a single instance
-  if (formData.value.quantity > 1) {
-    insufficientInventory.value = true
-    return
-  }
-
   isSubmitting.value = true
   try {
-    // Build handover condition from checklist
-    const checkedItems = handoverChecklist.filter(item => item.checked.value).map(item => item.label)
-    formData.value.handoverCondition = checkedItems.join('; ') || 'Standard handover'
-
-    await assignKit(props.kit.id, formData.value)
+    await assignRequest({
+      kitId: props.kit.id,
+      requesterId: requesterId.value,
+      reason: reason.value.trim(),
+      priority: priority.value,
+      ...(dueDate.value ? { dueDate: dueDate.value } : {})
+    })
     emit('success')
     emit('close')
   } catch (err: any) {
@@ -122,54 +86,29 @@ const handleSubmit = async () => {
   }
 }
 
-const handleInsufficientInventoryAction = async () => {
-  if (!props.kit) return
-
-  switch (assignmentOption.value) {
-    case 'partial':
-      // Kit is a single instance, max quantity is 1
-      insufficientInventory.value = false
-      break
-    case 'hold':
-      // Create a hold request - would need backend support
-      errors.value.general = 'Hold functionality requires backend implementation'
-      break
-    case 'escalate':
-      // Escalate to procurement - would need backend support
-      errors.value.general = 'Escalation functionality requires backend implementation'
-      break
-    default:
-      insufficientInventory.value = false
-  }
-}
-
 const resetForm = () => {
-  formData.value = {
-    userId: '',
-    quantity: 1,
-    checkoutDate: new Date().toISOString().split('T')[0],
-    expectedReturnDate: '',
-    handoverCondition: ''
-  }
+  requesterId.value = ''
+  reason.value = ''
+  priority.value = 'MEDIUM'
+  dueDate.value = ''
   errors.value = {}
   selectedUser.value = null
   userSearch.value = ''
-  insufficientInventory.value = false
-  handoverChecklist.forEach(item => item.checked.value = false)
 }
 
 watch(() => props.visible, (visible) => {
-  if (!visible) {
-    resetForm()
-  }
+  if (!visible) resetForm()
 })
 
 let debounceTimeout: ReturnType<typeof setTimeout> | null = null
-
 watch(userSearch, () => {
   if (debounceTimeout) clearTimeout(debounceTimeout)
   debounceTimeout = setTimeout(searchUsers, 300)
 })
+
+const handleUserBlur = () => {
+  setTimeout(() => { showUserDropdown.value = false }, 200)
+}
 </script>
 
 <template>
@@ -201,71 +140,32 @@ watch(userSearch, () => {
           </div>
 
           <!-- Content -->
-          <div class="flex-1 overflow-y-auto p-6 space-y-6">
+          <div class="flex-1 overflow-y-auto p-6 space-y-5">
             <!-- General Error -->
             <div v-if="errors.general" class="bg-danger-50 border border-danger-200 rounded-lg p-4">
               <div class="flex items-center gap-2">
-                <svg class="h-5 w-5 text-danger-600" fill="currentColor" viewBox="0 0 20 20">
+                <svg class="h-5 w-5 text-danger-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                 </svg>
                 <span class="text-danger-700">{{ errors.general }}</span>
               </div>
             </div>
 
-            <!-- Insufficient Inventory Warning -->
-            <div v-if="insufficientInventory" class="bg-warning-50 border border-warning-200 rounded-lg p-4">
-              <div class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-warning-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                <div class="flex-1">
-                  <p class="font-medium text-warning-800">Insufficient Inventory</p>
-                  <p class="text-sm text-warning-700 mt-1">
-                    Only 1 kit available. You requested {{ formData.quantity }}.
-                  </p>
-                  
-                  <div class="mt-4 space-y-2">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                      <input v-model="assignmentOption" type="radio" value="partial" class="text-warning-600 focus:ring-warning-500" />
-                      <span class="text-sm text-warning-800">Partial fulfill (assign 1 kit)</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer">
-                      <input v-model="assignmentOption" type="radio" value="hold" class="text-warning-600 focus:ring-warning-500" />
-                      <span class="text-sm text-warning-800">Put request on hold</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer">
-                      <input v-model="assignmentOption" type="radio" value="escalate" class="text-warning-600 focus:ring-warning-500" />
-                      <span class="text-sm text-warning-800">Escalate to procurement</span>
-                    </label>
-                  </div>
-
-                  <button
-                    @click="handleInsufficientInventoryAction"
-                    class="mt-4 px-4 py-2 text-sm font-medium text-warning-700 bg-warning-100 hover:bg-warning-200 rounded-lg transition-colors"
-                  >
-                    Continue with selected option
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- User Selection -->
+            <!-- Assign To -->
             <div>
               <label class="block text-sm font-medium text-secondary-700 mb-2">
-                Requester <span class="text-danger-500">*</span>
+                Assign To <span class="text-danger-500">*</span>
               </label>
               <div class="relative">
                 <input
                   v-model="userSearch"
                   type="text"
-                  placeholder="Search for a user..."
+                  placeholder="Search by name or email..."
                   @focus="handleUserInputFocus"
                   @blur="setTimeout(() => showUserDropdown = false, 200)"
                   class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  :class="errors.userId ? 'border-danger-500' : 'border-secondary-300'"
+                  :class="errors.requesterId ? 'border-danger-500' : 'border-secondary-300'"
                 />
-                
-                <!-- User Dropdown -->
                 <div
                   v-if="showUserDropdown && (users.length > 0 || isSearchingUsers)"
                   class="absolute top-full left-0 right-0 mt-1 bg-white border border-secondary-200 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto"
@@ -275,92 +175,69 @@ watch(userSearch, () => {
                   </div>
                   <button
                     v-else
-                    v-for="user in users"
-                    :key="user.id"
-                    @mousedown.prevent="selectUser(user)"
+                    v-for="u in users"
+                    :key="u.id"
+                    @mousedown.prevent="selectUser(u)"
                     class="w-full px-4 py-2 text-left hover:bg-secondary-50 transition-colors"
                   >
-                    <div class="font-medium text-secondary-900">{{ user.firstName }} {{ user.lastName }}</div>
-                    <div class="text-sm text-secondary-500">{{ user.email }}</div>
+                    <div class="font-medium text-secondary-900">{{ u.first_name }} {{ u.last_name }}</div>
+                    <div class="text-sm text-secondary-500">{{ u.email }}</div>
                   </button>
                 </div>
               </div>
-              <p v-if="errors.userId" class="text-sm text-danger-600 mt-1">{{ errors.userId }}</p>
+              <p v-if="errors.requesterId" class="text-sm text-danger-600 mt-1">{{ errors.requesterId }}</p>
               <div v-if="selectedUser" class="mt-2 flex items-center gap-2 text-sm text-success-600">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                 </svg>
-                Selected: {{ selectedUser.firstName }} {{ selectedUser.lastName }}
+                {{ selectedUser.first_name }} {{ selectedUser.last_name }}
               </div>
             </div>
 
-            <!-- Quantity -->
+            <!-- Reason -->
             <div>
               <label class="block text-sm font-medium text-secondary-700 mb-2">
-                Quantity <span class="text-danger-500">*</span>
+                Reason <span class="text-danger-500">*</span>
               </label>
-              <div class="flex items-center gap-2">
-                <input
-                  v-model.number="formData.quantity"
-                  type="number"
-                  min="1"
-                  max="1"
-                  class="w-24 px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  :class="errors.quantity ? 'border-danger-500' : 'border-secondary-300'"
-                />
-                <span class="text-sm text-secondary-500">
-                  Kit instances available: 1
-                </span>
-              </div>
-              <p v-if="errors.quantity" class="text-sm text-danger-600 mt-1">{{ errors.quantity }}</p>
+              <textarea
+                v-model="reason"
+                rows="3"
+                placeholder="Why is this kit being assigned?"
+                class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                :class="errors.reason ? 'border-danger-500' : 'border-secondary-300'"
+              />
+              <p v-if="errors.reason" class="text-sm text-danger-600 mt-1">{{ errors.reason }}</p>
             </div>
 
-            <!-- Dates -->
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-secondary-700 mb-2">
-                  Checkout Date <span class="text-danger-500">*</span>
-                </label>
-                <input
-                  v-model="formData.checkoutDate"
-                  type="date"
-                  class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  :class="errors.checkoutDate ? 'border-danger-500' : 'border-secondary-300'"
-                />
-                <p v-if="errors.checkoutDate" class="text-sm text-danger-600 mt-1">{{ errors.checkoutDate }}</p>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-secondary-700 mb-2">
-                  Expected Return <span class="text-danger-500">*</span>
-                </label>
-                <input
-                  v-model="formData.expectedReturnDate"
-                  type="date"
-                  :min="formData.checkoutDate"
-                  class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  :class="errors.expectedReturnDate ? 'border-danger-500' : 'border-secondary-300'"
-                />
-                <p v-if="errors.expectedReturnDate" class="text-sm text-danger-600 mt-1">{{ errors.expectedReturnDate }}</p>
-              </div>
-            </div>
-
-            <!-- Handover Checklist -->
+            <!-- Priority -->
             <div>
-              <label class="block text-sm font-medium text-secondary-700 mb-3">Handover Condition Checklist</label>
-              <div class="space-y-2 bg-secondary-50 rounded-lg p-4">
+              <label class="block text-sm font-medium text-secondary-700 mb-2">Priority</label>
+              <div class="flex gap-3">
                 <label
-                  v-for="item in handoverChecklist"
-                  :key="item.id"
-                  class="flex items-center gap-3 cursor-pointer"
+                  v-for="p in (['LOW', 'MEDIUM', 'HIGH'] as const)"
+                  :key="p"
+                  class="flex-1 flex items-center justify-center gap-2 px-3 py-2 border rounded-lg cursor-pointer transition-colors text-sm font-medium"
+                  :class="priority === p
+                    ? p === 'LOW' ? 'border-success-500 bg-success-50 text-success-700'
+                      : p === 'MEDIUM' ? 'border-warning-500 bg-warning-50 text-warning-700'
+                      : 'border-danger-500 bg-danger-50 text-danger-700'
+                    : 'border-secondary-300 text-secondary-600 hover:bg-secondary-50'"
                 >
-                  <input
-                    v-model="item.checked.value"
-                    type="checkbox"
-                    class="w-4 h-4 rounded border-secondary-300 text-primary-600 focus:ring-primary-500"
-                  />
-                  <span class="text-sm text-secondary-700">{{ item.label }}</span>
+                  <input v-model="priority" type="radio" :value="p" class="sr-only" />
+                  {{ p.charAt(0) + p.slice(1).toLowerCase() }}
                 </label>
               </div>
+            </div>
+
+            <!-- Due Date -->
+            <div>
+              <label class="block text-sm font-medium text-secondary-700 mb-2">Due Date <span class="text-secondary-400 font-normal">(optional)</span></label>
+              <input
+                v-model="dueDate"
+                type="date"
+                :min="new Date().toISOString().split('T')[0]"
+                class="w-full px-4 py-2.5 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
             </div>
           </div>
 

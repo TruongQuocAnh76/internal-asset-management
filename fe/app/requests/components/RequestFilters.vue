@@ -20,18 +20,13 @@ const { statusConfig, priorityConfig } = useRequestHelpers()
 
 const localFilters = ref<RequestFilterOptions>({ ...props.modelValue })
 
+const isAllRequestsView = computed(() => localFilters.value.view === 'all_requests')
+
 const viewOptions = computed(() => {
-  const options = [
+  return [
     { value: 'my_requests', label: 'My Requests' },
     { value: 'all_requests', label: 'All Requests' }
   ]
-  
-  if (props.showTeamRequests) {
-    options.splice(1, 0, { value: 'team_requests', label: 'Team Requests' })
-    options.push({ value: 'pending_approval', label: 'Pending My Approval' })
-  }
-  
-  return options
 })
 
 const statusOptions: { value: BorrowStatus | ''; label: string }[] = [
@@ -79,11 +74,7 @@ const clearFilters = () => {
 }
 
 const hasActiveFilters = computed(() => {
-  return (
-    localFilters.value.status ||
-    localFilters.value.priority ||
-    localFilters.value.search
-  )
+  return localFilters.value.status || localFilters.value.priority
 })
 
 // Sync with parent
@@ -127,11 +118,11 @@ watch(() => props.modelValue, (newVal) => {
               :value="localFilters.search"
               @input="handleSearch"
               placeholder="Search by asset name, reason..."
-              class="w-full pl-10"
+              class="!pl-10 w-full"
             />
-            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
               <svg
-                class="h-5 w-5 text-secondary-400"
+                class="w-5 h-5 text-secondary-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -147,8 +138,8 @@ watch(() => props.modelValue, (newVal) => {
           </div>
         </div>
 
-        <!-- Status filter -->
-        <div class="w-full lg:w-48">
+        <!-- Status filter (all requests view only) -->
+        <div v-if="isAllRequestsView" class="w-full lg:w-48">
           <label for="status-filter" class="sr-only">Filter by status</label>
           <select
             id="status-filter"
@@ -166,8 +157,8 @@ watch(() => props.modelValue, (newVal) => {
           </select>
         </div>
 
-        <!-- Priority filter -->
-        <div class="w-full lg:w-40">
+        <!-- Priority filter (all requests view only) -->
+        <div v-if="isAllRequestsView" class="w-full lg:w-40">
           <label for="priority-filter" class="sr-only">Filter by priority</label>
           <select
             id="priority-filter"
@@ -187,7 +178,7 @@ watch(() => props.modelValue, (newVal) => {
 
         <!-- Clear filters -->
         <button
-          v-if="hasActiveFilters"
+          v-if="isAllRequestsView && hasActiveFilters"
           type="button"
           class="text-sm text-primary-600 hover:text-primary-700 font-medium whitespace-nowrap self-center"
           @click="clearFilters"

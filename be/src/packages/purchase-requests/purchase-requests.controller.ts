@@ -1,4 +1,12 @@
-import { Controller, Get, Query, UseGuards, Body, Post, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  UseGuards,
+  Body,
+  Post,
+  Param,
+} from '@nestjs/common';
 import { PurchaseRequestsService } from './purchase-requests.service';
 import { SessionAuthGuard } from 'src/core/auth/guards/session-auth.guard';
 import { GetPurchaseRequestParam } from './dto/get-purchase-request-param.dto';
@@ -8,13 +16,13 @@ import { Permission } from 'src/core/auth/decorator/permission.decorator';
 
 @Controller('purchase-requests')
 export class PurchaseRequestsController {
-  constructor(private readonly purchaseRequestsService: PurchaseRequestsService) {}
+  constructor(
+    private readonly purchaseRequestsService: PurchaseRequestsService,
+  ) {}
 
   @Get()
   @UseGuards(SessionAuthGuard)
-  getPurchaseRequests(
-    @Query() query: GetPurchaseRequestParam,
-  ) {
+  getPurchaseRequests(@Query() query: GetPurchaseRequestParam) {
     return this.purchaseRequestsService.getPurchaseRequests(query);
   }
 
