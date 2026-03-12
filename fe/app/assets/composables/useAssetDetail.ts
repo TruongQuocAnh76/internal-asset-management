@@ -1,3 +1,4 @@
+import type { Ref } from 'vue'
 import type { Asset, AssetItem, AssetStatus, StateTransition } from '../types/asset.types'
 import { useAssets } from './useAssets'
 import { useMaintenance } from './useMaintenance'
@@ -23,7 +24,7 @@ const STATE_TRANSITIONS: Record<AssetStatus, StateTransition[]> = {
   LIQUIDATED: [],
 }
 
-export const useAssetDetail = (assetId: string) => {
+export const useAssetDetail = (assetId: Ref<string> | string) => {
   const { getAssetById, getAssetItems, updateAssetStatus } = useAssets()
   const { setMaintenance, resolveMaintenance } = useMaintenance()
 
@@ -68,8 +69,8 @@ export const useAssetDetail = (assetId: string) => {
     error.value = null
 
     try {
-      asset.value = await getAssetById(assetId)
-      assetItems.value = await getAssetItems(assetId)
+      asset.value = await getAssetById(toValue(assetId))
+      assetItems.value = await getAssetItems(toValue(assetId))
     } catch (err: any) {
       error.value = err.data?.message || err.message || 'Failed to load asset'
     } finally {
@@ -121,7 +122,7 @@ export const useAssetDetail = (assetId: string) => {
 
     try {
       await updateAssetStatus(
-        assetId,
+        toValue(assetId),
         selectedTransition.value.to,
         transitionReason.value.trim() || undefined
       )

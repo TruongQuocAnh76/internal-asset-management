@@ -4,6 +4,7 @@ import type { Kit } from '../types/kit.types'
 interface Props {
   kit: Kit
   loading?: boolean
+  isAdmin?: boolean
 }
 
 defineProps<Props>()
@@ -81,7 +82,7 @@ const formatDate = (dateString: string) => {
           </button>
 
           <button
-            v-if="kit.status === 'ACTIVE'"
+            v-if="kit.status === 'ACTIVE' && isAdmin"
             @click="emit('assign')"
             class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2 shadow-soft"
           >

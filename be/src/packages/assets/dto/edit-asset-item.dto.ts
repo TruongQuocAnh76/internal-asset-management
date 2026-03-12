@@ -20,6 +20,9 @@ export const EditAssetItemDtoSchema = z
     location_name: z.string().min(1).optional(),
     costs: z.number().min(0).optional(),
   })
-  .refine((data) => data.location_name !== undefined || data.costs !== undefined, {
-    message: 'At least one field must be provided',
-  });
+  .refine(
+    (data) => data.location_name !== undefined || data.costs !== undefined,
+    {
+      message: 'At least one field must be provided',
+    },
+  );

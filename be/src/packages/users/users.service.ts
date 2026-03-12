@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from 'src/core/database/prisma.service';
 import { SignupDto } from 'src/core/auth/dto/signup.dto';
@@ -21,10 +25,10 @@ export class UsersService {
         user_roles: {
           create: {
             role: {
-              connect: { name: 'Employee' }
-            }
-          }
-        }
+              connect: { name: 'Employee' },
+            },
+          },
+        },
       },
     });
 
@@ -113,7 +117,9 @@ export class UsersService {
         await tx.users.update({
           where: { id },
           data: {
-            ...(updateUserDto.department ? { department: updateUserDto.department } : {}),
+            ...(updateUserDto.department
+              ? { department: updateUserDto.department }
+              : {}),
             ...(updateUserDto.status ? { status: updateUserDto.status } : {}),
           },
         });

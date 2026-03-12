@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { navigateTo } from '#app'
 import { useAuth } from '#imports'
@@ -7,6 +7,25 @@ import { useAuth } from '#imports'
 const route = useRoute()
 
 const { user, signout } = useAuth()
+
+const isAdmin = computed(() =>
+  user.value?.user_roles?.some((ur: any) => ur.role?.name === 'Admin') ?? false
+)
+
+const isTeamLead = computed(() =>
+  user.value?.user_roles?.some((ur: any) => ur.role?.name === 'Team Lead') ?? false
+)
+
+// Filtered nav items: purchases should be visible to Admin and Team Lead;
+// other adminOnly items remain Admin-only.
+const navList = computed(() =>
+  navItems.filter(i => {
+    if (i.route === '/purchase-requests') {
+      return isAdmin.value || isTeamLead.value
+    }
+    return !i.adminOnly || isAdmin.value
+  })
+)
 
 const handleLogout = async () => {
   await signout()
@@ -25,6 +44,7 @@ const navItems = [
     label: 'Assets',
     route: '/assets',
     icon: 'assets',
+    adminOnly: true,
   },
   {
     label: 'Categories',
@@ -35,6 +55,7 @@ const navItems = [
     label: 'Kits',
     route: '/kits',
     icon: 'kits',
+    adminOnly: true,
   },
   {
     label: 'Requests',
@@ -45,21 +66,25 @@ const navItems = [
     label: 'Purchases',
     route: '/purchase-requests',
     icon: 'purchases',
+    adminOnly: true,
   },
   {
     label: 'Maintenance',
     route: '/assets/maintenance',
     icon: 'maintenance',
+    adminOnly: true,
   },
   {
     label: 'Users',
     route: '/users',
     icon: 'users',
+    adminOnly: true,
   },
   {
     label: 'Audit Logs',
     route: '/audit-logs',
     icon: 'audit',
+    adminOnly: true,
   },
 ]
 
@@ -107,7 +132,7 @@ const isActive = (path: string) => {
       <!-- Navigation -->
       <nav class="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
         <NuxtLink
-          v-for="item in navItems"
+          v-for="item in navList"
           :key="item.route"
           :to="item.route"
           :class="[

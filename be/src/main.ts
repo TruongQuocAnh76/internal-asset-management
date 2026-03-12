@@ -39,10 +39,7 @@ async function bootstrap() {
   );
 
   app.useLogger(new Logger());
-  app.useGlobalInterceptors(
-    new LoggingInterceptor(),
-    new AuditInterceptor(),
-  );
+  app.useGlobalInterceptors(new LoggingInterceptor(), new AuditInterceptor());
 
   const config = new DocumentBuilder()
     .setTitle('Asset Management API')

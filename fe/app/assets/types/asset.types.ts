@@ -100,8 +100,9 @@ export interface AssetEvent {
 }
 
 export interface GetAssetsParams {
-  filter?: 'category' | 'status' | 'costs' | 'acquired_at'
-  filter_value?: string
+  status?: string
+  category_id?: string
+  acquired_at?: string
   search?: string
   order?: 'asc' | 'desc'
   page?: number

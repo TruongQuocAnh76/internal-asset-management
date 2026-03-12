@@ -10,7 +10,7 @@ export interface MailRecipient {
 type RequestContext = {
   id: string;
   reason: string | null;
-  due_date: Date;
+  due_date: Date | null;
   provided_by?: string | null;
   user: { first_name: string; last_name: string; email: string };
   asset?: { name: string } | null;
@@ -32,11 +32,13 @@ export function buildMailContextBase(
     assetName,
     requestId: request.id,
     reason: request.reason ?? undefined,
-    dueDate: new Date(request.due_date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    }),
+    dueDate: request.due_date
+      ? new Date(request.due_date).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        })
+      : undefined,
   };
 }
 
