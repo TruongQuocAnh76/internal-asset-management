@@ -17,6 +17,8 @@ import { PurchaseRequestsController } from './packages/purchase-requests/purchas
 import { PurchaseRequestsService } from './packages/purchase-requests/purchase-requests.service';
 import { PurchaseRequestsModule } from './packages/purchase-requests/purchase-requests.module';
 import { AuditModule } from './core/audit/audit.module';
+import { ChatController } from './packages/chat/chat.controller';
+import { ChatService } from './packages/chat/chat.service';
 
 @Module({
   imports: [
@@ -40,7 +42,7 @@ import { AuditModule } from './core/audit/audit.module';
     PurchaseRequestsModule,
     AuditModule,
   ],
-  controllers: [AppController, PurchaseRequestsController],
-  providers: [AppService, PurchaseRequestsService],
+  controllers: [AppController, PurchaseRequestsController, ChatController],
+  providers: [AppService, PurchaseRequestsService, ChatService],
 })
 export class AppModule {}
