@@ -14,11 +14,16 @@ export const useCategories = () => {
     const queryString = queryParams.toString()
     const url = `/category${queryString ? `?${queryString}` : ''}`
 
-    return await useFetch<Category[]>(url, {
-      method: 'GET',
-      baseURL: config.public.backendUrl,
-      credentials: 'include',
-    })
+    try {
+      const result = await $fetch<Category[]>(url, {
+        method: 'GET',
+        baseURL: config.public.backendUrl,
+        credentials: 'include',
+      })
+      return { data: ref(result), error: ref<any>(null) }
+    } catch (err) {
+      return { data: ref<Category[] | null>(null), error: ref(err) }
+    }
   }
 
   const getCategoryById = async (id: string) => {

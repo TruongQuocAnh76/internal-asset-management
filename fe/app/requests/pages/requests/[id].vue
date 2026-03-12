@@ -5,6 +5,7 @@ import StatusBadge from '../../components/StatusBadge.vue'
 import PriorityBadge from '../../components/PriorityBadge.vue'
 import ApprovalChain from '../../components/ApprovalChain.vue'
 import ApprovalModal from '../../components/ApprovalModal.vue'
+import ProvidePickerModal from '../../components/ProvidePickerModal.vue'
 
 definePageMeta({
   layout: 'default',
@@ -20,6 +21,7 @@ const {
   error,
   showApprovalModal,
   approvalAction,
+  showAssetPicker,
   permissions,
   requestTitle,
   requestType,
@@ -27,6 +29,8 @@ const {
   handleCancel,
   openApprovalModal,
   closeApprovalModal,
+  openAssetPicker,
+  closeAssetPicker,
   handleApprove,
   handleReject,
   handleProvide,
@@ -143,9 +147,18 @@ const { formatDateTime } = useRequestHelpers()
                   </dd>
                 </div>
 
+                <!-- Category (category-based request, asset assigned at provide time) -->
+                <div v-if="request.category">
+                  <dt class="text-sm font-medium text-secondary-500">Requested Category</dt>
+                  <dd class="mt-1">
+                    <p class="font-medium text-secondary-900">{{ request.category.name }}</p>
+                    <p class="text-sm text-secondary-500">Any available asset from this category</p>
+                  </dd>
+                </div>
+
                 <!-- Asset -->
                 <div v-if="request.asset">
-                  <dt class="text-sm font-medium text-secondary-500">Requested Asset</dt>
+                  <dt class="text-sm font-medium text-secondary-500">{{ requestType === 'category' ? 'Assigned Asset' : 'Requested Asset' }}</dt>
                   <dd class="mt-1">
                     <p class="font-medium text-secondary-900">{{ request.asset.name }}</p>
                     <p class="text-sm text-secondary-500">{{ request.asset.code }}</p>
@@ -248,9 +261,9 @@ const { formatDateTime } = useRequestHelpers()
                   type="button"
                   class="w-full bg-success-600 hover:bg-success-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
                   :disabled="isProcessing"
-                  @click="handleProvide"
+                  @click="requestType === 'category' ? openAssetPicker() : handleProvide()"
                 >
-                  Provide {{ requestType === 'kit' ? 'Kit' : 'Asset' }}
+                  Provide
                 </button>
 
                 <!-- User: Return PROVIDED/OVERDUE -->
@@ -304,7 +317,10 @@ const { formatDateTime } = useRequestHelpers()
 
                 <div v-if="request.status === 'APPROVED'">
                   <p class="text-sm text-secondary-500">Waiting for</p>
-                  <p class="font-medium text-secondary-900">{{ requestType === 'kit' ? 'Kit' : 'Asset' }} to be Provided</p>
+                  <p class="font-medium text-secondary-900">
+                    {{ requestType === 'kit' ? 'Kit' : 'Asset' }} to be Provided
+                    <span v-if="requestType === 'category'" class="block text-xs text-secondary-400 font-normal mt-0.5">Admin will select an asset from "{{ request.category?.name }}" category</span>
+                  </p>
                 </div>
 
                 <div v-if="request.status === 'PROVIDED'">
@@ -399,6 +415,17 @@ const { formatDateTime } = useRequestHelpers()
       :is-processing="isProcessing"
       @close="closeApprovalModal"
       @confirm="approvalAction === 'APPROVE' ? handleApprove() : handleReject()"
+    />
+
+    <!-- Provide Picker Modal (for category-based requests: choose asset or kit) -->
+    <ProvidePickerModal
+      v-if="request"
+      :is-open="showAssetPicker"
+      :category-id="request.category_id || ''"
+      :is-processing="isProcessing"
+      @close="closeAssetPicker"
+      @select-asset="(id) => handleProvide(id)"
+      @select-kit="(id) => handleProvide(undefined, id)"
     />
   </div>
 </template>

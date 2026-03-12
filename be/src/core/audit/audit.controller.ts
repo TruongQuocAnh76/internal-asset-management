@@ -6,9 +6,7 @@ import { Entity, AuditAction } from '@prisma/client';
 @Controller('audit-logs')
 @UseGuards(SessionAuthGuard)
 export class AuditController {
-  constructor(
-    private readonly auditService: AuditService,
-  ) {}
+  constructor(private readonly auditService: AuditService) {}
 
   @Get()
   findAll(

@@ -4,7 +4,7 @@ export type BorrowStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'PROVIDED' | 'O
 
 export type RequestPriority = 'LOW' | 'MEDIUM' | 'HIGH'
 
-export type RequestType = 'asset' | 'kit'
+export type RequestType = 'asset' | 'kit' | 'category'
 
 export type ApprovalAction = 'APPROVE' | 'REJECT'
 
@@ -71,6 +71,7 @@ export interface BorrowRequest {
   id: string
   asset_id: string | null
   kit_id: string | null
+  category_id: string | null
   requester_id: string
   requested_at: string
   status: BorrowStatus
@@ -81,12 +82,13 @@ export interface BorrowRequest {
   provided_at: string | null
   provided_by: string | null
   returned_at: string | null
-  due_date: string
+  due_date: string | null
   created_at: string
   // Relations (when included)
   asset?: RequestAsset
   kit?: RequestKit
   user?: RequestUser
+  category?: AssetCategory
 }
 
 export interface ApprovalStep {
@@ -102,10 +104,11 @@ export interface RequestFormData {
   type: RequestType
   assetId?: string
   kitId?: string
+  categoryId?: string
   requesterId: string
   reason: string
   priority: RequestPriority
-  dueDate: string
+  dueDate?: string
 }
 
 // Draft data stored in localStorage
@@ -116,21 +119,23 @@ export interface RequestDraft {
   expires_at: string
 }
 
-// Query params for fetching requests - matches backend getRequestsDto
+// Query params for fetching requests - matches backend GetRequestsDto
 export interface GetRequestsParams {
-  filter?: 'requesterId' | 'category' | 'costs' | 'status' | 'acquired_at' | 'kitId'
-  filterValue?: string
+  status?: BorrowStatus
+  requesterId?: string
+  assetId?: string
+  kitId?: string
+  priority?: RequestPriority
   search?: string
-  sort?: string
   page?: number
   limit?: number
   order?: 'asc' | 'desc'
-  orderBy?: 'category' | 'status' | 'costs' | 'acquired_at'
+  orderBy?: 'status' | 'requesterId' | 'priority' | 'requested_at' | 'due_date'
 }
 
 // Filter options for UI
 export interface RequestFilterOptions {
-  view: 'my_requests' | 'team_requests' | 'all_requests' | 'pending_approval'
+  view: 'my_requests' | 'all_requests'
   status?: BorrowStatus
   priority?: RequestPriority
   search?: string

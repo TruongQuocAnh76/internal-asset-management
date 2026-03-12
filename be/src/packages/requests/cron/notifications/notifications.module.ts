@@ -3,7 +3,10 @@ import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
 import { MailModule } from 'src/core/mail/mail.module';
 import { DatabaseModule } from 'src/core/database/database.module';
-import { NotificationProcessor, NOTIFICATION_QUEUE } from './notification.processor';
+import {
+  NotificationProcessor,
+  NOTIFICATION_QUEUE,
+} from './notification.processor';
 import { DueReminderScheduler } from './due-reminder.scheduler';
 
 @Module({
