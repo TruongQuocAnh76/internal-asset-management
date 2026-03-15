@@ -78,7 +78,15 @@ const loadDashboardData = async () => {
       : []
     
     myAssets.value = ownedAssets
-    myKits.value = ownedKits
+    // derive kits from owned assets (entries with kit_id)
+    myKits.value = Array.isArray(ownedAssets) ? ownedAssets.filter((a: any) => a.type === 'kit').map((k: any) => ({
+      id: k.id,
+      name: k.name,
+      kitId: k.kitId || k.kit_id || k.kitId,
+      dueDate: k.dueDate || k.due_date,
+      providedAt: k.providedAt || k.provided_at,
+      status: k.status
+    })) : []
   } catch (error) {
     console.error('Failed to load dashboard data:', error)
   } finally {
