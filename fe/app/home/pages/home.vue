@@ -8,7 +8,7 @@ import AssetStatusCards from '../components/AssetStatusCards.vue'
 import CategoryChart from '../components/CategoryChart.vue'
 import PendingApprovals from '../components/PendingApprovals.vue'
 import MyAssets from '../components/MyAssets.vue'
-import QuickActions from '../components/QuickActions.vue'
+import MyKits from '../components/MyKits.vue'
 
 definePageMeta({
   layout: 'default',
@@ -30,6 +30,7 @@ const assetSummary = ref({
 const categoryData = ref<{ category: string; count: number }[]>([])
 const pendingApprovals = ref<any[]>([])
 const myAssets = ref<any[]>([])
+const myKits = ref<any[]>([])
 
 // Simulated user role - in production this would come from user data
 const userRole = ref<'admin' | 'team_lead' | 'employee'>('admin')
@@ -68,6 +69,15 @@ const loadDashboardData = async () => {
       : []
     
     myAssets.value = ownedAssets
+    // derive kits from owned assets (entries with kit_id)
+    myKits.value = Array.isArray(ownedAssets) ? ownedAssets.filter((a: any) => a.type === 'kit').map((k: any) => ({
+      id: k.id,
+      name: k.name,
+      kitId: k.kitId || k.kit_id || k.kitId,
+      dueDate: k.dueDate || k.due_date,
+      providedAt: k.providedAt || k.provided_at,
+      status: k.status
+    })) : []
   } catch (error) {
     console.error('Failed to load dashboard data:', error)
   } finally {
@@ -120,8 +130,8 @@ onMounted(() => {
         <!-- My Assets -->
         <MyAssets :assets="myAssets" :loading="isLoading" />
 
-        <!-- Quick Actions -->
-        <QuickActions :user-role="userRole" />
+        <!-- My Kits -->
+        <MyKits :kits="myKits" :loading="isLoading" />
       </section>
 
       <!-- Footer Info -->
