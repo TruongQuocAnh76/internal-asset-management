@@ -18,6 +18,7 @@ const {
   onMessageUpdated,
   onMessageDeleted,
   onChatroomCreated,
+  onException,
   sendMessage,
   updateMessage,
   deleteMessage,
@@ -32,6 +33,12 @@ const messages = ref<ChatMessage[]>([])
 const loadingMessages = ref(false)
 const cursor = ref<string | undefined>(undefined)
 const showNewModal = ref(false)
+const createRoomError = ref<string | null>(null)
+const creatingRoom = ref(false)
+
+function toChronologicalBatch(batch: ChatMessage[]) {
+  return [...batch].reverse()
+}
 
 // ---- Lifecycle ----
 onMounted(async () => {
@@ -58,10 +65,23 @@ onMounted(async () => {
     if (!rooms.value.find((r) => r.id === room.id)) {
       rooms.value.unshift(room)
     }
+
+    if (creatingRoom.value) {
+      creatingRoom.value = false
+      createRoomError.value = null
+      showNewModal.value = false
+    }
+  })
+
+  const off5 = onException((message) => {
+    if (!creatingRoom.value) return
+
+    creatingRoom.value = false
+    createRoomError.value = message
   })
 
   onUnmounted(() => {
-    off1(); off2(); off3(); off4()
+    off1(); off2(); off3(); off4(); off5()
     disconnect()
   })
 })
@@ -98,12 +118,14 @@ async function fetchMessages(roomId: string, prepend = false) {
   loadingMessages.value = true
   try {
     const data = await getMessages(roomId, 50, cursor.value)
+    const chronologicalData = toChronologicalBatch(data)
+
     if (prepend) {
-      messages.value = [...data, ...messages.value]
+      messages.value = [...chronologicalData, ...messages.value]
     } else {
-      messages.value = data
+      messages.value = chronologicalData
     }
-    if (data.length) cursor.value = data[0].id
+    if (data.length) cursor.value = data[data.length - 1].id
   } finally {
     loadingMessages.value = false
   }
@@ -137,8 +159,15 @@ async function handleUpdateRoomName(name: string) {
 }
 
 function handleCreateRoom(payload: CreateChatRoomPayload) {
+  createRoomError.value = null
+  creatingRoom.value = true
   createChatRoom(payload)
+}
+
+function closeNewRoomModal() {
   showNewModal.value = false
+  creatingRoom.value = false
+  createRoomError.value = null
 }
 </script>
 
@@ -190,7 +219,9 @@ function handleCreateRoom(payload: CreateChatRoomPayload) {
     <!-- New chatroom modal -->
     <NewChatroomModal
       :open="showNewModal"
-      @close="showNewModal = false"
+      :error="createRoomError"
+      :submitting="creatingRoom"
+      @close="closeNewRoomModal"
       @create="handleCreateRoom"
     />
   </div>

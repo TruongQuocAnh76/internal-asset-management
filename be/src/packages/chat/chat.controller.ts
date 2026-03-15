@@ -1,6 +1,7 @@
-import { Controller, Body, Get, Patch, Query, UseGuards } from '@nestjs/common';
+import { Controller, Body, Get, Patch, Query, UseGuards, NotFoundException, ConflictException } from '@nestjs/common';
 import { SessionAuthGuard } from 'src/core/auth/guards/session-auth.guard';
 import { ChatService } from './chat.service';
+import { ChatRoomNotFoundError, DirectChatExistsError, ParticipantNotFoundError } from './errors';
 
 @Controller('chat')
 export class ChatController {
@@ -8,28 +9,43 @@ export class ChatController {
 
   @Get('messages')
   @UseGuards(SessionAuthGuard)
-  getMessages(
+  async getMessages(
     @Query('chatRoomId') chatRoomId: string,
     @Query('take') take: number,
     @Query('cursor') cursor: string,
   ) {
-    return this.chatService.getMessageByChatRoomId(chatRoomId, take, cursor);
+    try {
+      return await this.chatService.getMessageByChatRoomId(chatRoomId, take, cursor);
+    } catch (error) {
+      if (error instanceof ChatRoomNotFoundError) throw new NotFoundException(error.message);
+      throw error;
+    }
   }
 
   @Patch(':chatRoomId/name')
   @UseGuards(SessionAuthGuard)
-  updateChatRoomName(
+  async updateChatRoomName(
     @Body() body: {
       name: string;
       chatRoomId: string;
     }
   ) {
-    return this.chatService.updateChatRoomName(body.chatRoomId, body.name);
+    try {
+      return await this.chatService.updateChatRoomName(body.chatRoomId, body.name);
+    } catch (error) {
+      if (error instanceof ChatRoomNotFoundError) throw new NotFoundException(error.message);
+      throw error;
+    }
   }
 
   @Get('rooms')
   @UseGuards(SessionAuthGuard)
-  getChatRoomsByUserId(@Query('userId') userId: string) {
-    return this.chatService.getChatRoomsByUserId(userId);
+  async getChatRoomsByUserId(@Query('userId') userId: string) {
+    try {
+      return await this.chatService.getChatRoomsByUserId(userId);
+    } catch (error) {
+      if (error instanceof ChatRoomNotFoundError) throw new NotFoundException(error.message);
+      throw error;
+    }
   }
 }

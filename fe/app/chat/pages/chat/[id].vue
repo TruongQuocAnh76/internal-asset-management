@@ -17,9 +17,12 @@ const {
   onMessage,
   onMessageUpdated,
   onMessageDeleted,
+  onChatroomCreated,
+  onException,
   sendMessage,
   updateMessage,
   deleteMessage,
+  createChatRoom,
 } = useChat()
 
 import type { ChatRoom, ChatMessage } from '../../types/chat.types'
@@ -35,6 +38,12 @@ const messages = ref<ChatMessage[]>([])
 const loadingMessages = ref(false)
 const cursor = ref<string | undefined>(undefined)
 const showNewModal = ref(false)
+const createRoomError = ref<string | null>(null)
+const creatingRoom = ref(false)
+
+function toChronologicalBatch(batch: ChatMessage[]) {
+  return [...batch].reverse()
+}
 
 onMounted(async () => {
   connect()
@@ -60,7 +69,26 @@ onMounted(async () => {
     messages.value = messages.value.filter((m) => m.id !== messageId)
   })
 
-  onUnmounted(() => { off1(); off2(); off3(); disconnect() })
+  const off4 = onChatroomCreated((room) => {
+    if (!rooms.value.find((r) => r.id === room.id)) {
+      rooms.value.unshift(room)
+    }
+
+    if (creatingRoom.value) {
+      creatingRoom.value = false
+      createRoomError.value = null
+      showNewModal.value = false
+    }
+  })
+
+  const off5 = onException((message) => {
+    if (!creatingRoom.value) return
+
+    creatingRoom.value = false
+    createRoomError.value = message
+  })
+
+  onUnmounted(() => { off1(); off2(); off3(); off4(); off5(); disconnect() })
 })
 
 async function loadRooms() {
@@ -87,8 +115,8 @@ async function selectRoom(room: ChatRoom) {
   loadingMessages.value = true
   try {
     const data = await getMessages(room.id, 50)
-    messages.value = data
-    if (data.length) cursor.value = data[0].id
+    messages.value = toChronologicalBatch(data)
+    if (data.length) cursor.value = data[data.length - 1].id
   } finally {
     loadingMessages.value = false
   }
@@ -124,8 +152,20 @@ async function handleUpdateRoomName(name: string) {
 async function fetchMoreMessages() {
   if (!activeRoom.value) return
   const data = await getMessages(activeRoom.value.id, 50, cursor.value)
-  messages.value = [...data, ...messages.value]
-  if (data.length) cursor.value = data[0].id
+  messages.value = [...toChronologicalBatch(data), ...messages.value]
+  if (data.length) cursor.value = data[data.length - 1].id
+}
+
+function handleCreateRoom(payload: import('../../types/chat.types').CreateChatRoomPayload) {
+  createRoomError.value = null
+  creatingRoom.value = true
+  createChatRoom(payload)
+}
+
+function closeNewRoomModal() {
+  showNewModal.value = false
+  creatingRoom.value = false
+  createRoomError.value = null
 }
 </script>
 
@@ -160,8 +200,10 @@ async function fetchMoreMessages() {
 
     <NewChatroomModal
       :open="showNewModal"
-      @close="showNewModal = false"
-      @create="(payload) => { useChat().createChatRoom(payload); showNewModal = false }"
+      :error="createRoomError"
+      :submitting="creatingRoom"
+      @close="closeNewRoomModal"
+      @create="handleCreateRoom"
     />
   </div>
 </template>

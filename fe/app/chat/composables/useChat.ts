@@ -1,4 +1,4 @@
-import { io, type Socket } from 'socket.io-client'
+import type { Socket } from 'socket.io-client'
 import type {
   ChatRoom,
   ChatMessage,
@@ -6,23 +6,56 @@ import type {
   SendMessagePayload,
 } from '../types/chat.types'
 
-let socket: Socket | null = null
+type SocketExceptionPayload = {
+  message?: string | string[]
+  error?: string
+  status?: number
+}
 
-function getSocket(backendUrl: string): Socket {
-  if (!socket) {
-    socket = io(backendUrl, { withCredentials: true, transports: ['websocket', 'polling'] })
+function normalizeSocketException(payload: unknown) {
+  if (typeof payload === 'string') {
+    return payload
   }
-  return socket
+
+  if (Array.isArray(payload)) {
+    return payload.filter((entry): entry is string => typeof entry === 'string').join(', ')
+  }
+
+  if (payload && typeof payload === 'object') {
+    const exception = payload as SocketExceptionPayload
+
+    if (Array.isArray(exception.message)) {
+      return exception.message.join(', ')
+    }
+
+    if (typeof exception.message === 'string' && exception.message.trim()) {
+      return exception.message
+    }
+
+    if (typeof exception.error === 'string' && exception.error.trim()) {
+      return exception.error
+    }
+  }
+
+  return 'Something went wrong while processing the chat request'
 }
 
 export const useChat = () => {
   const config = useRuntimeConfig()
   const baseURL = config.public.backendUrl
+  const { $chatSocket } = useNuxtApp()
+
+  const getChatSocket = () => $chatSocket as Socket
+  const disconnectChatSocket = () => ($chatSocket as Socket).disconnect()
 
   // ---- REST helpers ----
   // NOTE: requires backend to expose GET /chat/rooms?userId=... (see chat.service getChatRoomsByUserId)
   const getChatRooms = (userId: string) =>
-    $fetch<ChatRoom[]>(`/chat/rooms`, { baseURL, credentials: 'include', params: { userId } })
+    $fetch<ChatRoom[]>(`/chat/rooms`, {
+      baseURL,
+      credentials: 'include',
+      params: { userId },
+    })
 
   const getMessages = (chatRoomId: string, take = 50, cursor?: string) =>
     $fetch<ChatMessage[]>(`/chat/messages`, {
@@ -40,59 +73,66 @@ export const useChat = () => {
     })
 
   // ---- Socket helpers ----
-  const connect = () => getSocket(baseURL)
+  const connect = () => getChatSocket()
 
-  const disconnect = () => {
-    socket?.disconnect()
-    socket = null
-  }
+  const disconnect = () => disconnectChatSocket()
 
   const onMessage = (handler: (msg: ChatMessage) => void) => {
-    const s = getSocket(baseURL)
+    const s = getChatSocket()
     s.on('message:received', handler)
     return () => s.off('message:received', handler)
   }
 
   const onMessageUpdated = (handler: (msg: ChatMessage) => void) => {
-    const s = getSocket(baseURL)
+    const s = getChatSocket()
     s.on('message:updated', handler)
     return () => s.off('message:updated', handler)
   }
 
   const onMessageDeleted = (handler: (data: { messageId: string }) => void) => {
-    const s = getSocket(baseURL)
+    const s = getChatSocket()
     s.on('message:deleted', handler)
     return () => s.off('message:deleted', handler)
   }
 
   const onChatroomCreated = (handler: (room: ChatRoom) => void) => {
-    const s = getSocket(baseURL)
+    const s = getChatSocket()
     s.on('chatroom:created', handler)
     return () => s.off('chatroom:created', handler)
   }
 
+  const onException = (handler: (message: string, payload: unknown) => void) => {
+    const s = getChatSocket()
+    const listener = (payload: unknown) => {
+      handler(normalizeSocketException(payload), payload)
+    }
+
+    s.on('exception', listener)
+    return () => s.off('exception', listener)
+  }
+
   const sendMessage = (payload: SendMessagePayload) => {
-    getSocket(baseURL).emit('message:send', payload)
+    getChatSocket().emit('message:send', payload)
   }
 
   const updateMessage = (messageId: string, content: string) => {
-    getSocket(baseURL).emit('messsage:update', { messageId, content })
+    getChatSocket().emit('message:update', { messageId, content })
   }
 
   const deleteMessage = (messageId: string) => {
-    getSocket(baseURL).emit('message:delete', { messageId })
+    getChatSocket().emit('message:delete', { messageId })
   }
 
   const createChatRoom = (payload: CreateChatRoomPayload) => {
-    getSocket(baseURL).emit('chatroom:create', payload)
+    getChatSocket().emit('chatroom:create', payload)
   }
 
   const joinChatRoom = (chatRoomId: string, userId: string[]) => {
-    getSocket(baseURL).emit('chatroom:join', { chatRoomId, userId })
+    getChatSocket().emit('chatroom:join', { chatRoomId, userId })
   }
 
   const leaveChatRoom = (chatRoomId: string, userId: string[]) => {
-    getSocket(baseURL).emit('chatroom:leave', { chatRoomId, userId })
+    getChatSocket().emit('chatroom:leave', { chatRoomId, userId })
   }
 
   return {
@@ -105,6 +145,7 @@ export const useChat = () => {
     onMessageUpdated,
     onMessageDeleted,
     onChatroomCreated,
+    onException,
     sendMessage,
     updateMessage,
     deleteMessage,

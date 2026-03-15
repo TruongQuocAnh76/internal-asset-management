@@ -92,7 +92,6 @@ const ids = {
   // Misc
   allocation1Id: randomUUID(),
   allocation2Id: randomUUID(),
-  event1Id: randomUUID(),
   borrow1Id: randomUUID(),
   audit1Id: randomUUID(),
 };
@@ -618,8 +617,8 @@ async function main() {
     },
   });
 
-  // ── Allocations, events, requests, audit ─────────────────────────
-  const allocationOne = await prisma.assetsAllocation.upsert({
+  // ── Allocations, requests, audit ──────────────────────────────────
+  await prisma.assetsAllocation.upsert({
     where: { asset_id: aid('LT-1001') },
     update: {},
     create: {
@@ -640,23 +639,6 @@ async function main() {
       kit_id: kit.id,
       allocated_by: adminUser.id,
       allocated_at: new Date(),
-    },
-  });
-
-  await prisma.assetsEvents.deleteMany({
-    where: { asset_id: aid('LT-1001'), event_type: 'ALLOCATED' },
-  });
-
-  await prisma.assetsEvents.create({
-    data: {
-      id: ids.event1Id,
-      asset_id: aid('LT-1001'),
-      event_type: 'ALLOCATED',
-      actor_id: adminUser.id,
-      allocation_id: allocationOne.id,
-      previous_status: AssetStatus.READY,
-      new_status: AssetStatus.IN_USE,
-      payload: { note: 'Allocated to Operations manager' },
     },
   });
 

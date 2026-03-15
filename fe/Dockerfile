@@ -1,4 +1,4 @@
-FROM node:22-alpine AS base
+FROM node:22-slim AS base
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@latest --activate
 COPY package*.json pnpm-lock.yaml ./

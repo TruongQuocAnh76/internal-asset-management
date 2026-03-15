@@ -25,6 +25,19 @@ function roomInitials(room: ChatRoom, currentUserId: string) {
   return name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
 }
 
+function lastMessagePreview(room: ChatRoom, currentUserId: string) {
+  const lastMessage = room.lastMessage
+  if (!lastMessage) return 'No messages yet'
+
+  const senderLabel = lastMessage.sender_id === currentUserId
+    ? 'You'
+    : lastMessage.sender
+      ? `${lastMessage.sender.first_name} ${lastMessage.sender.last_name}`
+      : 'Unknown'
+
+  return `${senderLabel}: ${lastMessage.content}`
+}
+
 const { user } = useAuth()
 const me = computed(() => user.value?.id ?? '')
 </script>
@@ -87,7 +100,7 @@ const me = computed(() => user.value?.id ?? '')
             </span>
           </div>
           <p class="text-xs text-secondary-500 truncate mt-0.5">
-            {{ room.lastMessage?.content ?? 'No messages yet' }}
+            {{ lastMessagePreview(room, me) }}
           </p>
         </div>
       </button>

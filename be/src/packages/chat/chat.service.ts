@@ -1,30 +1,70 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { Prisma } from '@prisma/client';
 import { CreateChatRoomDto } from './dto/create-chatroom.dto';
 import { PrismaService } from 'src/core/database/prisma.service';
 import { ChatRoomType } from '@prisma/client';
+import {
+  ChatRoomNotFoundError,
+  DirectChatExistsError,
+  MessageNotFoundError,
+  ParticipantNotFoundError,
+} from './errors';
+
+const chatUserSelect = {
+  id: true,
+  first_name: true,
+  last_name: true,
+  username: true,
+} as const;
 
 @Injectable()
 export class ChatService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async createChatRoom(body: CreateChatRoomDto, tx?: Prisma.TransactionClient) {
     const client = tx || this.prisma;
-    const chatRoom = await client.chatRooms.create({
-      data: {
-        name: body.name,
-        type: body.type,
-        chatRoomParticipants: {
-          createMany: {
-            data: body.participantIds.map((id) => ({
-            user_id: id,
-          })),
+    const sortedParticipantIds = [...body.participantIds].sort();
+    const directKey =
+      body.type === ChatRoomType.DIRECT
+        ? sortedParticipantIds.join(':')
+        : undefined;
+
+    try {
+      const chatRoom = await client.chatRooms.create({
+        data: {
+          name: body.name,
+          type: body.type,
+          direct_key: directKey,
+          chatRoomParticipants: {
+            createMany: {
+              data: body.participantIds.map((id, index) => ({
+                user_id: id,
+              })),
+            },
+          },
         },
+        include: {
+          chatRoomParticipants: {
+            include: {
+              user: {
+                select: chatUserSelect,
+              },
+            },
+          },
         },
-      },
-    });
-    return chatRoom;
+      });
+      return chatRoom;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2003') {
+          throw new ParticipantNotFoundError();
+        } else if (error.code === 'P2002' && (error.meta?.target as string[])?.includes('direct_key')) {
+          throw new DirectChatExistsError();
+        }
+      }
+      throw error;
+    }
   }
 
   async createMessage(body: CreateMessageDto, tx?: Prisma.TransactionClient) {
@@ -37,6 +77,11 @@ export class ChatService {
           content: body.content,
           type: body.type,
         },
+        include: {
+          sender: {
+            select: chatUserSelect,
+          },
+        },
       });
       return message;
     } catch (error) {
@@ -45,7 +90,7 @@ export class ChatService {
         error.code == 'P2003'
       ) {
         if (body.chatRoomType === ChatRoomType.GROUP)
-          throw new NotFoundException('Chat room not found');
+          throw new ChatRoomNotFoundError();
 
         // new personal inbox case
         const chatRoom = await this.createChatRoom({
@@ -62,6 +107,11 @@ export class ChatService {
             content: body.content,
             type: body.type,
           },
+          include: {
+            sender: {
+              select: chatUserSelect,
+            },
+          },
         });
         return message;
       }
@@ -77,7 +127,7 @@ export class ChatService {
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        throw new NotFoundException('Message not found');
+        throw new MessageNotFoundError();
       }
       throw error;
     }
@@ -92,10 +142,15 @@ export class ChatService {
         data: {
           content,
         },
+        include: {
+          sender: {
+            select: chatUserSelect,
+          },
+        },
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        throw new NotFoundException('Message not found');
+        throw new MessageNotFoundError();
       }
       throw error;
     }
@@ -110,9 +165,19 @@ export class ChatService {
       where: {
         chat_room_id: chatRoomId,
       },
-      take,
-      skip: 1,
+      take: Number(take),
+      skip: cursor ? 1 : 0,
       cursor: cursor ? { id: cursor } : undefined,
+      orderBy: [
+        {
+          created_at: 'desc',
+        },
+      ],
+      include: {
+        sender: {
+          select: chatUserSelect,
+        },
+      },
     });
   }
 
@@ -126,11 +191,35 @@ export class ChatService {
             },
           },
         },
+        include: {
+          chatRoomParticipants: {
+            include: {
+              user: {
+                select: chatUserSelect,
+              },
+            },
+          },
+          messages: {
+            orderBy: {
+              created_at: 'desc',
+            },
+            take: 1,
+            include: {
+              sender: {
+                select: chatUserSelect,
+              },
+            },
+          },
+        },
       });
-      return chatRooms;
+
+      return chatRooms.map(({ messages, ...room }) => ({
+        ...room,
+        lastMessage: messages[0],
+      }));
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        throw new NotFoundException('Chat rooms not found for the user');
+        throw new ChatRoomNotFoundError('Chat rooms not found for the user');
       }
       throw error;
     }
@@ -148,7 +237,7 @@ export class ChatService {
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        throw new NotFoundException('Chat room not found');
+        throw new ChatRoomNotFoundError();
       }
       throw error;
     }
@@ -173,12 +262,11 @@ export class ChatService {
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
-          throw new NotFoundException('Chat room not found');
+          throw new ChatRoomNotFoundError();
+        } else if (error.code === 'P2003') {
+          throw new ParticipantNotFoundError();
         }
-        else if (error.code === 'P2003') { 
-          throw new NotFoundException('One or more participants not found');
-        }
-    }
+      }
       throw error;
     }
   }
@@ -194,20 +282,20 @@ export class ChatService {
             deleteMany: {
               user_id: {
                 in: participantsId,
-                },
-              }
+              },
             }
+          }
         }
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
-          throw new NotFoundException('Chat room not found');
-        }
-        else if (error.code === 'P2003') { 
-          throw new NotFoundException('One or more participants not found');
+          throw new ChatRoomNotFoundError();
+        } else if (error.code === 'P2003') {
+          throw new ParticipantNotFoundError();
         }
       }
+      throw error;
     }
   }
 }

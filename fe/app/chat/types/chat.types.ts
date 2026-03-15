@@ -1,6 +1,13 @@
 export type ChatRoomType = 'DIRECT' | 'GROUP'
 export type MessageType = 'TEXT' | 'IMAGE' | 'FILE'
 
+export interface ChatUser {
+  id: string
+  first_name: string
+  last_name: string
+  username: string
+}
+
 export interface ChatMessage {
   id: string
   sender_id: string
@@ -8,12 +15,7 @@ export interface ChatMessage {
   content: string
   type: MessageType
   created_at: string
-  sender?: {
-    id: string
-    first_name: string
-    last_name: string
-    username: string
-  }
+  sender?: ChatUser
 }
 
 export interface ChatParticipant {
@@ -21,12 +23,7 @@ export interface ChatParticipant {
   chat_room_id: string
   user_id: string
   joined_at: string
-  user?: {
-    id: string
-    first_name: string
-    last_name: string
-    username: string
-  }
+  user?: ChatUser
 }
 
 export interface ChatRoom {

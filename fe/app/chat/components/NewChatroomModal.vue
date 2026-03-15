@@ -2,7 +2,11 @@
 import type { UserSummary } from '../../users/types/user.types'
 import type { ChatRoomType, CreateChatRoomPayload } from '../types/chat.types'
 
-const props = defineProps<{ open: boolean }>()
+const props = defineProps<{
+  open: boolean
+  error?: string | null
+  submitting?: boolean
+}>()
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'create', payload: CreateChatRoomPayload): void
@@ -17,7 +21,6 @@ const search = ref('')
 const allUsers = ref<UserSummary[]>([])
 const selected = ref<UserSummary[]>([])
 const loadingUsers = ref(false)
-const submitting = ref(false)
 
 const filteredUsers = computed(() => {
   const q = search.value.toLowerCase()
@@ -64,11 +67,10 @@ const canSubmit = computed(() => {
 })
 
 async function handleSubmit() {
-  if (!canSubmit.value || submitting.value) return
+  if (!canSubmit.value || props.submitting) return
   const currentUserId = user.value?.id
   if (!currentUserId) return
 
-  submitting.value = true
   const participantIds = [currentUserId, ...selected.value.map((u) => u.id)]
   const chatName =
     type.value === 'GROUP'
@@ -76,7 +78,6 @@ async function handleSubmit() {
       : `${user.value?.first_name ?? ''} & ${selected.value[0]?.first_name ?? ''}`
 
   emit('create', { name: chatName, type: type.value, participantIds })
-  submitting.value = false
 }
 </script>
 
@@ -178,6 +179,10 @@ async function handleSubmit() {
                   No users found
                 </p>
               </div>
+            </div>
+
+            <div v-if="error" class="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
+              {{ error }}
             </div>
           </div>
 
