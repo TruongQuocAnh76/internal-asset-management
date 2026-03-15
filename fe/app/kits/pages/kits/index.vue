@@ -3,7 +3,6 @@ import KitsHeader from '../../components/KitsHeader.vue'
 import KitFilters from '../../components/KitFilters.vue'
 import KitTable from '../../components/KitTable.vue'
 import KitCards from '../../components/KitCards.vue'
-import BulkOperationsBar from '../../components/BulkOperationsBar.vue'
 import KitBuilder from '../../components/KitBuilder.vue'
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue'
 import EmptyState from '../../components/EmptyState.vue'
@@ -11,28 +10,12 @@ import EmptyState from '../../components/EmptyState.vue'
 definePageMeta({
   layout: 'default',
 })
-// View toggle removed — grid/list button is no longer needed
 import type { Kit, GetKitsParams } from '../../types/kit.types'
 import { useKits } from '../../composables/useKits'
-import { useBulkOperations } from '../../composables/useBulkOperations'
+// Bulk operations removed
 
-const { getKits } = useKits()
-const {
-  selectedKitIds,
-  isProcessing,
-  results,
-  showResultsModal,
-  selectedCount,
-  hasSelection,
-  toggleSelection,
-  toggleSelectAll,
-  deselectAll,
-  archive,
-  updateCategory,
-  updateTags,
-  exportSelected,
-  closeResults
-} = useBulkOperations()
+const { getKits, getCategories } = useKits()
+// bulk operations removed
 
 const route = useRoute()
 const router = useRouter()
@@ -142,25 +125,7 @@ const handleKitCreated = () => {
   fetchKits()
 }
 
-const handleBulkArchive = async () => {
-  await archive()
-  fetchKits()
-}
-
-const handleBulkUpdateCategory = async (category: string) => {
-  await updateCategory(category)
-  fetchKits()
-}
-
-const handleBulkUpdateTags = async (tags: string[], action: 'add' | 'replace') => {
-  await updateTags(tags, action)
-  fetchKits()
-}
-
-const handleCloseResults = () => {
-  closeResults()
-  fetchKits()
-}
+// bulk operation handlers removed
 
 // Initialize
 onMounted(() => {
@@ -188,11 +153,10 @@ watch(() => route.query, () => {
         <KitsHeader
           :total-kits="totalKits"
           :loading="isLoading"
-          :selected-count="selectedCount"
           @create-kit="handleCreateKit"
         />
 
-        <!-- Filters with View Toggle -->
+        <!-- Filters -->
         <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div class="flex-1 w-full">
             <KitFilters
@@ -214,12 +178,8 @@ watch(() => route.query, () => {
             :loading="isLoading"
             :current-page="filters.page || 1"
             :total-pages="totalPages"
-            :selected-ids="selectedKitIds"
-            :show-selection="true"
             @page-change="handlePageChange"
             @kit-click="handleKitClick"
-            @toggle-select="toggleSelection"
-            @toggle-select-all="toggleSelectAll(kits)"
           />
 
           <!-- Card View (preferred on mobile) -->
@@ -227,9 +187,6 @@ watch(() => route.query, () => {
             v-else
             :kits="kits"
             :loading="isLoading"
-            :selected-ids="selectedKitIds"
-            @select="(id, selected) => selected ? toggleSelection(id) : toggleSelection(id)"
-            @select-all="toggleSelectAll(kits)"
             @view="handleKitClick"
           />
 
@@ -275,19 +232,7 @@ watch(() => route.query, () => {
       </div>
     </div>
 
-    <!-- Bulk Operations Bar -->
-    <BulkOperationsBar
-      :selected-count="selectedCount"
-      :is-processing="isProcessing"
-      :results="results"
-      :show-results="showResultsModal"
-      @archive="handleBulkArchive"
-      @update-category="handleBulkUpdateCategory"
-      @update-tags="handleBulkUpdateTags"
-      @export="exportSelected"
-      @deselect-all="deselectAll"
-      @close-results="handleCloseResults"
-    />
+          <!-- Bulk operations removed -->
 
     <!-- Kit Builder Modal -->
     <KitBuilder

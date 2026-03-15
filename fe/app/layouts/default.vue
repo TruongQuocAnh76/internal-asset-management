@@ -5,6 +5,7 @@ import { navigateTo } from '#app'
 import { useAuth } from '#imports'
 
 const route = useRoute()
+const { unreadCount } = useNotifications()
 
 const { user, signout } = useAuth()
 
@@ -19,7 +20,7 @@ const isTeamLead = computed(() =>
 // Filtered nav items: purchases should be visible to Admin and Team Lead;
 // other adminOnly items remain Admin-only.
 const navList = computed(() =>
-  navItems.filter(i => {
+  navItems.value.filter(i => {
     if (i.route === '/purchase-requests') {
       return isAdmin.value || isTeamLead.value
     }
@@ -34,7 +35,7 @@ const handleLogout = async () => {
 
 const sidebarCollapsed = ref(false)
 
-const navItems = [
+const navItemsBase = [
   {
     label: 'Dashboard',
     route: '/home',
@@ -86,7 +87,34 @@ const navItems = [
     icon: 'audit',
     adminOnly: true,
   },
+  {
+    label: 'Chat',
+    route: '/chat',
+    icon: 'chat',
+  },
+  {
+    label: 'Notifications',
+    route: '/notifications',
+    icon: 'notifications',
+  },
 ]
+
+const normalize = (s: string) => s ? s.toLowerCase().replace(/[_\s]/g, '') : ''
+const roles = computed(() => (user.value?.user_roles?.map((r: any) => normalize(r?.role?.name || '')) || []))
+
+const navItems = computed(() => {
+  if (isAdmin.value) return navItemsBase
+
+  // Employee allowed routes
+  const employeeRoutes = new Set(['/home', '/requests', '/chat'])
+
+  // Team Lead allowed routes (employee + purchase requests)
+  const teamLeadRoutes = new Set([...employeeRoutes, '/purchase-requests'])
+
+  const allowed = isTeamLead.value ? teamLeadRoutes : employeeRoutes
+
+  return navItemsBase.filter(item => allowed.has(item.route))
+})
 
 const isActive = (path: string) => {
   if (path === '/home') return route.path === '/home'
@@ -176,6 +204,14 @@ const isActive = (path: string) => {
           <svg v-else-if="item.icon === 'audit'" class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
           </svg>
+          <!-- Chat -->
+          <svg v-else-if="item.icon === 'chat'" class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+          </svg>
+          <!-- Notifications -->
+          <svg v-else-if="item.icon === 'notifications'" class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405C18.24 15.24 18 14.74 18 14.243V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.243c0 .497-.24.997-.595 1.352L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
           <!-- Maintenance -->
           <svg v-else-if="item.icon === 'maintenance'" class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -188,6 +224,26 @@ const isActive = (path: string) => {
 
       <!-- Bottom section -->
       <div class="border-t border-secondary-100 p-3 shrink-0">
+        <NuxtLink
+          to="/notifications"
+          :class="[
+            'mb-2 flex items-center rounded-lg px-3 py-2 text-sm transition-colors',
+            isActive('/notifications')
+              ? 'bg-primary-50 text-primary-700'
+              : 'text-secondary-600 hover:bg-secondary-50 hover:text-secondary-900',
+            sidebarCollapsed ? 'justify-center' : 'justify-between',
+          ]"
+          :title="sidebarCollapsed ? 'Notifications' : undefined"
+        >
+          <span v-if="!sidebarCollapsed" class="font-medium">Notifications</span>
+          <span
+            v-if="unreadCount > 0"
+            class="rounded-full bg-danger-600 px-2 py-0.5 text-xs font-semibold text-white"
+          >
+            {{ unreadCount > 99 ? '99+' : unreadCount }}
+          </span>
+        </NuxtLink>
+
         <!-- User & Logout -->
         <div :class="['flex items-center px-3 py-2.5', sidebarCollapsed ? 'justify-center gap-0' : 'gap-3']">
           <div v-if="!sidebarCollapsed" class="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center shrink-0">
@@ -222,5 +278,7 @@ const isActive = (path: string) => {
     >
       <slot />
     </div>
+
+    <NotificationsBootstrap />
   </div>
 </template>

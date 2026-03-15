@@ -988,8 +988,8 @@ async function main() {
     },
   });
 
-  // ── Allocations, requests, audit ─────────────────────────────────
-  const allocationOne = await prisma.assetsAllocation.upsert({
+  // ── Allocations, requests, audit ──────────────────────────────────
+  await prisma.assetsAllocation.upsert({
     where: { asset_id: aid('LT-1001') },
     update: {},
     create: {
