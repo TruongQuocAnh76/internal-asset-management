@@ -10,14 +10,8 @@ CREATE TYPE "public"."MessageType" AS ENUM ('TEXT', 'IMAGE', 'FILE');
 -- CreateEnum
 CREATE TYPE "public"."ChatRoomType" AS ENUM ('GROUP', 'DIRECT');
 
--- DropForeignKey
-ALTER TABLE "public"."AssetsEvents" DROP CONSTRAINT "AssetsEvents_actor_id_fkey";
-
--- DropForeignKey
-ALTER TABLE "public"."AssetsEvents" DROP CONSTRAINT "AssetsEvents_asset_id_fkey";
-
 -- DropTable
-DROP TABLE "public"."AssetsEvents";
+DROP TABLE IF EXISTS "public"."AssetsEvents";
 
 -- CreateTable
 CREATE TABLE "public"."Messages" (

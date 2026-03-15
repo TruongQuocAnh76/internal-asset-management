@@ -43,9 +43,6 @@ const pendingApprovals = ref<any[]>([])
 const myAssets = ref<any[]>([])
 const myKits = ref<any[]>([])
 
-// Simulated user role - in production this would come from user data
-const userRole = ref<'admin' | 'team_lead' | 'employee'>('admin')
-
 // Fetch all dashboard data in a single aggregated load
 const loadDashboardData = async () => {
   isLoading.value = true

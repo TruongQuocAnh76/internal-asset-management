@@ -19,7 +19,7 @@ const isTeamLead = computed(() =>
 // Filtered nav items: purchases should be visible to Admin and Team Lead;
 // other adminOnly items remain Admin-only.
 const navList = computed(() =>
-  navItems.filter(i => {
+  navItems.value.filter(i => {
     if (i.route === '/purchase-requests') {
       return isAdmin.value || isTeamLead.value
     }
@@ -95,9 +95,6 @@ const navItemsBase = [
 
 const normalize = (s: string) => s ? s.toLowerCase().replace(/[_\s]/g, '') : ''
 const roles = computed(() => (user.value?.user_roles?.map((r: any) => normalize(r?.role?.name || '')) || []))
-
-const isAdmin = computed(() => roles.value.includes('admin') || roles.value.includes('administrator'))
-const isTeamLead = computed(() => roles.value.includes('teamlead') || roles.value.includes('teamlead'.toLowerCase()))
 
 const navItems = computed(() => {
   if (isAdmin.value) return navItemsBase
