@@ -1,5 +1,5 @@
 export default defineNuxtConfig({
-  extends: ['./app/auth', './app/home', './app/assets', './app/requests', './app/kits', './app/purchase-requests', './app/users', './app/audit-logs', './app/chat'],  
+  extends: ['./app/auth', './app/home', './app/assets', './app/requests', './app/kits', './app/purchase-requests', './app/users', './app/audit-logs', './app/chat', './app/notifications'],
   pages: true,
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
@@ -20,7 +20,8 @@ export default defineNuxtConfig({
       '~/app/purchase-requests/components',
       '~/app/users/components',
       '~/app/audit-logs/components',
-      '~/app/chat/components'
+      '~/app/chat/components',
+      '~/app/notifications/components'
     ]
   },
   devServer: {

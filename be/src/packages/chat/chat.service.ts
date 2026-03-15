@@ -115,7 +115,18 @@ export class ChatService {
         });
         return message;
       }
+
+      throw error;
     }
+  }
+
+  async getChatRoomParticipantIds(chatRoomId: string) {
+    const participants = await this.prisma.chatRoomParticipants.findMany({
+      where: { chat_room_id: chatRoomId },
+      select: { user_id: true },
+    });
+
+    return participants.map((entry) => entry.user_id);
   }
 
   async deleteMessage(messageId: string) {
