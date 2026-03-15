@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { RequestFilterOptions, BorrowStatus, RequestPriority } from '../types/request.types'
 import { useRequestHelpers } from '../composables/useRequestHelpers'
+import { useAuth } from '#imports'
 
 interface Props {
   modelValue: RequestFilterOptions
@@ -20,17 +21,27 @@ const { statusConfig, priorityConfig } = useRequestHelpers()
 
 const localFilters = ref<RequestFilterOptions>({ ...props.modelValue })
 
+const { user } = useAuth()
+
+const isAdmin = computed(() => {
+  const roles = user.value?.user_roles?.map((r: any) => r?.role?.name) || []
+  return roles.includes('Admin') || roles.includes('ADMIN')
+})
+
 const viewOptions = computed(() => {
   const options = [
-    { value: 'my_requests', label: 'My Requests' },
-    { value: 'all_requests', label: 'All Requests' }
+    { value: 'my_requests', label: 'My Requests' }
   ]
-  
+
+  if (isAdmin.value) {
+    options.push({ value: 'all_requests', label: 'All Requests' })
+  }
+
   if (props.showTeamRequests) {
     options.splice(1, 0, { value: 'team_requests', label: 'Team Requests' })
     options.push({ value: 'pending_approval', label: 'Pending My Approval' })
   }
-  
+
   return options
 })
 
@@ -120,30 +131,18 @@ watch(() => props.modelValue, (newVal) => {
         <!-- Search -->
         <div class="flex-1">
           <label for="search" class="sr-only">Search requests</label>
-          <div class="relative">
+          <div class="flex items-center gap-2">
+            <svg class="h-5 w-5 text-secondary-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
             <input
               id="search"
               type="text"
               :value="localFilters.search"
               @input="handleSearch"
               placeholder="Search by asset name, reason..."
-              class="w-full pl-10"
+              class="w-full px-4 py-2.5 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow text-secondary-900 placeholder-secondary-400"
             />
-            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg
-                class="h-5 w-5 text-secondary-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-            </div>
           </div>
         </div>
 

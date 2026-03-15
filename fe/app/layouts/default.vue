@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { navigateTo } from '#app'
 import { useAuth } from '#imports'
@@ -15,7 +15,7 @@ const handleLogout = async () => {
 
 const sidebarCollapsed = ref(false)
 
-const navItems = [
+const navItemsBase = [
   {
     label: 'Dashboard',
     route: '/home',
@@ -67,6 +67,26 @@ const navItems = [
     icon: 'chat',
   },
 ]
+
+const normalize = (s: string) => s ? s.toLowerCase().replace(/[_\s]/g, '') : ''
+const roles = computed(() => (user.value?.user_roles?.map((r: any) => normalize(r?.role?.name || '')) || []))
+
+const isAdmin = computed(() => roles.value.includes('admin') || roles.value.includes('administrator'))
+const isTeamLead = computed(() => roles.value.includes('teamlead') || roles.value.includes('teamlead'.toLowerCase()))
+
+const navItems = computed(() => {
+  if (isAdmin.value) return navItemsBase
+
+  // Employee allowed routes
+  const employeeRoutes = new Set(['/home', '/requests', '/chat'])
+
+  // Team Lead allowed routes (employee + purchase requests)
+  const teamLeadRoutes = new Set([...employeeRoutes, '/purchase-requests'])
+
+  const allowed = isTeamLead.value ? teamLeadRoutes : employeeRoutes
+
+  return navItemsBase.filter(item => allowed.has(item.route))
+})
 
 const isActive = (path: string) => {
   if (path === '/home') return route.path === '/home'

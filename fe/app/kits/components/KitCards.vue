@@ -3,7 +3,6 @@ import type { Kit } from '../types/kit.types'
 
 interface Props {
   kits: Kit[]
-  selectedIds: string[]
   loading?: boolean
 }
 
@@ -12,14 +11,8 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  select: [id: string, selected: boolean]
-  selectAll: [selected: boolean]
   view: [kit: Kit]
 }>()
-
-const allSelected = computed(() => {
-  return props.kits.length > 0 && props.kits.every(kit => props.selectedIds.includes(kit.id))
-})
 
 const getStatusClass = (status: string) => {
   const classes = {
@@ -42,22 +35,7 @@ const formatDate = (date: string) => {
 
 <template>
   <div class="space-y-3">
-    <!-- Select All Bar -->
-    <div v-if="kits.length > 0" class="flex items-center gap-3 px-1 py-2">
-      <label class="flex items-center gap-2 text-sm text-secondary-600 cursor-pointer">
-        <input
-          type="checkbox"
-          :checked="allSelected"
-          :indeterminate="selectedIds.length > 0 && !allSelected"
-          @change="emit('selectAll', ($event.target as HTMLInputElement).checked)"
-          class="w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
-        />
-        <span>Select all</span>
-      </label>
-      <span v-if="selectedIds.length > 0" class="text-sm text-primary-600">
-        {{ selectedIds.length }} selected
-      </span>
-    </div>
+    <!-- Selection UI removed -->
 
     <!-- Cards Grid -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -65,20 +43,12 @@ const formatDate = (date: string) => {
         v-for="kit in kits"
         :key="kit.id"
         class="bg-white rounded-lg border transition-all"
-        :class="selectedIds.includes(kit.id) 
-          ? 'border-primary-500 ring-1 ring-primary-500' 
-          : 'border-secondary-200 hover:border-secondary-300'"
+        :class="'border-secondary-200 hover:border-secondary-300'"
       >
         <!-- Card Header -->
         <div class="p-4 border-b border-secondary-100">
           <div class="flex items-start justify-between gap-3">
             <div class="flex items-start gap-3 min-w-0">
-              <input
-                type="checkbox"
-                :checked="selectedIds.includes(kit.id)"
-                @change="emit('select', kit.id, ($event.target as HTMLInputElement).checked)"
-                class="mt-1 w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
-              />
               <div class="min-w-0">
                 <button
                   @click="emit('view', kit)"

@@ -17,7 +17,17 @@ const statusCards = [
   { key: 'liquidated', label: 'Liquidated', color: 'secondary', icon: 'archive', filter: 'LIQUIDATED' },
 ] as const
 
+import { useAuth } from '#imports'
+import { computed } from 'vue'
+
+const { user } = useAuth()
+const isAdmin = computed(() => {
+  const roles = user.value?.user_roles?.map((r: any) => r?.role?.name) || []
+  return roles.includes('Admin') || roles.includes('ADMIN')
+})
+
 const navigateToAssets = (filter: string | null) => {
+  if (!isAdmin.value) return
   if (filter) {
     navigateTo(`/assets?status=${filter}`)
   } else {
@@ -32,14 +42,18 @@ const navigateToAssets = (filter: string | null) => {
       v-for="card in statusCards"
       :key="card.key"
       @click="navigateToAssets(card.filter)"
-      class="group bg-white rounded-xl shadow-soft p-4 border-l-4 transition-all hover:shadow-lg hover:-translate-y-0.5 text-left"
-      :class="{
-        'border-primary-500': card.color === 'primary',
-        'border-success-500': card.color === 'success',
-        'border-warning-500': card.color === 'warning',
-        'border-danger-500': card.color === 'danger',
-        'border-secondary-400': card.color === 'secondary',
-      }"
+      :disabled="!isAdmin"
+      :aria-disabled="!isAdmin"
+      :class="[
+        isAdmin ? 'group bg-white rounded-xl shadow-soft p-4 border-l-4 transition-all hover:shadow-lg hover:-translate-y-0.5 text-left' : 'group bg-white rounded-xl shadow-soft p-4 border-l-4 transition-all text-left cursor-not-allowed opacity-60',
+        {
+          'border-primary-500': card.color === 'primary',
+          'border-success-500': card.color === 'success',
+          'border-warning-500': card.color === 'warning',
+          'border-danger-500': card.color === 'danger',
+          'border-secondary-400': card.color === 'secondary',
+        }
+      ]"
     >
       <div class="flex items-center gap-3">
         <div
