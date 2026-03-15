@@ -6,7 +6,7 @@ import {
   WebSocketServer,
   WsException,
 } from '@nestjs/websockets';
-import { UseInterceptors } from '@nestjs/common';
+import { Logger, UseInterceptors } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { Server, Socket } from 'socket.io';
 import { CreateMessageDto } from './dto/create-message.dto';
@@ -18,6 +18,7 @@ import {
   MessageNotFoundError,
   ParticipantNotFoundError,
 } from './errors';
+import { NotificationsGateway } from 'src/core/notifications/notifications.gateway';
 @WebSocketGateway({
   cors: {
     origin: process.env.FRONTEND_URL,
@@ -26,7 +27,11 @@ import {
 
 @UseInterceptors(LoggingWsInterceptor)
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly notificationsGateway: NotificationsGateway,
+  ) {}
+  private readonly logger = new Logger(ChatGateway.name);
   @WebSocketServer(
   )
   server: Server;
@@ -50,6 +55,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const userId = client.handshake.query.userId as string;
     // join user room
     const request = client.request as any;
+    this.logger.log(request.session);
     client.join(request.session.userId);
 
     // join all of user's chat rooms
@@ -69,7 +75,34 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleMessage(client: Socket, payload: CreateMessageDto) {
     try {
       const message = await this.chatService.createMessage(payload);
+      if (!message) {
+        throw new WsException({ status: 'error', message: 'Failed to create message' });
+      }
+
       this.server.emit('message:received', message);
+
+      const participantIds = await this.chatService.getChatRoomParticipantIds(
+        message.chat_room_id,
+      );
+      const recipientUserIds = participantIds.filter(
+        (participantId) => participantId !== payload.senderId,
+      );
+
+      if (recipientUserIds.length > 0) {
+        const senderDisplayName =
+          [message.sender?.first_name, message.sender?.last_name]
+            .filter(Boolean)
+            .join(' ')
+            .trim() ||
+          message.sender?.username ||
+          'Someone';
+
+        await this.notificationsGateway.notifyChatMessageSent({
+          recipientUserIds,
+          senderDisplayName,
+          messagePreview: message.content,
+        });
+      }
     } catch (error) {
       this.rethrowAsWs(error);
     }

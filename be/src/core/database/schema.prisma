@@ -185,6 +185,7 @@ model Users {
   PurchaseRequest      PurchaseRequest[]
   Messages             Messages[]
   ChatRoomParticipants ChatRoomParticipants[]
+  Notifications        Notifications[]
 }
 
 model Roles {
@@ -327,7 +328,7 @@ model ChatRooms {
   id         String       @id @default(uuid()) @db.Uuid
   name       String
   type       ChatRoomType
-  direct_key String? @unique 
+  direct_key String?      @unique
   created_at DateTime     @default(now())
 
   messages             Messages[]
@@ -346,6 +347,24 @@ model ChatRoomParticipants {
   user     Users     @relation(fields: [user_id], references: [id])
 
   @@unique([chat_room_id, user_id])
+}
+
+enum NotificationType {
+  BORROW_REQUEST
+  ASSET_ALLOCATION
+  CHAT_MESSAGE
+}
+
+model Notifications {
+  id         String           @id @default(uuid()) @db.Uuid
+  user_id    String           @db.Uuid
+  content    String
+  is_read    Boolean          @default(false)
+  read_at    DateTime?
+  type       NotificationType
+  created_at DateTime         @default(now())
+
+  user Users @relation(fields: [user_id], references: [id])
 }
 
 enum AuditAction {

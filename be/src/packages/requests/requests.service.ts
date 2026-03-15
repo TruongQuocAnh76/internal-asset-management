@@ -28,6 +28,7 @@ import {
 import { RequestProvideDto } from './dto/provide-request.dto';
 import { AssetsService } from '../assets/assets.service';
 import { AssignRequestDto } from './dto/assign.dto';
+import { NotificationsGateway } from 'src/core/notifications/notifications.gateway';
 
 @Injectable()
 export class RequestsService {
@@ -36,8 +37,23 @@ export class RequestsService {
   constructor(
     private prisma: PrismaService,
     private assetsService: AssetsService,
+    private readonly realtimeNotifications: NotificationsGateway,
     @InjectQueue(NOTIFICATION_QUEUE) private notificationQueue: Queue,
   ) {}
+
+  private async notifyBorrowStatusChange(requesterId: string, requestId: string, status: BorrowStatus) {
+    try {
+      await this.realtimeNotifications.notifyBorrowRequestStatusChanged({
+        requesterUserId: requesterId,
+        requestId,
+        status,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to emit borrow status notification for request ${requestId}: ${error.message}`,
+      );
+    }
+  }
 
   /**
    * Resolve recipients via the notification util and enqueue one job per recipient.
@@ -370,6 +386,11 @@ export class RequestsService {
       }
 
       await this.enqueueNotifications(updated, 'request-approved');
+      await this.notifyBorrowStatusChange(
+        updated.requester_id,
+        updated.id,
+        BorrowStatus.APPROVED,
+      );
       return updated;
     });
   }
@@ -389,6 +410,11 @@ export class RequestsService {
         },
       });
       await this.enqueueNotifications(updated, 'request-rejected');
+      await this.notifyBorrowStatusChange(
+        updated.requester_id,
+        updated.id,
+        BorrowStatus.REJECTED,
+      );
       return updated;
     } catch (error) {
       if (
@@ -471,6 +497,29 @@ export class RequestsService {
       }
 
       await this.enqueueNotifications(updated, 'request-provided');
+      await this.notifyBorrowStatusChange(
+        updated.requester_id,
+        updated.id,
+        BorrowStatus.PROVIDED,
+      );
+
+      const providedItemLabel =
+        updated.asset?.name ?? updated.kit?.template?.name ?? 'your requested item';
+      const providedItemType = updated.asset_id ? 'asset' : 'kit';
+
+      try {
+        await this.realtimeNotifications.notifyAssetAllocationProvided({
+          designatedUserId: updated.requester_id,
+          requestId: updated.id,
+          itemLabel: providedItemLabel,
+          itemType: providedItemType,
+        });
+      } catch (error) {
+        this.logger.error(
+          `Failed to emit allocation notification for request ${updated.id}: ${error.message}`,
+        );
+      }
+
       return updated;
     });
   }
@@ -562,6 +611,11 @@ export class RequestsService {
       }
 
       await this.enqueueNotifications(updated, 'request-returned');
+      await this.notifyBorrowStatusChange(
+        updated.requester_id,
+        updated.id,
+        BorrowStatus.RETURNED,
+      );
       return updated;
     });
   }
@@ -581,6 +635,11 @@ export class RequestsService {
         },
       });
       await this.enqueueNotifications(updated, 'request-canceled');
+      await this.notifyBorrowStatusChange(
+        updated.requester_id,
+        updated.id,
+        BorrowStatus.CANCELED,
+      );
       return updated;
     } catch (error) {
       if (
