@@ -165,7 +165,7 @@ export class ChatService {
       where: {
         chat_room_id: chatRoomId,
       },
-      take: Number(take),
+      take: Number(take) + 1,
       skip: cursor ? 1 : 0,
       cursor: cursor ? { id: cursor } : undefined,
       orderBy: [

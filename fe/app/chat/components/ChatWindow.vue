@@ -6,6 +6,7 @@ const props = defineProps<{
   room: ChatRoom
   messages: ChatMessage[]
   loadingMessages?: boolean
+  hasMoreMessages?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -27,17 +28,61 @@ const scrollEl = ref<HTMLElement | null>(null)
 const renamingRoom = ref(false)
 const newRoomName = ref(props.room.name)
 const isGroup = computed(() => props.room.type === 'GROUP')
+const isLoadingHistory = ref(false)
+const historyLoadBaseHeight = ref(0)
+const stickToBottom = ref(true)
 
-// Auto-scroll to bottom when messages arrive
+const canLoadMore = computed(
+  () => Boolean(props.hasMoreMessages) && !props.loadingMessages,
+)
+
+function updateStickToBottom() {
+  if (!scrollEl.value) return
+  const threshold = 40
+  const distanceFromBottom =
+    scrollEl.value.scrollHeight - scrollEl.value.scrollTop - scrollEl.value.clientHeight
+  stickToBottom.value = distanceFromBottom <= threshold
+}
+
+function handleScroll() {
+  if (!scrollEl.value) return
+
+  updateStickToBottom()
+
+  if (scrollEl.value.scrollTop <= 0 && canLoadMore.value && !isLoadingHistory.value) {
+    isLoadingHistory.value = true
+    historyLoadBaseHeight.value = scrollEl.value.scrollHeight
+    emit('loadMore')
+  }
+}
+
+// Keep scroll stable when prepending history, otherwise stick to latest when near bottom.
 watch(
   () => props.messages.length,
   async () => {
     await nextTick()
-    if (scrollEl.value) {
+    if (!scrollEl.value) return
+
+    if (isLoadingHistory.value) {
+      const delta = scrollEl.value.scrollHeight - historyLoadBaseHeight.value
+      scrollEl.value.scrollTop = Math.max(delta, 0)
+      return
+    }
+
+    if (stickToBottom.value) {
       scrollEl.value.scrollTop = scrollEl.value.scrollHeight
     }
   },
   { immediate: true },
+)
+
+watch(
+  () => props.loadingMessages,
+  (loading) => {
+    if (!loading) {
+      isLoadingHistory.value = false
+    }
+  },
 )
 
 function submitMessage() {
@@ -146,15 +191,9 @@ const participantsSummary = computed(() => {
     </div>
 
     <!-- Messages area -->
-    <div ref="scrollEl" class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-      <!-- Load more -->
-      <div class="flex justify-center mb-2">
-        <button
-          @click="emit('loadMore')"
-          class="text-xs text-primary-600 hover:underline"
-        >
-          Load earlier messages
-        </button>
+    <div ref="scrollEl" class="flex-1 overflow-y-auto px-4 py-4 space-y-3" @scroll="handleScroll">
+      <div v-if="loadingMessages && messages.length" class="flex justify-center py-1">
+        <span class="text-xs text-secondary-500">Loading earlier messages...</span>
       </div>
 
       <div v-if="loadingMessages" class="space-y-3">

@@ -37,12 +37,26 @@ const activeRoom = ref<ChatRoom | null>(null)
 const messages = ref<ChatMessage[]>([])
 const loadingMessages = ref(false)
 const cursor = ref<string | undefined>(undefined)
+const hasMoreMessages = ref(false)
 const showNewModal = ref(false)
 const createRoomError = ref<string | null>(null)
 const creatingRoom = ref(false)
+const PAGE_SIZE = 50
 
 function toChronologicalBatch(batch: ChatMessage[]) {
   return [...batch].reverse()
+}
+
+function normalizePaginatedMessages(batch: ChatMessage[]) {
+  const hasMore = batch.length > PAGE_SIZE
+  const currentPage = hasMore ? batch.slice(0, PAGE_SIZE) : batch
+  const oldestMessage = currentPage[currentPage.length - 1]
+
+  return {
+    hasMore,
+    nextCursor: oldestMessage?.id,
+    messages: toChronologicalBatch(currentPage),
+  }
 }
 
 onMounted(async () => {
@@ -111,12 +125,16 @@ async function selectRoom(room: ChatRoom) {
   activeRoom.value = room
   messages.value = []
   cursor.value = undefined
+  hasMoreMessages.value = false
   router.replace(`/chat/${room.id}`)
   loadingMessages.value = true
   try {
-    const data = await getMessages(room.id, 50)
-    messages.value = toChronologicalBatch(data)
-    if (data.length) cursor.value = data[data.length - 1].id
+    const data = await getMessages(room.id, PAGE_SIZE)
+    const normalized = normalizePaginatedMessages(data)
+
+    messages.value = normalized.messages
+    hasMoreMessages.value = normalized.hasMore
+    cursor.value = normalized.nextCursor
   } finally {
     loadingMessages.value = false
   }
@@ -150,10 +168,19 @@ async function handleUpdateRoomName(name: string) {
 }
 
 async function fetchMoreMessages() {
-  if (!activeRoom.value) return
-  const data = await getMessages(activeRoom.value.id, 50, cursor.value)
-  messages.value = [...toChronologicalBatch(data), ...messages.value]
-  if (data.length) cursor.value = data[data.length - 1].id
+  if (!activeRoom.value || !hasMoreMessages.value || loadingMessages.value) return
+
+  loadingMessages.value = true
+  try {
+    const data = await getMessages(activeRoom.value.id, PAGE_SIZE, cursor.value)
+    const normalized = normalizePaginatedMessages(data)
+
+    messages.value = [...normalized.messages, ...messages.value]
+    hasMoreMessages.value = normalized.hasMore
+    cursor.value = normalized.nextCursor ?? cursor.value
+  } finally {
+    loadingMessages.value = false
+  }
 }
 
 function handleCreateRoom(payload: import('../../types/chat.types').CreateChatRoomPayload) {
@@ -187,6 +214,7 @@ function closeNewRoomModal() {
         :room="activeRoom"
         :messages="messages"
         :loading-messages="loadingMessages"
+        :has-more-messages="hasMoreMessages"
         @send-message="handleSendMessage"
         @edit-message="handleEditMessage"
         @delete-message="handleDeleteMessage"

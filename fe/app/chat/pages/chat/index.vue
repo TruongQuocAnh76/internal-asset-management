@@ -32,12 +32,26 @@ const activeRoom = ref<ChatRoom | null>(null)
 const messages = ref<ChatMessage[]>([])
 const loadingMessages = ref(false)
 const cursor = ref<string | undefined>(undefined)
+const hasMoreMessages = ref(false)
 const showNewModal = ref(false)
 const createRoomError = ref<string | null>(null)
 const creatingRoom = ref(false)
+const PAGE_SIZE = 50
 
 function toChronologicalBatch(batch: ChatMessage[]) {
   return [...batch].reverse()
+}
+
+function normalizePaginatedMessages(batch: ChatMessage[]) {
+  const hasMore = batch.length > PAGE_SIZE
+  const currentPage = hasMore ? batch.slice(0, PAGE_SIZE) : batch
+  const oldestMessage = currentPage[currentPage.length - 1]
+
+  return {
+    hasMore,
+    nextCursor: oldestMessage?.id,
+    messages: toChronologicalBatch(currentPage),
+  }
 }
 
 // ---- Lifecycle ----
@@ -110,22 +124,26 @@ async function selectRoom(room: ChatRoom) {
   activeRoom.value = room
   messages.value = []
   cursor.value = undefined
+  hasMoreMessages.value = false
   router.push({ query: { room: room.id } })
   await fetchMessages(room.id)
 }
 
 async function fetchMessages(roomId: string, prepend = false) {
+  if (prepend && (!hasMoreMessages.value || loadingMessages.value)) return
+
   loadingMessages.value = true
   try {
-    const data = await getMessages(roomId, 50, cursor.value)
-    const chronologicalData = toChronologicalBatch(data)
+    const data = await getMessages(roomId, PAGE_SIZE, cursor.value)
+    const normalized = normalizePaginatedMessages(data)
 
     if (prepend) {
-      messages.value = [...chronologicalData, ...messages.value]
+      messages.value = [...normalized.messages, ...messages.value]
     } else {
-      messages.value = chronologicalData
+      messages.value = normalized.messages
     }
-    if (data.length) cursor.value = data[data.length - 1].id
+    hasMoreMessages.value = normalized.hasMore
+    cursor.value = normalized.nextCursor
   } finally {
     loadingMessages.value = false
   }
@@ -191,6 +209,7 @@ function closeNewRoomModal() {
         :room="activeRoom"
         :messages="messages"
         :loading-messages="loadingMessages"
+        :has-more-messages="hasMoreMessages"
         @send-message="handleSendMessage"
         @edit-message="handleEditMessage"
         @delete-message="handleDeleteMessage"
