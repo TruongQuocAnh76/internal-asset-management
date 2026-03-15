@@ -15,7 +15,18 @@ definePageMeta({
 })
 
 const { user } = useAuth()
-const { getAssetsSummary, getAssetsByCategory, getPendingApprovals, getAssetsCountByCategory, getUserOwnedAssets } = useHome()
+const { getAssetsSummary, getAssetsByCategory, getPendingApprovals, getAssetsCountByCategory, getUserOwnedAssets, getUserOwnedKits } = useHome()
+
+const isAdmin = computed(() =>
+  user.value?.user_roles?.some((ur: any) => ur.role?.name === 'Admin') ?? false
+)
+
+const userRole = computed(() => {
+  const roleNames = user.value?.user_roles?.map((ur: any) => ur.role?.name) || []
+  if (roleNames.includes('Admin')) return 'admin'
+  if (roleNames.includes('Team Lead')) return 'team_lead'
+  return 'employee'
+})
 
 // Dashboard state
 const isLoading = ref(true)
@@ -40,11 +51,12 @@ const loadDashboardData = async () => {
   isLoading.value = true
   try {
     // Fetch all data in parallel for optimal performance
-    const [summaryData, categoryCountData, approvals, ownedAssets] = await Promise.all([
+    const [summaryData, categoryCountData, approvals, ownedAssets, ownedKits] = await Promise.all([
       getAssetsSummary(),
       getAssetsCountByCategory(),
       getPendingApprovals(),
       user.value?.id ? getUserOwnedAssets(user.value.id) : Promise.resolve([]),
+      user.value?.id ? getUserOwnedKits(user.value.id) : Promise.resolve([]),
     ])
 
     assetSummary.value = {
@@ -113,7 +125,7 @@ onMounted(() => {
           </svg>
           Asset Status Overview
         </h2>
-        <AssetStatusCards :summary="assetSummary" :loading="isLoading" />
+        <AssetStatusCards :summary="assetSummary" :loading="isLoading" :is-admin="isAdmin" />
       </section>
 
       <!-- Section 2 & 3: Category Chart + Pending Approvals -->

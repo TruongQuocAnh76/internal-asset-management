@@ -23,11 +23,16 @@ export const useKits = () => {
     const queryString = queryParams.toString()
     const url = `/kits${queryString ? `?${queryString}` : ''}`
 
-    return await useFetch<KitsResponse>(url, {
-      method: 'GET',
-      baseURL: config.public.backendUrl,
-      credentials: 'include'
-    })
+    try {
+      const result = await $fetch<KitsResponse>(url, {
+        method: 'GET',
+        baseURL: config.public.backendUrl,
+        credentials: 'include'
+      })
+      return { data: ref(result), error: ref<any>(null) }
+    } catch (err) {
+      return { data: ref<KitsResponse | null>(null), error: ref(err) }
+    }
   }
 
   // GET /kits/:id
@@ -161,46 +166,54 @@ export const useKits = () => {
   }
 
   // GET /assets (for searching available assets to add to kits)
-  const searchAvailableAssets = async (query: string, status?: string) => {
+  const searchAvailableAssets = async (query: string, categoryId?: string) => {
     const params = new URLSearchParams()
     if (query) params.append('search', query)
-    if (status) params.append('filter', 'status')
-    if (status) params.append('filterValue', status)
+    params.append('status', 'READY')
+    if (categoryId) params.append('category_id', categoryId)
 
-    return await useFetch<{ data: any[] }>(`/assets?${params.toString()}`, {
-      method: 'GET',
-      baseURL: config.public.backendUrl,
-      credentials: 'include'
-    })
+    try {
+      const result = await $fetch<{ data: any[] }>(`/assets?${params.toString()}`, {
+        method: 'GET',
+        baseURL: config.public.backendUrl,
+        credentials: 'include'
+      })
+      return { data: ref(result) }
+    } catch {
+      return { data: ref<{ data: any[] } | null>(null) }
+    }
   }
 
-  // GET /assets/category/count - Get all categories
+  // GET /category - Get all categories
   const getCategories = async () => {
-    return await useFetch<{ id: string; name: string; code: string }[]>('/assets/category/count', {
-      method: 'GET',
-      baseURL: config.public.backendUrl,
-      credentials: 'include'
-    })
+    try {
+      const result = await $fetch<{ id: string; name: string; code: string }[]>('/category', {
+        method: 'GET',
+        baseURL: config.public.backendUrl,
+        credentials: 'include'
+      })
+      return { data: ref(result) }
+    } catch {
+      return { data: ref<{ id: string; name: string; code: string }[] | null>(null) }
+    }
   }
 
   // GET /kits/kpis - Get kit KPIs
   const getKitKPIs = async () => {
     try {
-      const { data, error } = await useFetch<any>('/kits/kpis', {
+      const data = await $fetch<any>('/kits/kpis', {
         method: 'GET',
         baseURL: config.public.backendUrl,
         credentials: 'include'
       })
-      
-      // Return with proper typing for KitKPIs
       return {
-        data: (data.value as any) || {
+        data: (data as any) || {
           totalKits: 0,
           activeKits: 0,
           assignedKits: 0,
           archivedKits: 0,
         },
-        error
+        error: null
       }
     } catch (err) {
       console.error('Error fetching KPIs:', err)

@@ -25,12 +25,7 @@ const statusOptions = [
 ]
 
 const updateFilter = (key: keyof GetAssetsParams, value: any, immediate = true) => {
-  localFilters.value = { ...localFilters.value, [key]: value }
-  
-  // Reset filter_value if filter is changed
-  if (key === 'filter' && value !== props.modelValue.filter) {
-    localFilters.value.filter_value = ''
-  }
+  localFilters.value = { ...localFilters.value, [key]: value || undefined }
   
   if (immediate) {
     emit('update:modelValue', localFilters.value)
@@ -53,8 +48,8 @@ const updateFilterDebounced = (key: keyof GetAssetsParams, value: any) => {
 
 const clearFilters = () => {
   localFilters.value = {
-    filter: undefined,
-    filter_value: '',
+    status: undefined,
+    category_id: undefined,
     search: '',
     order: 'desc',
     page: 1,
@@ -65,7 +60,7 @@ const clearFilters = () => {
 }
 
 const hasActiveFilters = computed(() => {
-  return localFilters.value.filter_value || localFilters.value.search
+  return localFilters.value.status || localFilters.value.category_id || localFilters.value.search
 })
 
 // Cleanup timeout on unmount
@@ -96,44 +91,18 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Filter Type -->
+      <!-- Status Filter -->
       <div class="w-full lg:w-48">
-        <label class="block text-sm font-medium text-secondary-700 mb-2">Filter By</label>
-        <select
-          :value="localFilters.filter"
-          @change="updateFilter('filter', ($event.target as HTMLSelectElement).value)"
-          class="w-full px-4 py-2.5 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow text-secondary-900 bg-white"
-        >
-          <option value="">No Filter</option>
-          <option value="status">Status</option>
-          <option value="category">Category</option>
-        </select>
-      </div>
-
-      <!-- Filter Value (Status) -->
-      <div v-if="localFilters.filter === 'status'" class="w-full lg:w-48">
         <label class="block text-sm font-medium text-secondary-700 mb-2">Status</label>
         <select
-          :value="localFilters.filter_value"
-          @change="updateFilter('filter_value', ($event.target as HTMLSelectElement).value)"
+          :value="localFilters.status"
+          @change="updateFilter('status', ($event.target as HTMLSelectElement).value)"
           class="w-full px-4 py-2.5 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow text-secondary-900 bg-white"
         >
-          <option v-for="status in statusOptions" :key="status.value" :value="status.value">
-            {{ status.label }}
+          <option v-for="s in statusOptions" :key="s.value" :value="s.value">
+            {{ s.label }}
           </option>
         </select>
-      </div>
-
-      <!-- Filter Value (Category) -->
-      <div v-if="localFilters.filter === 'category'" class="w-full lg:w-48">
-        <label class="block text-sm font-medium text-secondary-700 mb-2">Category</label>
-        <input
-          type="text"
-          :value="localFilters.filter_value"
-          @input="updateFilterDebounced('filter_value', ($event.target as HTMLInputElement).value)"
-          placeholder="Enter category..."
-          class="w-full px-4 py-2.5 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow text-secondary-900 placeholder-secondary-400"
-        />
       </div>
 
       <!-- Sort Order -->

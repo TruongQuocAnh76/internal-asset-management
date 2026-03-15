@@ -7,12 +7,17 @@ definePageMeta({
 })
 
 const { getAllCategories, deleteCategory } = useCategories()
-const router = useRouter()
+const { user } = useAuth()
+
+const isAdmin = computed(() =>
+  user.value?.user_roles?.some((ur: any) => ur.role?.name === 'Admin') ?? false
+)
 
 const categories = ref<Category[]>([])
 const isLoading = ref(false)
 const search = ref('')
 const deleteConfirm = ref<string | null>(null)
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
 
 const fetchCategories = async () => {
   isLoading.value = true
@@ -57,7 +62,16 @@ onMounted(() => {
 })
 
 watch(search, () => {
-  fetchCategories()
+  if (searchTimeout) clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => {
+    fetchCategories()
+  }, 300)
+})
+
+onBeforeUnmount(() => {
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+  }
 })
 </script>
 
@@ -78,7 +92,7 @@ watch(search, () => {
           </div>
         </div>
 
-        <NuxtLink to="/categories/new" class="btn-primary flex items-center gap-2">
+        <NuxtLink v-if="isAdmin" to="/categories/new" class="btn-primary flex items-center gap-2">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
@@ -120,12 +134,12 @@ watch(search, () => {
                 <th class="text-left py-3 px-4 text-sm font-semibold text-secondary-600">Depreciation Method</th>
                 <th class="text-left py-3 px-4 text-sm font-semibold text-secondary-600">Salvage Value</th>
                 <th class="text-left py-3 px-4 text-sm font-semibold text-secondary-600">Life (months)</th>
-                <th class="text-right py-3 px-4 text-sm font-semibold text-secondary-600">Actions</th>
+                <th v-if="isAdmin" class="text-right py-3 px-4 text-sm font-semibold text-secondary-600">Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="categories.length === 0">
-                <td colspan="6" class="text-center py-8 text-secondary-500">
+                <td :colspan="isAdmin ? 6 : 5" class="text-center py-8 text-secondary-500">
                   No categories found
                 </td>
               </tr>
@@ -143,7 +157,7 @@ watch(search, () => {
                   {{ cat.salvage_value != null ? formatCurrency(cat.salvage_value) : '-' }}
                 </td>
                 <td class="py-3 px-4 text-secondary-600">{{ cat.default_life_months ?? '-' }}</td>
-                <td class="py-3 px-4 text-right">
+                <td v-if="isAdmin" class="py-3 px-4 text-right">
                   <div class="flex items-center justify-end gap-2">
                     <NuxtLink
                       :to="`/categories/${cat.id}/edit`"

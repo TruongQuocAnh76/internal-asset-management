@@ -4,9 +4,12 @@ import type { AssetSummary } from '../types/dashboard.types'
 interface Props {
   summary: AssetSummary
   loading?: boolean
+  isAdmin?: boolean
 }
 
-defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  isAdmin: false,
+})
 
 const statusCards = [
   { key: 'total', label: 'Total Assets', color: 'primary', icon: 'cube', filter: null },

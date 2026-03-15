@@ -16,6 +16,8 @@ import { PermissionAuthGuard } from 'src/core/auth/guards/permission-auth.guard'
 import { Permission } from 'src/core/auth/decorator/permission.decorator';
 import { GetRequestsDto } from './dto/get-request.dto';
 import { CurrentUser } from 'src/core/auth/decorator/current-user.decorator';
+import { RequestProvideDto } from './dto/provide-request.dto';
+import { AssignRequestDto } from './dto/assign.dto';
 
 @Controller('requests')
 export class RequestsController {
@@ -24,9 +26,8 @@ export class RequestsController {
   @UseGuards(SessionAuthGuard)
   createRequest(
     @Body(new ZodValidationPipe(CreateRequestDto)) body: CreateRequestDto,
-    @CurrentUser('id') userId: string,
   ) {
-    return this.requestService.createRequest(body, userId);
+    return this.requestService.createRequest(body);
   }
 
   @Get()
@@ -47,10 +48,21 @@ export class RequestsController {
   @Permission('request:edit')
   editRequest(
     @CurrentUser('id') userId: string,
-    @Query('id') request_id: string,
+    @Query('id') requestId: string,
     @Body(new ZodValidationPipe(CreateRequestDto)) body: CreateRequestDto,
   ) {
-    return this.requestService.editRequest(userId, request_id, body);
+    return this.requestService.editRequest(userId, requestId, body);
+  }
+
+  @Post('/assign')
+  @UseGuards(SessionAuthGuard)
+  @Permission('request:assign')
+  @UseGuards(PermissionAuthGuard)
+  assignRequest(
+    @Body(new ZodValidationPipe(AssignRequestDto)) body: AssignRequestDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.requestService.assign(body, userId);
   }
 
   @Put('/approve')
@@ -60,10 +72,8 @@ export class RequestsController {
   approveRequest(
     @Query('id') requestId: string,
     @CurrentUser('id') userId: string,
-    @Body() body: any,
   ) {
-    const assetId = body.asset_id;
-    return this.requestService.approveRequest(userId, requestId, assetId);
+    return this.requestService.approveRequest(userId, requestId);
   }
 
   @Put('/reject')
@@ -84,8 +94,9 @@ export class RequestsController {
   provideRequest(
     @Query('id') requestId: string,
     @CurrentUser('id') userId: string,
+    @Body(new ZodValidationPipe(RequestProvideDto)) body: RequestProvideDto,
   ) {
-    return this.requestService.provideRequest(userId, requestId);
+    return this.requestService.provideRequest(userId, requestId, body);
   }
 
   @Put('/return')
@@ -96,9 +107,7 @@ export class RequestsController {
     @Body() body: any,
     @CurrentUser('id') userId: string,
   ) {
-    const assetId = body.asset_id;
-    const kitId = body.kit_id;
-    return this.requestService.returnRequest(requestId, userId, assetId, kitId);
+    return this.requestService.returnRequest(requestId);
   }
 
   @Put('/cancel')

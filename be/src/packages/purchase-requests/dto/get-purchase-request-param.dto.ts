@@ -1,6 +1,6 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { PurchaseRequestStatus } from "@prisma/client";
-import z from "zod";
+import { ApiProperty } from '@nestjs/swagger';
+import { PurchaseRequestStatus } from '@prisma/client';
+import z from 'zod';
 
 export class GetPurchaseRequestParam {
   @ApiProperty({
@@ -37,13 +37,15 @@ export class GetPurchaseRequestParam {
 
 export const getPurchaseRequestParamSchema = z.object({
   filter: z.enum(['status']).optional(),
-  filterValue: z.enum([
-    PurchaseRequestStatus.SUBMITTED,
-    PurchaseRequestStatus.TL_APPROVED,
-    PurchaseRequestStatus.BOD_APPROVED,
-    PurchaseRequestStatus.REJECTED,
-    PurchaseRequestStatus.RECEIVED,
-  ]).optional(),
+  filterValue: z
+    .enum([
+      PurchaseRequestStatus.SUBMITTED,
+      PurchaseRequestStatus.TL_APPROVED,
+      PurchaseRequestStatus.BOD_APPROVED,
+      PurchaseRequestStatus.REJECTED,
+      PurchaseRequestStatus.RECEIVED,
+    ])
+    .optional(),
   order: z.enum(['asc', 'desc']).optional(),
   orderBy: z.enum(['status', 'requested_at']).optional(),
   page: z.number().optional(),

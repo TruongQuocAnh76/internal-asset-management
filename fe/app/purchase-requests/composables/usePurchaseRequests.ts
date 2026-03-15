@@ -31,11 +31,16 @@ export const usePurchaseRequests = () => {
     const queryString = queryParams.toString()
     const url = `/purchase-requests${queryString ? `?${queryString}` : ''}`
 
-    return useFetch<PurchaseRequestsResponse>(url, {
-      method: 'GET',
-      baseURL: baseUrl,
-      credentials: 'include',
-    })
+    try {
+      const result = await $fetch<PurchaseRequestsResponse>(url, {
+        method: 'GET',
+        baseURL: baseUrl,
+        credentials: 'include',
+      })
+      return { data: ref(result), error: ref<any>(null) }
+    } catch (err) {
+      return { data: ref<PurchaseRequestsResponse | null>(null), error: ref(err) }
+    }
   }
 
   const createPurchaseRequest = async (

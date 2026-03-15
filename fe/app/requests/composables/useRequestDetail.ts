@@ -22,6 +22,7 @@ export const useRequestDetail = (requestId: string) => {
   // Modal states
   const showApprovalModal = ref(false)
   const approvalAction = ref<'APPROVE' | 'REJECT' | null>(null)
+  const showAssetPicker = ref(false)
 
   // Check if current user is the requester
   const isRequester = computed(() => {
@@ -85,12 +86,17 @@ export const useRequestDetail = (requestId: string) => {
     if (request.value.kit) {
       return request.value.kit.template?.name || 'Kit Request'
     }
+    if (request.value.category) {
+      return `${request.value.category.name} Request`
+    }
     return request.value.asset?.name || 'Asset Request'
   })
 
   // Determine request type
   const requestType = computed(() => {
-    return request.value?.kit_id ? 'kit' : 'asset'
+    if (request.value?.kit_id) return 'kit'
+    if (request.value?.category_id && !request.value?.asset_id) return 'category'
+    return 'asset'
   })
 
   // Fetch request details
@@ -174,13 +180,22 @@ export const useRequestDetail = (requestId: string) => {
     }
   }
 
+  // Open/close asset picker for category requests
+  const openAssetPicker = () => { showAssetPicker.value = true }
+  const closeAssetPicker = () => { showAssetPicker.value = false }
+
   // Handle provide (APPROVED -> PROVIDED) - requires 'request:provided' permission
-  const handleProvide = async () => {
+  // For category requests, assetId/kitId is selected from ProvidePickerModal; for asset/kit requests it's taken from the existing request
+  const handleProvide = async (assetId?: string, kitId?: string) => {
     if (!request.value || !permissions.value.canProvide) return
+
+    const resolvedAssetId = assetId || (!kitId ? request.value.asset_id || undefined : undefined)
+    const resolvedKitId = kitId || (!assetId ? request.value.kit_id || undefined : undefined)
 
     isProcessing.value = true
     try {
-      await provideRequest(request.value.id)
+      await provideRequest(request.value.id, resolvedAssetId, resolvedKitId)
+      showAssetPicker.value = false
       await fetchRequest()
     } catch (err: any) {
       console.error('Failed to provide asset:', err)
@@ -223,6 +238,7 @@ export const useRequestDetail = (requestId: string) => {
     error,
     showApprovalModal,
     approvalAction,
+    showAssetPicker,
 
     // Computed
     isRequester,
@@ -238,6 +254,8 @@ export const useRequestDetail = (requestId: string) => {
     handleCancel,
     openApprovalModal,
     closeApprovalModal,
+    openAssetPicker,
+    closeAssetPicker,
     handleApprove,
     handleReject,
     handleProvide,

@@ -3,7 +3,6 @@ import type { GetKitsParams } from '../types/kit.types'
 
 interface Props {
   modelValue: GetKitsParams
-  categories?: { name: string }[]
 }
 
 const props = defineProps<Props>()

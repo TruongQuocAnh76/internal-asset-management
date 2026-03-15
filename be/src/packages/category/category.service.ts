@@ -9,17 +9,20 @@ export class CategoryService {
   constructor(private prisma: PrismaService) {}
   create(createCategoryDto: CreateCategoryDto, userId: string) {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    return this.prisma.assetsCategories
-      .create({
-        data: {
-          name: createCategoryDto.name,
-          code: code,
-          salvage_value: createCategoryDto.salvage_value != null ? BigInt(createCategoryDto.salvage_value) : null,
-          default_life_months: createCategoryDto.default_life_months ?? null,
-          decline_balance_rate: createCategoryDto.decline_balance_rate ?? null,
-          default_depreciation_method: createCategoryDto.default_depreciation_method ?? null,
-        },
-      });
+    return this.prisma.assetsCategories.create({
+      data: {
+        name: createCategoryDto.name,
+        code: code,
+        salvage_value:
+          createCategoryDto.salvage_value != null
+            ? BigInt(createCategoryDto.salvage_value)
+            : null,
+        default_life_months: createCategoryDto.default_life_months ?? null,
+        decline_balance_rate: createCategoryDto.decline_balance_rate ?? null,
+        default_depreciation_method:
+          createCategoryDto.default_depreciation_method ?? null,
+      },
+    });
   }
 
   findAll(
@@ -62,7 +65,10 @@ export class CategoryService {
       data: {
         name: updateCategoryDto.name,
         ...(updateCategoryDto.salvage_value !== undefined && {
-          salvage_value: updateCategoryDto.salvage_value != null ? BigInt(updateCategoryDto.salvage_value) : null,
+          salvage_value:
+            updateCategoryDto.salvage_value != null
+              ? BigInt(updateCategoryDto.salvage_value)
+              : null,
         }),
         ...(updateCategoryDto.default_life_months !== undefined && {
           default_life_months: updateCategoryDto.default_life_months ?? null,
@@ -71,7 +77,8 @@ export class CategoryService {
           decline_balance_rate: updateCategoryDto.decline_balance_rate ?? null,
         }),
         ...(updateCategoryDto.default_depreciation_method !== undefined && {
-          default_depreciation_method: updateCategoryDto.default_depreciation_method ?? null,
+          default_depreciation_method:
+            updateCategoryDto.default_depreciation_method ?? null,
         }),
       },
     });

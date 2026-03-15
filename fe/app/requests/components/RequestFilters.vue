@@ -90,11 +90,7 @@ const clearFilters = () => {
 }
 
 const hasActiveFilters = computed(() => {
-  return (
-    localFilters.value.status ||
-    localFilters.value.priority ||
-    localFilters.value.search
-  )
+  return localFilters.value.status || localFilters.value.priority
 })
 
 // Sync with parent
@@ -146,8 +142,8 @@ watch(() => props.modelValue, (newVal) => {
           </div>
         </div>
 
-        <!-- Status filter -->
-        <div class="w-full lg:w-48">
+        <!-- Status filter (all requests view only) -->
+        <div v-if="isAllRequestsView" class="w-full lg:w-48">
           <label for="status-filter" class="sr-only">Filter by status</label>
           <select
             id="status-filter"
@@ -165,8 +161,8 @@ watch(() => props.modelValue, (newVal) => {
           </select>
         </div>
 
-        <!-- Priority filter -->
-        <div class="w-full lg:w-40">
+        <!-- Priority filter (all requests view only) -->
+        <div v-if="isAllRequestsView" class="w-full lg:w-40">
           <label for="priority-filter" class="sr-only">Filter by priority</label>
           <select
             id="priority-filter"
@@ -186,7 +182,7 @@ watch(() => props.modelValue, (newVal) => {
 
         <!-- Clear filters -->
         <button
-          v-if="hasActiveFilters"
+          v-if="isAllRequestsView && hasActiveFilters"
           type="button"
           class="text-sm text-primary-600 hover:text-primary-700 font-medium whitespace-nowrap self-center"
           @click="clearFilters"
