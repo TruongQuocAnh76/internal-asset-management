@@ -178,11 +178,13 @@ model Users {
   created_at DateTime         @default(now())
   updated_at DateTime         @default(now())
 
-  user_roles        UserRoles[]
-  audit_logs        AuditLogs[]
-  asset_allocations AssetsAllocation[]
-  borrow_requests   BorrowRequests[]
-  PurchaseRequest   PurchaseRequest[]
+  user_roles           UserRoles[]
+  audit_logs           AuditLogs[]
+  asset_allocations    AssetsAllocation[]
+  borrow_requests      BorrowRequests[]
+  PurchaseRequest      PurchaseRequest[]
+  Messages             Messages[]
+  ChatRoomParticipants ChatRoomParticipants[]
 }
 
 model Roles {
@@ -296,6 +298,54 @@ enum Entity {
   CATEGORY
   BORROW_REQUEST
   ASSET_ALLOCATION
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+}
+
+model Messages {
+  id           String      @id @default(uuid()) @db.Uuid
+  sender_id    String      @db.Uuid
+  chat_room_id String      @db.Uuid
+  content      String
+  type         MessageType
+  created_at   DateTime    @default(now())
+
+  sender   Users     @relation(fields: [sender_id], references: [id])
+  chatRoom ChatRooms @relation(fields: [chat_room_id], references: [id])
+}
+
+enum ChatRoomType {
+  GROUP
+  DIRECT
+}
+
+model ChatRooms {
+  id         String       @id @default(uuid()) @db.Uuid
+  name       String
+  type       ChatRoomType
+  direct_key String? @unique 
+  created_at DateTime     @default(now())
+
+  messages             Messages[]
+  chatRoomParticipants ChatRoomParticipants[]
+
+  @@index([direct_key])
+}
+
+model ChatRoomParticipants {
+  id           String   @id @default(uuid()) @db.Uuid
+  chat_room_id String   @db.Uuid
+  user_id      String   @db.Uuid
+  joined_at    DateTime @default(now())
+
+  chatRoom ChatRooms @relation(fields: [chat_room_id], references: [id])
+  user     Users     @relation(fields: [user_id], references: [id])
+
+  @@unique([chat_room_id, user_id])
 }
 
 enum AuditAction {

@@ -19,7 +19,7 @@ const isTeamLead = computed(() =>
 // Filtered nav items: purchases should be visible to Admin and Team Lead;
 // other adminOnly items remain Admin-only.
 const navList = computed(() =>
-  navItems.filter(i => {
+  navItems.value.filter(i => {
     if (i.route === '/purchase-requests') {
       return isAdmin.value || isTeamLead.value
     }
@@ -34,7 +34,7 @@ const handleLogout = async () => {
 
 const sidebarCollapsed = ref(false)
 
-const navItems = [
+const navItemsBase = [
   {
     label: 'Dashboard',
     route: '/home',
@@ -86,7 +86,29 @@ const navItems = [
     icon: 'audit',
     adminOnly: true,
   },
+  {
+    label: 'Chat',
+    route: '/chat',
+    icon: 'chat',
+  },
 ]
+
+const normalize = (s: string) => s ? s.toLowerCase().replace(/[_\s]/g, '') : ''
+const roles = computed(() => (user.value?.user_roles?.map((r: any) => normalize(r?.role?.name || '')) || []))
+
+const navItems = computed(() => {
+  if (isAdmin.value) return navItemsBase
+
+  // Employee allowed routes
+  const employeeRoutes = new Set(['/home', '/requests', '/chat'])
+
+  // Team Lead allowed routes (employee + purchase requests)
+  const teamLeadRoutes = new Set([...employeeRoutes, '/purchase-requests'])
+
+  const allowed = isTeamLead.value ? teamLeadRoutes : employeeRoutes
+
+  return navItemsBase.filter(item => allowed.has(item.route))
+})
 
 const isActive = (path: string) => {
   if (path === '/home') return route.path === '/home'
@@ -175,6 +197,10 @@ const isActive = (path: string) => {
           <!-- Audit -->
           <svg v-else-if="item.icon === 'audit'" class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+          </svg>
+          <!-- Chat -->
+          <svg v-else-if="item.icon === 'chat'" class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
           </svg>
           <!-- Maintenance -->
           <svg v-else-if="item.icon === 'maintenance'" class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

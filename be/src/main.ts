@@ -1,4 +1,4 @@
-import { NestFactory } from '@nestjs/core';
+import { MiddlewareBuilder, NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import session from 'express-session';
 import { PrismaSessionStore } from '@quixo3/prisma-session-store';
@@ -8,6 +8,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from '@nestjs/common';
 import { LoggingInterceptor } from './core/interceptors/logging.interceptor';
 import { AuditInterceptor } from './core/audit/audit.interceptor';
+import { LoggingWsInterceptor } from './core/interceptors/logging.ws.interceptor';
+import { SessionWsAdapter } from './core/adapter/session.ws.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -20,8 +22,7 @@ async function bootstrap() {
   // initialize passport
   const prisma = app.get(PrismaService);
 
-  app.use(
-    session({
+  const sessionMiddleware = session({
       name: 'asset.sid',
       secret: process.env.SESSION_SECRET_KEY,
       resave: false,
@@ -35,11 +36,19 @@ async function bootstrap() {
       store: new PrismaSessionStore(prisma, {
         checkPeriod: 2 * 60 * 1000,
       }),
-    }),
-  );
+    })
+
+  app.use(sessionMiddleware);
+
+  const adapter = new SessionWsAdapter(app, sessionMiddleware);
+  app.useWebSocketAdapter(adapter);
 
   app.useLogger(new Logger());
-  app.useGlobalInterceptors(new LoggingInterceptor(), new AuditInterceptor());
+  app.useGlobalInterceptors(
+    new LoggingInterceptor(),
+    new LoggingWsInterceptor(),
+    new AuditInterceptor(),
+  );
 
   const config = new DocumentBuilder()
     .setTitle('Asset Management API')

@@ -4,7 +4,6 @@ export { default as KitFilters } from './components/KitFilters.vue'
 export { default as KitsHeader } from './components/KitsHeader.vue'
 export { default as KitTable } from './components/KitTable.vue'
 export { default as KitCards } from './components/KitCards.vue'
-export { default as BulkOperationsBar } from './components/BulkOperationsBar.vue'
 export { default as ComponentPicker } from './components/ComponentPicker.vue'
 export { default as KitBuilder } from './components/KitBuilder.vue'
 export { default as KitDetailHeader } from './components/KitDetailHeader.vue'
@@ -27,7 +26,7 @@ export { default as MobileBottomNav } from './components/MobileBottomNav.vue'
 export { useKits } from './composables/useKits'
 export { useKitBuilder } from './composables/useKitBuilder'
 export { useKitDetail } from './composables/useKitDetail'
-export { useBulkOperations } from './composables/useBulkOperations'
+// Bulk operations removed
 
 // Types
 export type {
