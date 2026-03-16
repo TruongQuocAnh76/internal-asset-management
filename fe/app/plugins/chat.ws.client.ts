@@ -3,7 +3,7 @@ import { io, type Socket } from "socket.io-client"
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
 
-  const socket: Socket = io(config.public.backendUrl, {
+  const socket: Socket = io(config.public.socketPath, {
     withCredentials: true,
     transports: ["websocket", "polling"]
   })

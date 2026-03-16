@@ -6,7 +6,8 @@ export default defineNuxtConfig({
   modules: ['@nuxtjs/tailwindcss'],
   runtimeConfig: {
     public: {
-      backendUrl: ''
+      backendUrl: '',
+      socketPath: ''
     }
   },
   components: {
